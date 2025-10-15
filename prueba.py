@@ -3,6 +3,8 @@ import requests
 import pandas as pd
 import geopandas as gpd
 from shapely.geometry import shape
+import os
+
 
 copernicus_user = os.getenv("martinotero2005@hotmail.com") # copernicus User
 copernicus_password = os.getenv("Copernicus+2005") # copernicus Password
