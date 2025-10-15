@@ -6,3 +6,5 @@ requests_cache
 retry_requests
 pandas
 numpy
+geopandas
+shapely
