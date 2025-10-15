@@ -6,16 +6,15 @@ from shapely.geometry import shape
 import os
 
 
-copernicus_user = os.getenv("martinotero2005@hotmail.com") # copernicus User
-copernicus_password = os.getenv("Copernicus+2005") # copernicus Password
-ft = "POLYGON((0 0, 0 1, 1 1, 1 0, 0 0))"  # WKT Representation of BBOX
+copernicus_user = "martinotero2005@hotmail.com" # copernicus User
+copernicus_password = "Copernicus+2005" # copernicus Password
+ft = "POLYGON((-4.5 40.0, -4.5 40.1, -4.4 40.1, -4.4 40.0, -4.5 40.0))"  # WKT Representation of BBOX
 data_collection = "SENTINEL-2" # Sentinel satellite
 
 today =  date.today()
 today_string = today.strftime("%Y-%m-%d")
 yesterday = today - timedelta(days=1)
 yesterday_string = yesterday.strftime("%Y-%m-%d")
-
 
 
 def get_keycloak(username: str, password: str) -> str:
@@ -73,7 +72,8 @@ if p.shape[0] > 0 :
                 ) as p:
                     print(feat["properties"]["Name"])
                     p.write(file.content)
-            except:
-                print("problem with server")
+            except Exception as e:
+                print("problem with server:", e)
+
 else :
     print('no data found')
