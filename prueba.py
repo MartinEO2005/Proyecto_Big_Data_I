@@ -53,27 +53,48 @@ if p.shape[0] > 0 :
         print("No tiles found for today")
     else:
         ## download all tiles from server
-        for index,feat in enumerate(productDF.iterfeatures()):
+        for index, feat in enumerate(productDF.iterfeatures()):
             try:
+                print(f"\n🔹 Descargando producto {index+1}/{len(productDF)}")
+
+                # 1️⃣ Obtener token Keycloak (nuevo por cada producto)
+                keycloak_token = get_keycloak(copernicus_user, copernicus_password)
                 session = requests.Session()
-                keycloak_token = get_keycloak(copernicus_user,copernicus_password)
-                session.headers.update({"Authorization": f"Bearer {keycloak_token}"})
-                url = f"https://catalogue.dataspace.copernicus.eu/odata/v1/Products({feat['properties']['Id']})/$value"
-                response = session.get(url, allow_redirects=False)
-                while response.status_code in (301, 302, 303, 307):
-                    url = response.headers["Location"]
-                    response = session.get(url, allow_redirects=False)
-                print(feat["properties"]["Id"])
-                file = session.get(url, verify=False, allow_redirects=True)
 
-                with open(
-                    f"{feat['properties']['identifier']}.zip", #location to save zip from copernicus 
-                    "wb",
-                ) as p:
-                    print(feat["properties"]["Name"])
-                    p.write(file.content)
+                product_id = feat["properties"]["Id"]
+                identifier = feat["properties"]["identifier"]
+
+                # 2️⃣ Solicitar URL de descarga
+                base_url = f"https://catalogue.dataspace.copernicus.eu/odata/v1/Products({product_id})/$value"
+                response = session.get(base_url, allow_redirects=False, headers={"Authorization": f"Bearer {keycloak_token}"})
+                redirect_url = response.headers.get("Location")
+
+                if not redirect_url:
+                    print(f"⚠️ No se encontró URL de descarga para {identifier}")
+                    continue
+
+                # 3️⃣ Añadir token en la URL final (garantiza autenticación)
+                final_url = f"{redirect_url}?token={keycloak_token}"
+                print(f"⬇️  Descargando desde: {final_url}")
+
+                # 4️⃣ Descargar archivo con stream y timeout largo
+                with session.get(final_url, stream=True, timeout=1800) as file:
+                    file.raise_for_status()
+                    total = 0
+                    with open(f"{identifier}.zip", "wb") as out:
+                        for chunk in file.iter_content(chunk_size=1024*1024):  # 1 MB
+                            if chunk:
+                                out.write(chunk)
+                                total += len(chunk)
+                                if total % (50*1024*1024) < 1024*1024:
+                                    print(f"  ...{total/1024/1024:.0f} MB descargados")
+
+                print(f"✅ Archivo guardado: {identifier}.zip")
+
+            except requests.exceptions.HTTPError as http_err:
+                print(f"❌ Error HTTP al descargar {identifier}: {http_err}")
+                print("   ➤ Intenta regenerar el token o volver a ejecutar el script.")
             except Exception as e:
-                print("problem with server:", e)
-
+                print(f"❌ Error general al descargar {identifier}: {e}")
 else :
     print('no data found')
