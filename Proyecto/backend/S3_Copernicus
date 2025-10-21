@@ -1,0 +1,144 @@
+# neo_lumina_cdse_s3_downloader.py
+# pip install boto3 requests pandas
+
+import os, time
+import requests
+import pandas as pd
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import date, timedelta
+from botocore.client import Config
+import boto3
+
+# ------------- CONFIG -------------
+# Copernicus (catalog) credentials (para búsquedas y obtener nombres de producto)
+CDSE_USER = os.getenv("CDSE_USER")      # tu usuario CDSE (email)
+CDSE_PASS = os.getenv("CDSE_PASS")      # tu password CDSE
+
+# S3 credentials (los que ya te dieron)
+S3_ENDPOINT = os.getenv("COP_S3_ENDPOINT", "https://eodata.dataspace.copernicus.eu")
+S3_KEY = os.getenv("COP_S3_KEY")        # access key
+S3_SECRET = os.getenv("COP_S3_SECRET")  # secret
+S3_BUCKET = os.getenv("COP_S3_BUCKET", "eodata")  # el bucket habitual es 'eodata' en CDSE
+
+# Parámetros NeoLumina (ajusta)
+COLLECTION = os.getenv("COLLECTION", "sentinel-2-l2a")  # 'sentinel-2-l2a' o 'sentinel-1-grd'
+AOI_WKT = os.getenv("AOI_WKT", "POLYGON((-4.5 40.0, -4.5 40.1, -4.4 40.1, -4.4 40.0, -4.5 40.0))")
+DATE_FROM = os.getenv("DATE_FROM", (date.today() - timedelta(days=365)).isoformat())
+DATE_TO = os.getenv("DATE_TO", date.today().isoformat())
+MAX_CLOUD = int(os.getenv("MAX_CLOUD", "40"))  # solo para Sentinel-2
+DOWNLOAD_DIR = os.getenv("DOWNLOAD_DIR", "./downloads")
+MAX_WORKERS = int(os.getenv("MAX_WORKERS", "6"))
+os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+# ------------------------------------
+
+def get_keycloak_token(user, pwd):
+    data = {"client_id":"cdse-public","username":user,"password":pwd,"grant_type":"password"}
+    r = requests.post("https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token",
+                      data=data, timeout=30)
+    r.raise_for_status()
+    return r.json()["access_token"]
+
+def query_catalog(collection, aoi_wkt, date_from, date_to, cloud=None, top=1000):
+    base = "https://catalogue.dataspace.copernicus.eu/odata/v1/Products"
+    filt = (
+        f"Collection/Name eq '{collection}' and "
+        f"OData.CSC.Intersects(area=geography'SRID=4326;{aoi_wkt}') and "
+        f"ContentDate/Start ge {date_from}T00:00:00.000Z and ContentDate/Start le {date_to}T23:59:59.999Z"
+    )
+    if cloud and "sentinel-2" in collection.lower():
+        filt += f" and CloudCover le {int(cloud)}"
+    q = f"{base}?$filter={filt}&$count=true&$top={top}"
+    items = []
+    while q:
+        r = requests.get(q, timeout=60)
+        r.raise_for_status()
+        js = r.json()
+        items.extend(js.get("value", []))
+        q = js.get("@odata.nextLink")
+    df = pd.DataFrame(items)
+    if not df.empty:
+        df["identifier"] = df["Name"].str.split(".").str[0]
+        # extract date to build S3 prefix later
+        df["date"] = pd.to_datetime(df["ContentDate"].apply(lambda x: x.get("Start") if isinstance(x, dict) else x))
+    return df
+
+# S3 helper: buscar key que contenga el identifier dentro de la carpeta por fecha
+def find_s3_key_for_product(s3_client, bucket, product_name, dt, collection):
+    # construcción de prefijo típica en eodata (puede variar); usamos el patrón por fecha YYYY/MM/DD
+    yyyy = dt.strftime("%Y")
+    mm = dt.strftime("%m")
+    dd = dt.strftime("%d")
+    # distintos layout posibles; probamos una lista de prefijos comunes
+    possible_prefixes = [
+        f"Sentinel-2/MSI/L2A/{yyyy}/{mm}/{dd}/",
+        f"Sentinel-2/MSI/L2A/{yyyy}/{mm}/",
+        f"Sentinel-2/MSI/L2A/{yyyy}/{mm}/{dd}/",
+        f"Sentinel-1/SAR/GRD/{yyyy}/{mm}/{dd}/",
+        f"{collection}/{yyyy}/{mm}/{dd}/",
+        ""
+    ]
+    for pref in possible_prefixes:
+        kwargs = {"Bucket": bucket, "Prefix": pref}
+        try:
+            resp = s3_client.list_objects_v2(**kwargs)
+        except Exception:
+            continue
+        for obj in resp.get("Contents", []):
+            key = obj["Key"]
+            if product_name in key:
+                return key
+    return None
+
+def download_key_boto(s3_client, bucket, key, outdir):
+    outpath = os.path.join(outdir, os.path.basename(key))
+    if os.path.exists(outpath):
+        return outpath, "skipped"
+    s3_client.download_file(bucket, key, outpath)
+    return outpath, "downloaded"
+
+def main():
+    print("Buscando productos en catálogo...")
+    df = query_catalog(COLLECTION, AOI_WKT, DATE_FROM, DATE_TO, cloud=MAX_CLOUD if "sentinel-2" in COLLECTION.lower() else None)
+    n = len(df)
+    print("Productos encontrados:", n)
+    if n == 0:
+        return
+
+    # preparar S3 client
+    s3 = boto3.client(
+        "s3",
+        endpoint_url=S3_ENDPOINT,
+        aws_access_key_id=S3_KEY,
+        aws_secret_access_key=S3_SECRET,
+        config=Config(signature_version="s3v4")
+    )
+
+    rows = df.to_dict(orient="records")
+    results = []
+
+    def task(r):
+        name = r["Name"]         # ejemplo: S2A_MSIL2A_20251019T...
+        ident = r["identifier"]
+        dt = r["date"] if not pd.isna(r["date"]) else pd.to_datetime(r["IngestionDate"] if "IngestionDate" in r else date.today())
+        # 1) buscar la key S3 que contiene el nombre del producto
+        key = find_s3_key_for_product(s3, S3_BUCKET, name, pd.to_datetime(dt), COLLECTION)
+        if not key:
+            return ident, False, "s3 key not found"
+        # 2) descargar
+        try:
+            outpath, status = download_key_boto(s3, S3_BUCKET, key, DOWNLOAD_DIR)
+            return ident, True if status=="downloaded" else True, status + ":" + outpath
+        except Exception as e:
+            return ident, False, str(e)
+
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as exe:
+        futs = {exe.submit(task, r): r for r in rows}
+        for fut in as_completed(futs):
+            res = fut.result()
+            print("RESULT:", res)
+            results.append(res)
+
+    print("FIN. Total intentos:", len(results))
+
+if __name__ == "__main__":
+    main()
