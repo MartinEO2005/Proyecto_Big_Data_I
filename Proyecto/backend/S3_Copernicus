@@ -1,144 +1,155 @@
-# neo_lumina_cdse_s3_downloader.py
-# pip install boto3 requests pandas
+#!/usr/bin/env python3
+"""
+catalog_query.py
 
-import os, time
+Consulta el catálogo OData de Copernicus tomando parámetros desde VARIABLES DE ENTORNO.
+Guarda metadatos en JSON y CSV en la carpeta OUTDIR.
+
+Variables de entorno (ejemplos):
+  COP_S3_KEY, COP_S3_SECRET, COP_S3_ENDPOINT, COP_S3_BUCKET   (opcionales, aquí no usadas)
+  CDSE_USER, CDSE_PASS   (opcional: si están, se intentará obtener token Keycloak)
+  COLLECTION             (ej: SENTINEL-5P, SENTINEL-2)
+  AOI_WKT                (opcional WKT: "POLYGON((lon lat, ...))")
+  DATE_FROM              (YYYY-MM-DD)
+  DATE_TO                (YYYY-MM-DD)
+  MAX_CLOUD              (opcional, sólo para SENTINEL-2)
+  OUTDIR                 (ej: ./catalog_output)
+  TOP                    (nº elementos por página OData; opcional)
+"""
+
+import os
+import json
 import requests
 import pandas as pd
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date, timedelta
-from botocore.client import Config
-import boto3
+from datetime import datetime
 
-# ------------- CONFIG -------------
-# Copernicus (catalog) credentials (para búsquedas y obtener nombres de producto)
-CDSE_USER = os.getenv("CDSE_USER")      # tu usuario CDSE (email)
-CDSE_PASS = os.getenv("CDSE_PASS")      # tu password CDSE
+CATALOG_BASE = "https://catalogue.dataspace.copernicus.eu/odata/v1/Products"
 
-# S3 credentials (los que ya te dieron)
-S3_ENDPOINT = os.getenv("COP_S3_ENDPOINT", "https://eodata.dataspace.copernicus.eu")
-S3_KEY = os.getenv("COP_S3_KEY")        # access key
-S3_SECRET = os.getenv("COP_S3_SECRET")  # secret
-S3_BUCKET = os.getenv("COP_S3_BUCKET", "eodata")  # el bucket habitual es 'eodata' en CDSE
+def get_keycloak_token_if_available():
+    user = os.getenv("CDSE_USER")
+    pwd = os.getenv("CDSE_PASS")
+    if not user or not pwd:
+        return None
+    try:
+        resp = requests.post(
+            "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token",
+            data={"client_id":"cdse-public","username":user,"password":pwd,"grant_type":"password"},
+            timeout=30
+        )
+        resp.raise_for_status()
+        return resp.json().get("access_token")
+    except Exception as e:
+        print("⚠️  No se pudo generar token Keycloak (se seguirá sin auth):", e)
+        return None
 
-# Parámetros NeoLumina (ajusta)
-COLLECTION = os.getenv("COLLECTION", "sentinel-2-l2a")  # 'sentinel-2-l2a' o 'sentinel-1-grd'
-AOI_WKT = os.getenv("AOI_WKT", "POLYGON((-4.5 40.0, -4.5 40.1, -4.4 40.1, -4.4 40.0, -4.5 40.0))")
-DATE_FROM = os.getenv("DATE_FROM", (date.today() - timedelta(days=365)).isoformat())
-DATE_TO = os.getenv("DATE_TO", date.today().isoformat())
-MAX_CLOUD = int(os.getenv("MAX_CLOUD", "40"))  # solo para Sentinel-2
-DOWNLOAD_DIR = os.getenv("DOWNLOAD_DIR", "./downloads")
-MAX_WORKERS = int(os.getenv("MAX_WORKERS", "6"))
-os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-# ------------------------------------
-
-def get_keycloak_token(user, pwd):
-    data = {"client_id":"cdse-public","username":user,"password":pwd,"grant_type":"password"}
-    r = requests.post("https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token",
-                      data=data, timeout=30)
-    r.raise_for_status()
-    return r.json()["access_token"]
-
-def query_catalog(collection, aoi_wkt, date_from, date_to, cloud=None, top=1000):
-    base = "https://catalogue.dataspace.copernicus.eu/odata/v1/Products"
-    filt = (
+def build_filter(collection, date_from, date_to, aoi_wkt=None, cloud=None):
+    base = (
         f"Collection/Name eq '{collection}' and "
-        f"OData.CSC.Intersects(area=geography'SRID=4326;{aoi_wkt}') and "
-        f"ContentDate/Start ge {date_from}T00:00:00.000Z and ContentDate/Start le {date_to}T23:59:59.999Z"
+        f"ContentDate/Start ge {date_from}T00:00:00.000Z and "
+        f"ContentDate/Start le {date_to}T23:59:59.999Z"
     )
-    if cloud and "sentinel-2" in collection.lower():
-        filt += f" and CloudCover le {int(cloud)}"
-    q = f"{base}?$filter={filt}&$count=true&$top={top}"
+    if aoi_wkt:
+        base = (
+            f"Collection/Name eq '{collection}' and "
+            f"OData.CSC.Intersects(area=geography'SRID=4326;{aoi_wkt}') and "
+            f"ContentDate/Start ge {date_from}T00:00:00.000Z and "
+            f"ContentDate/Start le {date_to}T23:59:59.999Z"
+        )
+    if cloud and "SENTINEL-2" in collection.upper():
+        base += f" and Attributes/any(a: a/Name eq 'CloudCover' and a/Value le {int(cloud)})"
+    return base
+
+def query_catalog(filter_expr, top=500, auth_token=None):
+    q = f"{CATALOG_BASE}?$filter={filter_expr}&$count=True&$top={top}"
+    headers = {"Accept": "application/json"}
+    if auth_token:
+        headers["Authorization"] = f"Bearer {auth_token}"
     items = []
     while q:
-        r = requests.get(q, timeout=60)
-        r.raise_for_status()
+        print("Consultando:", q)
+        r = requests.get(q, headers=headers, timeout=60)
+        if r.status_code != 200:
+            print("ERROR en consulta (status):", r.status_code)
+            try:
+                print("Respuesta (parcial):", r.text[:1000])
+            except Exception:
+                pass
+            r.raise_for_status()
         js = r.json()
-        items.extend(js.get("value", []))
+        page = js.get("value", [])
+        items.extend(page)
         q = js.get("@odata.nextLink")
-    df = pd.DataFrame(items)
-    if not df.empty:
-        df["identifier"] = df["Name"].str.split(".").str[0]
-        # extract date to build S3 prefix later
-        df["date"] = pd.to_datetime(df["ContentDate"].apply(lambda x: x.get("Start") if isinstance(x, dict) else x))
+    return items
+
+def items_to_dataframe(items):
+    if not items:
+        return pd.DataFrame()
+    df = pd.json_normalize(items)
+    if "Name" in df.columns:
+        df["identifier"] = df["Name"].astype(str).str.split(".").str[0]
+    if "ContentDate.Start" in df.columns:
+        df["content_start"] = pd.to_datetime(df["ContentDate.Start"])
+    else:
+        df["content_start"] = pd.to_datetime(df.get("ContentDate", pd.NA).apply(lambda x: x.get("Start") if isinstance(x, dict) else None))
+    if "CloudCover" in df.columns:
+        df["cloudcover"] = df["CloudCover"]
+    else:
+        if "Attributes" in df.columns:
+            def find_cloud(attrs):
+                if isinstance(attrs, list):
+                    for a in attrs:
+                        if isinstance(a, dict):
+                            name = str(a.get("Name","")).lower()
+                            if "cloud" in name:
+                                return a.get("Value") or a.get("value") or a.get("doubleValue") or None
+                return None
+            df["cloudcover"] = df["Attributes"].apply(find_cloud)
+        else:
+            df["cloudcover"] = None
     return df
 
-# S3 helper: buscar key que contenga el identifier dentro de la carpeta por fecha
-def find_s3_key_for_product(s3_client, bucket, product_name, dt, collection):
-    # construcción de prefijo típica en eodata (puede variar); usamos el patrón por fecha YYYY/MM/DD
-    yyyy = dt.strftime("%Y")
-    mm = dt.strftime("%m")
-    dd = dt.strftime("%d")
-    # distintos layout posibles; probamos una lista de prefijos comunes
-    possible_prefixes = [
-        f"Sentinel-2/MSI/L2A/{yyyy}/{mm}/{dd}/",
-        f"Sentinel-2/MSI/L2A/{yyyy}/{mm}/",
-        f"Sentinel-2/MSI/L2A/{yyyy}/{mm}/{dd}/",
-        f"Sentinel-1/SAR/GRD/{yyyy}/{mm}/{dd}/",
-        f"{collection}/{yyyy}/{mm}/{dd}/",
-        ""
-    ]
-    for pref in possible_prefixes:
-        kwargs = {"Bucket": bucket, "Prefix": pref}
-        try:
-            resp = s3_client.list_objects_v2(**kwargs)
-        except Exception:
-            continue
-        for obj in resp.get("Contents", []):
-            key = obj["Key"]
-            if product_name in key:
-                return key
-    return None
-
-def download_key_boto(s3_client, bucket, key, outdir):
-    outpath = os.path.join(outdir, os.path.basename(key))
-    if os.path.exists(outpath):
-        return outpath, "skipped"
-    s3_client.download_file(bucket, key, outpath)
-    return outpath, "downloaded"
+def save_items(items, df, outdir, collection, date_from, date_to):
+    os.makedirs(outdir, exist_ok=True)
+    base = f"{collection}_{date_from}_to_{date_to}"
+    json_path = os.path.join(outdir, base + ".json")
+    csv_path = os.path.join(outdir, base + ".csv")
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(items, f, ensure_ascii=False, indent=2)
+    cols = [c for c in ["Id","Name","identifier","content_start","IngestionDate","cloudcover","sizeInBytes"] if c in df.columns]
+    if cols:
+        df[cols].to_csv(csv_path, index=False)
+    else:
+        df.to_csv(csv_path, index=False)
+    return json_path, csv_path
 
 def main():
-    print("Buscando productos en catálogo...")
-    df = query_catalog(COLLECTION, AOI_WKT, DATE_FROM, DATE_TO, cloud=MAX_CLOUD if "sentinel-2" in COLLECTION.lower() else None)
-    n = len(df)
-    print("Productos encontrados:", n)
-    if n == 0:
+    # Leer variables de entorno (defaults si no están)
+    COLLECTION = os.getenv("COLLECTION", "SENTINEL-5P")
+    AOI_WKT = os.getenv("AOI_WKT", None)  # incluir si quieres
+    DATE_FROM = os.getenv("DATE_FROM", (datetime.utcnow().date().replace(year=datetime.utcnow().year-1)).isoformat())
+    DATE_TO = os.getenv("DATE_TO", datetime.utcnow().date().isoformat())
+    MAX_CLOUD = os.getenv("MAX_CLOUD", None)
+    OUTDIR = os.getenv("OUTDIR", "./catalog_output")
+    TOP = int(os.getenv("TOP", "500"))
+
+    print(f"Parámetros usados:\n COLLECTION={COLLECTION}\n DATE_FROM={DATE_FROM}\n DATE_TO={DATE_TO}\n AOI={bool(AOI_WKT)}\n MAX_CLOUD={MAX_CLOUD}\n OUTDIR={OUTDIR}\n")
+
+    token = get_keycloak_token_if_available()
+    filt = build_filter(COLLECTION, DATE_FROM, DATE_TO, aoi_wkt=AOI_WKT, cloud=MAX_CLOUD)
+    try:
+        items = query_catalog(filt, top=TOP, auth_token=token)
+    except Exception as e:
+        print("❌ Error al consultar catálogo:", e)
         return
 
-    # preparar S3 client
-    s3 = boto3.client(
-        "s3",
-        endpoint_url=S3_ENDPOINT,
-        aws_access_key_id=S3_KEY,
-        aws_secret_access_key=S3_SECRET,
-        config=Config(signature_version="s3v4")
-    )
-
-    rows = df.to_dict(orient="records")
-    results = []
-
-    def task(r):
-        name = r["Name"]         # ejemplo: S2A_MSIL2A_20251019T...
-        ident = r["identifier"]
-        dt = r["date"] if not pd.isna(r["date"]) else pd.to_datetime(r["IngestionDate"] if "IngestionDate" in r else date.today())
-        # 1) buscar la key S3 que contiene el nombre del producto
-        key = find_s3_key_for_product(s3, S3_BUCKET, name, pd.to_datetime(dt), COLLECTION)
-        if not key:
-            return ident, False, "s3 key not found"
-        # 2) descargar
-        try:
-            outpath, status = download_key_boto(s3, S3_BUCKET, key, DOWNLOAD_DIR)
-            return ident, True if status=="downloaded" else True, status + ":" + outpath
-        except Exception as e:
-            return ident, False, str(e)
-
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as exe:
-        futs = {exe.submit(task, r): r for r in rows}
-        for fut in as_completed(futs):
-            res = fut.result()
-            print("RESULT:", res)
-            results.append(res)
-
-    print("FIN. Total intentos:", len(results))
+    print(f"\nTotal items recuperados: {len(items)}")
+    df = items_to_dataframe(items)
+    json_path, csv_path = save_items(items, df, OUTDIR, COLLECTION, DATE_FROM, DATE_TO)
+    print("\n✅ Guardado JSON:", json_path)
+    print("✅ Guardado CSV:", csv_path)
+    if not df.empty:
+        print("\nPrimeras filas (CSV):")
+        print(df.head(5).to_string(index=False))
 
 if __name__ == "__main__":
     main()
