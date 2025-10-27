@@ -20,6 +20,7 @@ import requests
 import pandas as pd
 from datetime import datetime
 from shapely import wkt
+from shapely.geometry import mapping, shape
 
 # ---------------------------
 # Parámetros (puedes sobreescribir con VARIABLES DE ENTORNO)
@@ -28,10 +29,10 @@ COLLECTION_S2 = os.getenv("COLLECTION_S2", "SENTINEL-2")   # para L2A
 COLLECTION_S1 = os.getenv("COLLECTION_S1", "SENTINEL-1")   # para GRD
 DATE_FROM = os.getenv("DATE_FROM", "2024-01-01")
 DATE_TO   = os.getenv("DATE_TO", "2024-12-31")
-AOI_WKT   = os.getenv("AOI_WKT", None)  # opcional
+AOI_WKT   = os.getenv("AOI_WKT", None)  # opcional; si None se hace búsqueda por fecha global
 MAX_CLOUD = os.getenv("MAX_CLOUD", None)  # sólo aplica S2
 OUTDIR    = os.getenv("OUTDIR", "./neo_lumina_output")
-TOP       = int(os.getenv("TOP", "100"))  # seguro para OData
+TOP       = int(os.getenv("TOP", "500"))
 
 os.makedirs(OUTDIR, exist_ok=True)
 
@@ -41,72 +42,74 @@ CATALOG_BASE = "https://catalogue.dataspace.copernicus.eu/odata/v1/Products"
 # Helpers OData (Copernicus)
 # ---------------------------
 def build_filter(collection, date_from, date_to, aoi_wkt=None, cloud=None):
-    # Mapeo colecciones correctas
-    collection_map = {
-        "SENTINEL-2": "S2MSI2A",
-        "SENTINEL-1": "S1_GRD"
-    }
-    collection = collection_map.get(collection.upper(), collection)
-
-    filt = f"Collection/Name eq '{collection}' and ContentDate/Start ge {date_from}T00:00:00Z and ContentDate/Start le {date_to}T23:59:59Z"
-
     if aoi_wkt:
-        filt = f"Collection/Name eq '{collection}' and OData.CSC.Intersects(area=geography'SRID=4326;{aoi_wkt}') and ContentDate/Start ge {date_from}T00:00:00Z and ContentDate/Start le {date_to}T23:59:59Z"
-
-    if cloud is not None and "SENTINEL-2" in collection.upper():
-        try:
-            cloud_val = int(cloud)
-            filt += f" and Attributes/any(a: a/Name eq 'CloudCover' and a/Value le {cloud_val})"
-        except ValueError:
-            print(f"[WARN] MAX_CLOUD no es un número válido: {cloud}, ignorando filtro CloudCover.")
+        filt = (
+            f"Collection/Name eq '{collection}' and "
+            f"OData.CSC.Intersects(area=geography'SRID=4326;{aoi_wkt}') and "
+            f"ContentDate/Start ge {date_from}T00:00:00.000Z and "
+            f"ContentDate/Start le {date_to}T23:59:59.999Z"
+        )
+    else:
+        filt = (
+            f"Collection/Name eq '{collection}' and "
+            f"ContentDate/Start ge {date_from}T00:00:00.000Z and "
+            f"ContentDate/Start le {date_to}T23:59:59.999Z"
+        )
+    if cloud and "SENTINEL-2" in collection.upper():
+        filt += f" and Attributes/any(a: a/Name eq 'CloudCover' and a/Value le {int(cloud)})"
     return filt
 
-def query_catalog(filter_expr, top=100, max_pages=50):
+def query_catalog(filter_expr, top=500, max_pages=20):
     items = []
-    q = f"{CATALOG_BASE}?$filter={filter_expr}&$count=true&$top={top}"
+    q = f"{CATALOG_BASE}?$filter={filter_expr}&$count=True&$top={top}"
     headers = {"Accept": "application/json"}
     page = 0
-
     while q:
         page += 1
-        print(f"[OData] Página {page}: {q}")
+        print(f"[OData] Consultando página {page}: {q}")
         r = requests.get(q, headers=headers, timeout=60)
         if r.status_code != 200:
-            print(f"[ERROR] Status {r.status_code}: {r.text[:500]}")
+            print("Error OData:", r.status_code, r.text[:500])
             r.raise_for_status()
-
         js = r.json()
         page_items = js.get("value", [])
-        if not page_items:
-            print("[OData] No hay resultados en esta página.")
-            break
         items.extend(page_items)
-
-        q = js.get("@odata.nextLink")
+        q = js.get("@odata.nextLink")  # OData paging
         if page >= max_pages:
-            print(f"[OData] Límite de páginas alcanzado ({max_pages}).")
+            print(f"[OData] Límite de páginas alcanzado ({max_pages}), deteniendo paginación.")
             break
-
-    print(f"[OData] Total de productos obtenidos: {len(items)}")
     return items
 
 def items_to_selected_df(items, theme):
+    """
+    Selecciona y normaliza campos útiles según el tema.
+    theme: 'sentinel2' o 'sentinel1'
+    """
     if not items:
         return pd.DataFrame()
     df = pd.json_normalize(items)
+    # columnas base
+    want = ["Id","Name","IngestionDate","sizeInBytes"]
+    # content date
     if "ContentDate.Start" in df.columns:
         df["content_start"] = pd.to_datetime(df["ContentDate.Start"])
     else:
         df["content_start"] = pd.to_datetime(df.get("ContentDate", pd.NA).apply(lambda x: x.get("Start") if isinstance(x, dict) else None))
+    # geometry footprint if available
+    if "GeoFootprint" in df.columns:
+        # leave as string
+        df["footprint"] = df["GeoFootprint"]
+    else:
+        df["footprint"] = None
 
-    df["footprint"] = df.get("GeoFootprint", None)
-
+    # extract common attributes (cloud, resolution, polarization) heuristically
     def find_attr(attrs, keyname):
         if isinstance(attrs, list):
             for a in attrs:
                 if isinstance(a, dict):
                     name = str(a.get("Name","")).lower()
                     if keyname.lower() in name:
+                        # try common fields
                         return a.get("Value") or a.get("value") or a.get("doubleValue") or a.get("stringValue") or None
         return None
 
@@ -115,34 +118,45 @@ def items_to_selected_df(items, theme):
     if df["cloudcover"].isnull().all():
         df["cloudcover"] = df.get("Attributes", None).apply(lambda a: find_attr(a, "cloud"))
 
+    # Theme-specific columns
     if theme == "sentinel2":
+        # Sentinel-2 L2A: bands are in file content; we store level info and product type
         df["collection"] = COLLECTION_S2
         df["product_level"] = df.get("Name", "").astype(str).str.contains("L2A").map({True:"L2A", False:"unknown"})
+        # SCL / bands availability -> usually implied for L2A; include S3 asset placeholder
         df["s3_asset"] = df.get("Assets", None).apply(lambda a: json.dumps(a) if a else None)
         keep = ["Id","Name","identifier","content_start","IngestionDate","cloudcover","sizeInBytes","footprint","product_level","s3_asset"]
-    else:
+    else: # sentinel1
         df["collection"] = COLLECTION_S1
+        # polarization info sometimes in Attributes or Name
         df["polarizations"] = df.get("Attributes", None).apply(lambda a: find_attr(a, "polar") if a else None)
         df["s3_asset"] = df.get("Assets", None).apply(lambda a: json.dumps(a) if a else None)
         keep = ["Id","Name","identifier","content_start","IngestionDate","polarizations","sizeInBytes","footprint","s3_asset"]
 
+    # keep only selected and return
     cols = [c for c in keep if c in df.columns]
     return df[cols]
 
 # ---------------------------
-# Overpass (OSM)
+# Overpass (OSM) for rail stations
 # ---------------------------
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
 def bbox_from_wkt(aoi_wkt):
     geom = wkt.loads(aoi_wkt)
     minx, miny, maxx, maxy = geom.bounds
+    # Overpass bbox format: south,west,north,east -> lat lon ordering: miny,minx,maxy,maxx
     return miny, minx, maxy, maxx
 
 def fetch_rail_stations(aoi_wkt=None):
+    """
+    Si aoi_wkt está dada, consulta dentro del bbox; si no, pide todo (NO recomendado).
+    Devuelve DataFrame con id, name, lat, lon, tags (JSON).
+    """
     if not aoi_wkt:
-        raise RuntimeError("AOI_WKT es obligatorio para buscar estaciones rail.")
+        raise RuntimeError("Para buscar estaciones rail es obligatorio un AOI (WKT). Define AOI_WKT env.")
     s, w, n, e = bbox_from_wkt(aoi_wkt)
+    # Overpass Q: nodes/ways/relations tagged railway=station or public_transport=station and railway=platform etc.
     query = f"""
     [out:json][timeout:60];
     (
@@ -162,6 +176,7 @@ def fetch_rail_stations(aoi_wkt=None):
     for el in elements:
         obj_id = el.get("id")
         tags = el.get("tags", {})
+        # use center for ways/relations
         lat = el.get("lat") or (el.get("center") or {}).get("lat")
         lon = el.get("lon") or (el.get("center") or {}).get("lon")
         rows.append({
@@ -171,18 +186,23 @@ def fetch_rail_stations(aoi_wkt=None):
             "lon": lon,
             "tags": json.dumps(tags, ensure_ascii=False)
         })
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    return df
 
 # ---------------------------
-# VIIRS template
+# VIIRS placeholder: create template CSV to fill with actual VIIRS URLs/metadata later
 # ---------------------------
 def create_viirs_template(outdir, date_from, date_to, aoi_wkt=None):
+    """
+    No descargamos VIIRS automáticamente aquí (necesita endpoints diferentes / auth).
+    Creamos un CSV con columnas para que completes con URLs de archivos VIIRS/NOAA o lo usemos luego.
+    """
     rows = [{
         "variable": "VIIRS_DNB_monthly_radiance",
         "date_from": date_from,
         "date_to": date_to,
         "aoi_wkt": aoi_wkt,
-        "download_url": "",
+        "download_url": "",   # rellena tú con el enlace directo al NetCDF/GeoTIFF si lo obtienes
         "notes": "Rellenar con enlaces VIIRS VNL (NOAA / Earth Observation Group)."
     }]
     df = pd.DataFrame(rows)
@@ -191,14 +211,13 @@ def create_viirs_template(outdir, date_from, date_to, aoi_wkt=None):
     return path
 
 # ---------------------------
-# Main
+# Flujo principal
 # ---------------------------
 def main():
-    print("=== NeoLumina: Generador de CSV temáticos ===")
-    print(f"AOI_WKT set? {bool(AOI_WKT)}, DATE_FROM={DATE_FROM}, DATE_TO={DATE_TO}, TOP={TOP}, OUTDIR={OUTDIR}\n")
-
+    print("=== NeoLumina: Generador de CSV temáticos (metadatos) ===")
+    print(f"Parámetros:\n  AOI_WKT set? {bool(AOI_WKT)}\n  DATE_FROM={DATE_FROM}\n  DATE_TO={DATE_TO}\n  TOP={TOP}\n  OUTDIR={OUTDIR}\n")
     # 1) Sentinel-2
-    print("\n==> 1) Sentinel-2 (L2A) metadatos via OData ...")
+    print("\n==> 1) Buscando Sentinel-2 (L2A) metadatos via OData ...")
     filt2 = build_filter(COLLECTION_S2, DATE_FROM, DATE_TO, aoi_wkt=AOI_WKT, cloud=MAX_CLOUD)
     items_s2 = query_catalog(filt2, top=TOP)
     df_s2 = items_to_selected_df(items_s2, theme="sentinel2")
@@ -207,7 +226,7 @@ def main():
     print(f"[OK] Sentinel-2 CSV guardado: {out_s2} (rows: {len(df_s2)})")
 
     # 2) Sentinel-1
-    print("\n==> 2) Sentinel-1 (GRD) metadatos via OData ...")
+    print("\n==> 2) Buscando Sentinel-1 (GRD) metadatos via OData ...")
     filt1 = build_filter(COLLECTION_S1, DATE_FROM, DATE_TO, aoi_wkt=AOI_WKT)
     items_s1 = query_catalog(filt1, top=TOP)
     df_s1 = items_to_selected_df(items_s1, theme="sentinel1")
@@ -215,10 +234,10 @@ def main():
     df_s1.to_csv(out_s1, index=False)
     print(f"[OK] Sentinel-1 CSV guardado: {out_s1} (rows: {len(df_s1)})")
 
-    # 3) Rail stations
+    # 3) Rail stations via Overpass (si AOI proporcionada)
     if AOI_WKT:
         try:
-            print("\n==> 3) Extrayendo estaciones ferroviarias (OSM) ...")
+            print("\n==> 3) Extrayendo estaciones ferroviarias (OpenStreetMap via Overpass) ...")
             df_rail = fetch_rail_stations(AOI_WKT)
             out_rail = os.path.join(OUTDIR, "rail_stations.csv")
             df_rail.to_csv(out_rail, index=False)
@@ -226,7 +245,7 @@ def main():
         except Exception as e:
             print("⚠️ Error obteniendo estaciones rail:", e)
     else:
-        print("\n==> 3) Rail stations: AOI_WKT no proporcionada. Saltando.")
+        print("\n==> 3) Rail stations: AOI no proporcionada — se requiere AOI_WKT para buscar OSM. Saltando.")
 
     # 4) VIIRS template
     viirs_path = create_viirs_template(OUTDIR, DATE_FROM, DATE_TO, AOI_WKT)
