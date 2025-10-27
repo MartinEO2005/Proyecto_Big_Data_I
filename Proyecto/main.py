@@ -5,27 +5,6 @@ from osm import fetch_rail_stations
 from viirs import create_viirs_template
 from storage import save_df_to_theme
 
-def run():
-    print("NeoLumina: iniciando generación CSV temáticos")
-
-    # Sentinel-2
-    filt_s2 = build_filter(COLLECTION_S2, DATE_FROM, DATE_TO, aoi_wkt=AOI_WKT, cloud=MAX_CLOUD)
-    items_s2 = query_catalog(filt_s2, top=TOP)
-    df_s2 = items_to_df(items_s2)
-    save_df_to_theme(df_s2, "satelital", "sentinel2_products.csv", base_outdir=OUTDIR)
-
-    # Sentinel-1
-    filt_s1 = build_filter(COLLECTION_S1, DATE_FROM, DATE_TO, aoi_wkt=AOI_WKT)
-    items_s1 = query_catalog(filt_s1, top=TOP)
-    df_s1 = items_to_df(items_s1)
-    save_df_to_theme(df_s1, "satelital", "sentinel1_products.csv", base_outdir=OUTDIR)
-
-    # main.py
-from config import *
-from catalog import build_filter, query_catalog, items_to_df
-from osm import fetch_rail_stations
-from viirs import create_viirs_template
-from storage import save_df_to_theme
 
 def run():
     print("NeoLumina: iniciando generación CSV temáticos")
@@ -42,26 +21,14 @@ def run():
     df_s1 = items_to_df(items_s1)
     save_df_to_theme(df_s1, "satelital", "sentinel1_products.csv", base_outdir=OUTDIR)
 
-    # Estaciones ferroviarias
-    if AOI_WKT:
-        df_rail = fetch_rail_stations(AOI_WKT)
-        save_df_to_theme(df_rail, "transporte", "rail_stations.csv", base_outdir=OUTDIR)
-
-    # VIIRS plantilla
-    df_viirs = create_viirs_template(DATE_FROM, DATE_TO, AOI_WKT)
-    save_df_to_theme(df_viirs, "luz_nocturna", "viirs_requests.csv", base_outdir=OUTDIR)
-
-    print("✅ Todos los CSV temáticos generados correctamente en:", OUTDIR)
-
-    # TRANSPORTE - Estaciones ferroviarias
-    print("NeoLumina: descargando estaciones ferroviarias en España...")
-    from osm import fetch_rail_stations
+    print("Usando AOI_WKT (desde config):", AOI_WKT)
 
     df_transporte = fetch_rail_stations(AOI_WKT)
     if not df_transporte.empty:
-        save_df_to_theme(df_transporte, "transporte", "rail_stations.csv", base_outdir=OUTDIR)
+        path = save_df_to_theme(df_transporte, "transporte", "rail_stations.csv", base_outdir=OUTDIR)
+        print("CSV guardado en:", path)
     else:
-        print("⚠️ CSV de transporte no se generó porque no hay estaciones para el AOI definido.")
+        print("No se generó CSV de transporte.")
 
     # VIIRS plantilla
     df_viirs = create_viirs_template(DATE_FROM, DATE_TO, AOI_WKT)

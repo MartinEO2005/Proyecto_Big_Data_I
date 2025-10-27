@@ -17,7 +17,7 @@ COLLECTION_S2 = os.getenv("COLLECTION_S2", "SENTINEL-2")
 COLLECTION_S1 = os.getenv("COLLECTION_S1", "SENTINEL-1")
 
 # Área de interés y fechas
-AOI_WKT = os.getenv("AOI_WKT")
+AOI_WKT = "POLYGON((-9.5 36.0, -9.5 43.8, 3.3 43.8, 3.3 36.0, -9.5 36.0))"
 DATE_FROM = os.getenv("DATE_FROM", (datetime.utcnow().date().replace(year=datetime.utcnow().year-1)).isoformat())
 DATE_TO = os.getenv("DATE_TO", datetime.utcnow().date().isoformat())
 
