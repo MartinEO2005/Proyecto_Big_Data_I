@@ -1,0 +1,48 @@
+# demografia.py
+import requests
+import pandas as pd
+from pathlib import Path
+
+EUROSTAT_API_URL = "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/demo_r_pjanaggr3"
+
+def fetch_population_total_nuts3():
+    """
+    Descarga población total (sin sexo ni edad) por región NUTS3 (provincias) en España desde Eurostat.
+    Devuelve un DataFrame con columnas: region_code, region_name, year, population
+    """
+    params = {
+        "sex": "T",         # Total (sin desagregar por sexo)
+        "age": "TOTAL",     # Todas las edades
+        "geo": "ES",        # Solo regiones de España
+        "format": "JSON"
+    }
+
+    try:
+        r = requests.get(EUROSTAT_API_URL, params=params, timeout=60)
+        r.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        print("❌ Error al consultar Eurostat API:", e)
+        return pd.DataFrame()
+
+    data = r.json()
+
+    regiones = data["dimension"]["geo"]["category"]["label"]
+    anios = data["dimension"]["time"]["category"]["label"]
+    raw_values = data["value"]
+
+    rows = []
+    for idx_str, value in raw_values.items():
+        idx = int(idx_str)
+        n_geo = len(regiones)
+        geo_idx = idx % n_geo
+        time_idx = idx // n_geo
+        rows.append({
+            "region_code": list(regiones.keys())[geo_idx],
+            "region_name": list(regiones.values())[geo_idx],
+            "year": list(anios.keys())[time_idx],
+            "population": value
+        })
+
+    df = pd.DataFrame(rows)
+    print(f"✅ Se descargaron {len(df)} registros de población total (Eurostat)")
+    return df

@@ -1,8 +1,8 @@
-# main.py
 from config import *
 from catalog import build_filter, query_catalog, items_to_df
 from osm import fetch_rail_stations
 from viirs import create_viirs_template
+from demografia import fetch_population_total_nuts3
 from storage import save_df_to_theme
 
 
@@ -28,13 +28,20 @@ def run():
         path = save_df_to_theme(df_transporte, "transporte", "rail_stations.csv", base_outdir=OUTDIR)
         print("CSV guardado en:", path)
     else:
-        print("No se generó CSV de transporte.")
+        print("No se generó el CSV de transporte.")
 
-    # VIIRS plantilla
     df_viirs = create_viirs_template(DATE_FROM, DATE_TO, AOI_WKT)
     save_df_to_theme(df_viirs, "luz_nocturna", "viirs_requests.csv", base_outdir=OUTDIR)
 
+    df_demo = fetch_population_total_nuts3()
+    if not df_demo.empty:
+        save_df_to_theme(df_demo, "demografia", "poblacion_total.csv", base_outdir=OUTDIR)
+        print("✅ CSV de población guardado.")
+    else:
+        print("⚠️ No se generó CSV de demografía.")
+
     print("✅ Todos los CSV temáticos generados correctamente en:", OUTDIR)
+
 
 if __name__ == "__main__":
     run()
