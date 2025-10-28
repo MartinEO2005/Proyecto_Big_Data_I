@@ -22,7 +22,7 @@ def run():
     save_df_to_theme(df_s1, "satelital", "sentinel1_products.csv", base_outdir=OUTDIR)
 
     print("Usando AOI_WKT (desde config):", AOI_WKT)
-
+    # Transporte (estaciones ferroviarias OSM)
     df_transporte = fetch_rail_stations(AOI_WKT)
     if not df_transporte.empty:
         path = save_df_to_theme(df_transporte, "transporte", "rail_stations.csv", base_outdir=OUTDIR)
@@ -32,7 +32,7 @@ def run():
 
     df_viirs = create_viirs_template(DATE_FROM, DATE_TO, AOI_WKT)
     save_df_to_theme(df_viirs, "luz_nocturna", "viirs_requests.csv", base_outdir=OUTDIR)
-
+    #Eurostat Demografía
     df_demo = fetch_population_total_nuts3()
     if not df_demo.empty:
         save_df_to_theme(df_demo, "demografia", "poblacion_total.csv", base_outdir=OUTDIR)
