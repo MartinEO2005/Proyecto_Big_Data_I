@@ -4,6 +4,7 @@ from osm import fetch_rail_stations
 from viirs import create_viirs_template
 from demografia import fetch_population_total_nuts3
 from storage import save_df_to_theme
+from demografia import save_population_data
 
 
 def run():
@@ -42,6 +43,16 @@ def run():
 
     print("✅ Todos los CSV temáticos generados correctamente en:", OUTDIR)
 
+
+def demografiaciudades():
+    # --- Ajustes ---
+    # years = None → descarga todos los años disponibles
+    # years = 5 → últimos 5 años
+    years = None  
+    df = fetch_population_by_municipality(years=years)
+    save_population_data(df)
+    print("\n📊 Vista previa de los primeros registros:")
+    print(df.head(10))
 
 if __name__ == "__main__":
     run()
