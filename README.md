@@ -9,6 +9,7 @@ neo_lumina/
 ├─ main.py            -> Orquestador principal. Llama a todos los módulos y genera CSV temáticos.
 ├─ config.py          -> Variables de configuración (AOI, fechas, credenciales, rutas de salida).
 ├─ catalog.py         -> Consulta el catálogo Copernicus OData y convierte los resultados en DataFrame.
+├─ Demografia.py      -> Descarga y procesa datos de población por provincias.
 ├─ osm.py             -> Descarga estaciones ferroviarias usando Overpass API.
 ├─ viirs.py           -> Genera plantilla CSV para night-lights VIIRS (NOAA/EOG).
 ├─ storage.py         -> Funciones auxiliares para guardar CSV en carpetas temáticas.
