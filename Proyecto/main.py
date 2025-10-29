@@ -1,4 +1,4 @@
-from config import OUTDIR, COLLECTION_S2, COLLECTION_S1, DATE_FROM, DATE_TO, MAX_CLOUD, TOP, AOI_WKT
+from config import OUTDIR, COLLECTION_S2, COLLECTION_S1, DATE_FROM, DATE_TO, MAX_CLOUD, TOP, AOI_WKT, VIIRS_URL_TEMPLATE
 from catalog import build_filter, query_catalog, items_to_df
 from osm import fetch_rail_stations
 from storage import save_df_to_theme
@@ -99,7 +99,8 @@ def run_all():
         import viirs as vi
         out_csv = os.path.join(OUTDIR, "luz_nocturna", "viirs_spain_sample.csv")
         # Llama al downloader genérico que usa VIIRS_URL_TEMPLATE (o parámetro) y muestrea
-        p = vi.export_viirs_spain_aws(out_csv=out_csv, spacing_km=10, aoi_wkt=AOI_WKT)
+        # pasar la plantilla desde config (puede ser None)
+        p = vi.export_viirs_spain_aws(out_csv=out_csv, spacing_km=10, aoi_wkt=AOI_WKT, url_template=VIIRS_URL_TEMPLATE)
         if p:
             print("  ✅ VIIRS descargado y muestreado en:", p)
         else:
