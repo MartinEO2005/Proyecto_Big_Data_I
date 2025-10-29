@@ -13,7 +13,7 @@ def query_catalog(filter_expr, top=500, max_pages=50):
     page = 0
     while q:
         page += 1
-        r = requests.get(q, headers=headers, timeout=60)
+        r = requests.get(q, headers=headers, timeout=(10, 300))
         r.raise_for_status()
         js = r.json()
         items.extend(js.get("value", []))
