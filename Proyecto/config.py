@@ -27,3 +27,10 @@ TOP = int(os.getenv("TOP", "500"))
 
 # Carpeta de salida
 OUTDIR = os.getenv("OUTDIR", "data")
+
+# Plantilla opcional para descargar VIIRS desde un mirror público.
+# Debe incluir los placeholders {year} y {month:02d}, por ejemplo:
+#   https://my-mirror/viirs/vcmcfg_{year}{month:02d}.tif
+# La variable se puede configurar en el entorno con: setx VIIRS_URL_TEMPLATE "..."
+VIIRS_URL_TEMPLATE = os.getenv("VIIRS_URL_TEMPLATE")
+
