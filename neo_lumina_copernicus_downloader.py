@@ -47,6 +47,10 @@ import requests
 import pandas as pd
 from pandas import json_normalize
 
+from pathlib import Path
+import re
+import subprocess
+
 CAT_BASE = "https://catalogue.dataspace.copernicus.eu/odata/v1/Products"
 TOKEN_URL = "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
 
@@ -168,20 +172,30 @@ def follow_redirects(session: requests.Session, url: str, max_hops: int = 10) ->
 
 
 # ----------------- descarga ZIP completo -----------------
+
 def download_product_zip(session: requests.Session, product_id: str, identifier: str, out_dir: str, overwrite: bool = False) -> str:
     """
     Descarga el .SAFE (ZIP) completo desde el endpoint OData Products(<GUID>)/$value
+    (versión streaming: menos RAM y más robusta)
     """
     url = f"{CAT_BASE}({product_id})/$value"
-    resp = follow_redirects(session, url)
-    resp.raise_for_status()
     os.makedirs(out_dir, exist_ok=True)
     out_zip = os.path.join(out_dir, f"{identifier}.zip")
+
     if os.path.exists(out_zip) and not overwrite:
         print(f"➜ Ya existe {out_zip}, se omite descarga.")
         return out_zip
+
+    # seguimos respetando redirecciones
+    # pero ahora haremos la petición final en streaming
+    resp = session.get(url, allow_redirects=True, stream=True, timeout=600)
+    resp.raise_for_status()
+
     with open(out_zip, "wb") as f:
-        f.write(resp.content)
+        for chunk in resp.iter_content(chunk_size=1024 * 1024):  # 1MB
+            if chunk:
+                f.write(chunk)
+
     return out_zip
 
 
@@ -266,6 +280,89 @@ def extract_selected_from_zip(zip_path: str, mode: str, bands: list[str] | None,
 
     return extracted
 
+# ----------------- conversión JP2 -> GeoTIFF/COG -----------------
+
+def is_scl_name(p: Path) -> bool:
+    """Detecta si el archivo es una capa SCL por su nombre."""
+    return bool(re.search(r"\bSCL\b", p.stem.upper()))
+
+def find_extracted_jp2s(extract_root: str) -> list[Path]:
+    """Encuentra todos los .jp2 dentro del directorio de extracción."""
+    base = Path(extract_root)
+    return list(base.rglob("*.jp2"))
+
+def gdal_cog_convert(src: Path, dst: Path, is_scl: bool):
+    """
+    Convierte a COG usando gdal_translate.
+    Requiere gdal-bin en el PATH.
+    - SCL: categórico, compresión DEFLATE
+    - Reflectancia: DEFLATE + PREDICTOR=2
+    """
+    args = [
+        "gdal_translate",
+        "-of", "COG",
+        "-co", "BIGTIFF=IF_SAFER",
+        "-co", "NUM_THREADS=ALL_CPUS",
+    ]
+    if is_scl:
+        args += ["-co", "COMPRESS=DEFLATE"]
+    else:
+        args += ["-co", "COMPRESS=DEFLATE", "-co", "PREDICTOR=2"]
+
+    args += [src.as_posix(), dst.as_posix()]
+    subprocess.check_call(args)
+
+def gdal_gtiff_convert(src: Path, dst: Path, is_scl: bool):
+    """
+    Alternativa: GeoTIFF normal (no COG).
+    """
+    args = [
+        "gdal_translate",
+        "-of", "GTiff",
+        "-co", "TILED=YES",
+        "-co", "BIGTIFF=IF_SAFER",
+    ]
+    if is_scl:
+        args += ["-co", "COMPRESS=DEFLATE"]
+    else:
+        args += ["-co", "COMPRESS=DEFLATE", "-co", "PREDICTOR=2"]
+
+    args += [src.as_posix(), dst.as_posix()]
+    subprocess.check_call(args)
+
+def batch_convert_extracted(extract_root: str, out_dir: str, to_cog: bool = True, keep_jp2: bool = True) -> int:
+    """
+    Convierte todos los JP2 encontrados en extract_root a GeoTIFF/COG.
+    Devuelve el número de archivos convertidos.
+    """
+    jp2s = find_extracted_jp2s(extract_root)
+    if not jp2s:
+        print("No hay JP2 extraídos para convertir.")
+        return 0
+
+    conv_dir = Path(out_dir) / "converted"
+    conv_dir.mkdir(parents=True, exist_ok=True)
+    converted = 0
+
+    for jp2 in jp2s:
+        is_scl = is_scl_name(jp2)
+        dst = conv_dir / (jp2.stem + ("_cog.tif" if to_cog else ".tif"))
+        try:
+            if to_cog:
+                gdal_cog_convert(jp2, dst, is_scl)
+            else:
+                gdal_gtiff_convert(jp2, dst, is_scl)
+            converted += 1
+            if not keep_jp2:
+                try:
+                    jp2.unlink()
+                except Exception:
+                    pass
+            print(f"✓ Convertido: {dst.name}")
+        except subprocess.CalledProcessError as e:
+            print(f"✗ Error convirtiendo {jp2.name}: {e}")
+    return converted
+
 
 # ----------------- main -----------------
 AOIS = {
@@ -298,6 +395,11 @@ def parse_args():
     ap.add_argument("--out-dir", type=str, default="data/copernicus")
     ap.add_argument("--workers", type=int, default=3, help="Concurrent downloads")
     ap.add_argument("--overwrite", action="store_true", help="Sobrescribir zips existentes")
+        # ➕ flags de conversión
+    ap.add_argument("--convert", action="store_true", help="Convertir JP2 extraídos a GeoTIFF/COG")
+    ap.add_argument("--cog", action="store_true", help="Generar Cloud-Optimized GeoTIFF (COG) en lugar de GeoTIFF clásico")
+    ap.add_argument("--delete-jp2", action="store_true", help="Borrar JP2 tras convertir")
+
     return ap.parse_args()
 
 
@@ -410,6 +512,22 @@ def main():
 
             print(f"[{identifier}] Extrayendo '{mode}' (bandas={bands})…")
             extracted = extract_selected_from_zip(zip_path, mode, bands, out_dir, args.collection)
+                        # ➕ Conversión opcional de los .jp2 extraídos
+            if args.convert:
+                # reconstruimos el directorio "extracted" tal como lo crea extract_selected_from_zip
+                extract_root = os.path.join(
+                    os.path.dirname(zip_path),
+                    os.path.splitext(os.path.basename(zip_path))[0],
+                    "extracted"
+                )
+                print(f"[{identifier}] Convirtiendo JP2 → {'COG' if args.cog else 'GeoTIFF'} …")
+                nconv = batch_convert_extracted(
+                    extract_root=extract_root,
+                    out_dir=out_dir,
+                    to_cog=args.cog,
+                    keep_jp2=not args.delete_jp2
+                )
+                print(f"[{identifier}] {nconv} archivos convertidos.")
             ok = bool(extracted)
             if not ok:
                 msg = f"{identifier}: no assets matched"
