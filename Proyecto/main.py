@@ -98,13 +98,61 @@ def run_all():
         print("-> Intentando obtener VIIRS via mirror público (sin Earth Engine)")
         import viirs as vi
         out_csv = os.path.join(OUTDIR, "luz_nocturna", "viirs_spain_sample.csv")
-        # Llama al downloader genérico que usa VIIRS_URL_TEMPLATE (o parámetro) y muestrea
-        # pasar la plantilla desde config (puede ser None)
-        p = vi.export_viirs_spain_aws(out_csv=out_csv, spacing_km=10, aoi_wkt=AOI_WKT, url_template=VIIRS_URL_TEMPLATE)
-        if p:
-            print("  ✅ VIIRS descargado y muestreado en:", p)
+        # Si el usuario definió la variable de entorno VIIRS_PERIODS, usamos la función
+        # que descarga series temporales y agrega por provincia.
+        # Formatos admitidos en VIIRS_PERIODS:
+        #  - Lista de meses: 2023-03,2023-04
+        #  - Rango inclusivo: 2022-01:2022-03
+        periods_env = os.getenv("VIIRS_PERIODS")
+        if periods_env:
+            def _months_between(start_y, start_m, end_y, end_m):
+                ym = start_y * 12 + (start_m - 1)
+                end_ym = end_y * 12 + (end_m - 1)
+                months = []
+                for t in range(ym, end_ym + 1):
+                    y = t // 12
+                    m = t % 12 + 1
+                    months.append((y, m))
+                return months
+
+            periods = []
+            for token in [t.strip() for t in periods_env.split(',') if t.strip()]:
+                if ':' in token:
+                    left, right = token.split(':', 1)
+                    sy, sm = [int(x) for x in left.split('-')]
+                    ey, em = [int(x) for x in right.split('-')]
+                    periods.extend(_months_between(sy, sm, ey, em))
+                else:
+                    y, m = [int(x) for x in token.split('-')]
+                    periods.append((y, m))
+
+            print(f"→ VIIRS: descargando/agregando períodos: {periods}")
+            # llamar a la función que descarga y agrega por provincia
+            try:
+                out = vi.export_viirs_periods(periods, aggregate_level='province', url_template=VIIRS_URL_TEMPLATE, out_dir=os.path.join(OUTDIR, "luz_nocturna", "viirs_tifs"), out_csv=os.path.join(OUTDIR, "luz_nocturna", "viirs_by_province.csv"))
+                if out:
+                    print("  ✅ VIIRS timeseries agregada en:", out)
+                else:
+                    print("  ⚠️ VIIRS timeseries no se pudo generar. Revisa logs.")
+            except Exception as e:
+                print("  ❌ Error al generar timeseries VIIRS:", type(e), e)
         else:
-            print("  ⚠️ VIIRS no se pudo descargar/muestrear. Revisa la variable VIIRS_URL_TEMPLATE o descarga manualmente.")
+            # Si no hay VIIRS_PERIODS, descargamos/agrupamos el mes anterior
+            from datetime import date
+            today = date.today()
+            y = today.year
+            m = today.month - 1
+            if m == 0:
+                m = 12; y -= 1
+            periods = [(y, m)]
+            try:
+                out = vi.export_viirs_periods(periods, aggregate_level='province', url_template=VIIRS_URL_TEMPLATE, out_dir=os.path.join(OUTDIR, "luz_nocturna", "viirs_tifs"), out_csv=os.path.join(OUTDIR, "luz_nocturna", "viirs_by_province.csv"))
+                if out:
+                    print("  ✅ VIIRS descargado y agregado en:", out)
+                else:
+                    print("  ⚠️ VIIRS no se pudo descargar/muestrear. Revisa la variable VIIRS_URL_TEMPLATE o descarga manualmente.")
+            except Exception as e:
+                print("  ❌ Error al generar VIIRS (fallback mes anterior):", type(e), e)
     except Exception as e:
         print("  ⚠️ viirs no pudo ejecutarse/importarse:", type(e), e)
 

@@ -1,22 +1,34 @@
-"""Utilities to sample VIIRS over Spain and save a local CSV.
+"""VIIRS downloader and aggregator (EE-free)
 
-This module avoids calling ee.Initialize() at import time. Call
-`export_viirs_spain(...)` to run the sampling/export. If Earth Engine
-is not authenticated on the machine, the function will return None and
-print guidance on how to authenticate.
+This module downloads monthly VIIRS GeoTIFFs from a user-provided URL template
+and aggregates values by Spanish province or municipality. It avoids Earth Engine
+entirely and works from public mirrors that expose monthly GeoTIFFs.
+
+Usage summary:
+  - Set env VIIRS_URL_TEMPLATE (or pass url_template). Must include {year} and {month:02d}.
+  - Call export_viirs_periods(periods, aggregate_level='province'|'municipality', ...)
+
+Notes:
+  - Aggregation can use polygon masking (accurate, slower) or centroid sampling (fast).
+  - For municipality-level aggregation you should supply a municipalities GeoJSON
+    (or let the helper download a public one). For province-level the module downloads
+    a default provinces GeoJSON if none provided.
 """
-from datetime import datetime
-from typing import Optional
+from __future__ import annotations
+
 import os
-import pandas as pd
+import json
 import tempfile
-import math
+from typing import List, Tuple, Optional
 import requests
-from shapely import wkt
+import numpy as np
+import pandas as pd
+import rasterio
+import rasterio.mask
+from shapely.geometry import shape
 
 
 def _download_file(url: str, out_path: str, timeout: int = 60) -> bool:
-    """Download a file by streaming. Returns True on success."""
     try:
         resp = requests.get(url, stream=True, timeout=timeout)
         resp.raise_for_status()
@@ -31,281 +43,381 @@ def _download_file(url: str, out_path: str, timeout: int = 60) -> bool:
         return False
 
 
-def _bbox_from_wkt(aoi_wkt: str) -> tuple:
-    geom = wkt.loads(aoi_wkt)
-    minx, miny, maxx, maxy = geom.bounds
-    return minx, miny, maxx, maxy
+def download_viirs_timeseries(periods: List[Tuple[int, int]], url_template: Optional[str] = None, out_dir: str = "data/luz_nocturna/viirs_tifs") -> List[str]:
+    """Download VIIRS GeoTIFFs for given periods.
 
-
-def _create_grid(minx, miny, maxx, maxy, spacing_km: float):
-    # spacing in degrees approx
-    spacing_deg = spacing_km / 111.32
-    xs = list(frange(minx, maxx, spacing_deg))
-    ys = list(frange(miny, maxy, spacing_deg))
-    return [(x, y) for x in xs for y in ys]
-
-
-def frange(start, stop, step):
-    x = start
-    while x <= stop:
-        yield x
-        x += step
-
-
-def sample_geotiff_to_csv(tif_path: str, aoi_wkt: str, spacing_km: int, out_csv: str):
-    """Open a GeoTIFF with rasterio, sample a regular grid inside AOI bbox and save CSV.
-
-    Requires rasterio and numpy installed. The CSV will contain columns: lon, lat, band_0, band_1, ...
+    periods: list of (year, month) tuples
+    url_template: template with {year} and {month:02d} (else read env VIIRS_URL_TEMPLATE)
+    Returns list of local tif paths (downloaded or existing).
     """
+    if not url_template:
+        url_template = os.getenv("VIIRS_URL_TEMPLATE")
+    if not url_template:
+        print("❌ No hay plantilla VIIRS_URL_TEMPLATE. Define la variable de entorno o pásala al llamar.")
+        return []
+
+    os.makedirs(out_dir, exist_ok=True)
+    downloaded = []
+    for year, month in periods:
+        try:
+            url = url_template.format(year=year, month=month)
+        except Exception as e:
+            print("⚠️ Error formateando plantilla:", e)
+            continue
+        fname = f"viirs_{year}{month:02d}.tif"
+        out_path = os.path.join(out_dir, fname)
+        if os.path.exists(out_path):
+            downloaded.append(out_path)
+            print(f"→ Ya existe {out_path}")
+            continue
+        print(f"→ Descargando {url} -> {out_path}")
+        ok = _download_file(url, out_path)
+        if ok:
+            downloaded.append(out_path)
+        else:
+            print(f"  ⚠️ Falló descarga {year}-{month:02d}")
+    return downloaded
+
+
+DEFAULT_PROVINCES_GEOJSON = "https://raw.githubusercontent.com/codeforgermany/click_that_hood/main/public/data/spain-provinces.geojson"
+DEFAULT_MUNICIPALITIES_GEOJSON = "https://raw.githubusercontent.com/codeforgermany/click_that_hood/main/public/data/spain-municipalities.geojson"
+
+
+def _ensure_geojson(local_path: Optional[str], default_url: str) -> Optional[str]:
+    if local_path and os.path.exists(local_path):
+        return local_path
     try:
-        import rasterio
-        from rasterio.warp import transform
+        print(f"→ Descargando GeoJSON desde {default_url}")
+        r = requests.get(default_url, timeout=60)
+        r.raise_for_status()
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".geojson")
+        tmp.write(r.content)
+        tmp.flush()
+        tmp.close()
+        return tmp.name
     except Exception as e:
-        print("❌ Para muestrear GeoTIFF necesitas instalar rasterio: pip install rasterio")
-        raise
+        print("❌ No se pudo obtener GeoJSON:", type(e), e)
+        return None
 
-    import numpy as np
 
-    minx, miny, maxx, maxy = _bbox_from_wkt(aoi_wkt)
-    coords = _create_grid(minx, miny, maxx, maxy, spacing_km)
-
-    ds = rasterio.open(tif_path)
-    # transform coords to dataset CRS if needed
-    dst_crs = ds.crs
-    if dst_crs is None:
-        raise RuntimeError("El GeoTIFF no tiene CRS definido.")
-
-    # rasterio expects coords in (x, y) in the dataset CRS
-    lons = [c[0] for c in coords]
-    lats = [c[1] for c in coords]
-    try:
-        xs, ys = transform({'init': 'EPSG:4326'}, dst_crs, lons, lats)
-    except Exception:
-        # newer rasterio/pyproj APIs
-        from pyproj import Transformer
-        transformer = Transformer.from_crs('EPSG:4326', dst_crs.to_string(), always_xy=True)
-        xs, ys = transformer.transform(lons, lats)
-
-    sample_coords = [(x, y) for x, y in zip(xs, ys)]
+def aggregate_by_province(tif_paths: List[str], provinces_geojson: Optional[str] = None, out_csv: str = "data/luz_nocturna/viirs_by_province.csv") -> Optional[str]:
+    """Aggregate list of tifs by province using mask (accurate).
+    Returns CSV path or None.
+    """
+    if not tif_paths:
+        print("⚠️ No hay tifs")
+        return None
+    gj = _ensure_geojson(provinces_geojson, DEFAULT_PROVINCES_GEOJSON)
+    if not gj:
+        return None
+    with open(gj, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    provinces = [(feat.get("properties", {}).get("name") or feat.get("properties", {}).get("NAME"), feat.get("geometry")) for feat in data.get("features", [])]
 
     rows = []
-    band_count = ds.count
-    for lon, lat, sx, sy in zip(lons, lats, xs, ys):
+    for tif in tif_paths:
+        base = os.path.basename(tif)
         try:
-            vals = list(next(ds.sample([(sx, sy)])))
+            ym = base.replace('.tif','').split('_')[-1]
+            year = int(ym[:4]); month = int(ym[4:6])
         except Exception:
-            vals = [None] * band_count
-        row = {f'band_{i}': vals[i] if i < len(vals) else None for i in range(band_count)}
-        row['lon'] = lon
-        row['lat'] = lat
-        rows.append(row)
-
+            year = None; month = None
+        try:
+            ds = rasterio.open(tif)
+        except Exception as e:
+            print("❌ No se pudo abrir tif:", tif, e)
+            continue
+        band = ds.read(1).astype(float)
+        nodata = ds.nodatavals[0] if ds.nodatavals else None
+        for name, geom in provinces:
+            try:
+                out_image, _ = rasterio.mask.mask(ds, [geom], crop=True)
+            except Exception:
+                rows.append({"province": name, "year": year, "month": month, "mean": None, "count": 0, "tif": tif})
+                continue
+            arr = out_image[0].astype(float)
+            if nodata is not None:
+                arr[arr == nodata] = np.nan
+            valid = np.isfinite(arr)
+            if not valid.any():
+                mean = None; cnt = 0
+            else:
+                mean = float(np.nanmean(arr)); cnt = int(np.sum(valid))
+            rows.append({"province": name, "year": year, "month": month, "mean": mean, "count": cnt, "tif": tif})
+        ds.close()
     df = pd.DataFrame(rows)
     os.makedirs(os.path.dirname(out_csv), exist_ok=True)
     df.to_csv(out_csv, index=False)
-    print(f"✅ VIIRS sample guardado en: {out_csv} (filas: {len(df)})")
+    print(f"✅ Guardado {out_csv}")
     return out_csv
 
 
-def export_viirs_spain_aws(month: int = None, year: int = None, out_csv: str = "data/luz_nocturna/viirs_spain_sample.csv", spacing_km: int = 10, aoi_wkt: str = None, url_template: str = None) -> str | None:
-    """Download a VIIRS monthly GeoTIFF (from a user-provided template or env var) and sample it over Spain.
+def aggregate_by_municipality(tif_paths: List[str], municipalities_geojson: Optional[str] = None, out_csv: str = "data/luz_nocturna/viirs_by_municipality.csv", sample_mode: str = "centroid") -> Optional[str]:
+    """Aggregate by municipality.
 
-    The function does not assume a fixed remote layout. Provide `url_template` that contains
-    placeholders '{year}' and '{month:02d}', for example:
-
-      https://example.com/viirs/vcmcfg_{year}{month:02d}.tif
-
-    If `url_template` is not provided, the function will look for environment variable
-    VIIRS_URL_TEMPLATE. If neither is present, it will print instructions and return None.
+    sample_mode: 'centroid' (fast) or 'mask' (accurate but slow)
     """
-    # Determine URL template
-    if not url_template:
-        url_template = os.getenv('VIIRS_URL_TEMPLATE')
-    if not url_template:
-        print("❌ No hay plantilla de URL para VIIRS. Define la variable de entorno VIIRS_URL_TEMPLATE con un template que incluya {year} y {month:02d}.")
-        print("Ejemplo: export VIIRS_URL_TEMPLATE='https://my-mirror/viirs/vcmcfg_{year}{month:02d}.tif'")
+    if not tif_paths:
+        print("⚠️ No hay tifs")
         return None
-
-    # choose month/year default (last month)
-    from datetime import date
-    today = date.today()
-    if year is None or month is None:
-        # previous month
-        y = today.year
-        m = today.month - 1
-        if m == 0:
-            m = 12
-            y -= 1
-        year = year or y
-        month = month or m
-
-    url = url_template.format(year=year, month=month)
-    print(f"→ Intentando descargar VIIRS desde: {url}")
-
-    # download to temp
-    tmpdir = tempfile.mkdtemp(prefix='viirs_')
-    tif_path = os.path.join(tmpdir, f"viirs_{year}{month:02d}.tif")
-    ok = _download_file(url, tif_path)
-    if not ok:
-        print("❌ No se pudo descargar el GeoTIFF VIIRS. Revisa la plantilla VIIRS_URL_TEMPLATE o descarga manualmente.")
+    gj = _ensure_geojson(municipalities_geojson, DEFAULT_MUNICIPALITIES_GEOJSON)
+    if not gj:
         return None
-
-    if not aoi_wkt:
-        # default Spain bbox (peninsula + Baleares)
-        aoi_wkt = "POLYGON((-10.7 36.0, -10.7 44.2, 4.6 44.2, 4.6 36.0, -10.7 36.0))"
-
-    try:
-        out = sample_geotiff_to_csv(tif_path, aoi_wkt=aoi_wkt, spacing_km=spacing_km, out_csv=out_csv)
-        return out
-    except Exception as e:
-        print("❌ Error al muestrear VIIRS:", type(e), e)
-        return None
-
-
-def _create_point_grid_coords(bbox: list[float], spacing_km: float) -> list[tuple]:
-    """Return list of (lon, lat) coordinates covering bbox with approx spacing."""
-    minx, miny, maxx, maxy = bbox[0], bbox[1], bbox[2], bbox[3]
-    spacing_deg = spacing_km / 111.32
-    xs = []
-    ys = []
-    x = minx
-    while x <= maxx:
-        xs.append(x)
-        x += spacing_deg
-    y = miny
-    while y <= maxy:
-        ys.append(y)
-        y += spacing_deg
-    coords = [(xi, yi) for xi in xs for yi in ys]
-    return coords
-
-
-def export_viirs_spain(fecha_inicio: str = None, fecha_fin: str = None, out_csv: str = "data/luz_nocturna/viirs_spain_sample.csv", spacing_km: int = 20, scale: int = 500, project: Optional[str] = None, service_account: Optional[str] = None, key_file: Optional[str] = None) -> Optional[str]:
-    """Sample VIIRS monthly product over Spain and save a CSV locally.
-
-    Parameters:
-      fecha_inicio/fecha_fin: YYYY-MM-DD strings. If None, uses last year to today.
-      out_csv: output CSV path.
-      spacing_km: spacing between sample points.
-      scale: sampling scale in meters.
-
-    Returns path to CSV on success, or None on failure.
-    """
-    try:
-        import ee
-    except Exception as e:
-        print("❌ Earth Engine Python API not available (pip install earthengine-api):", e)
-        return None
-
-    # Initialize EE here, but handle missing authentication
-    # Attempt initialization. Support three modes:
-    # 1) Service account credentials (service_account + key_file or env vars)
-    # 2) Project-based init (project or env var)
-    # 3) Interactive user authentication (earthengine authenticate previously run)
-    try:
-        # read env vars if caller didn't provide
-        if not project:
-            project = os.getenv("EE_PROJECT")
-        if not service_account:
-            service_account = os.getenv("EE_SERVICE_ACCOUNT")
-        if not key_file:
-            # common env var for GCP credentials
-            key_file = os.getenv("EE_KEY_FILE") or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-
-        if service_account and key_file:
-            # initialize with service account key file
-            try:
-                creds = ee.ServiceAccountCredentials(service_account, key_file)
-                if project:
-                    ee.Initialize(project=project, credentials=creds)
-                else:
-                    ee.Initialize(credentials=creds)
-            except Exception as e:
-                print("❌ Falló la inicialización con ServiceAccountCredentials:", type(e), e)
-                print("   Verifica que 'service_account' y 'key_file' sean correctos y que la cuenta tenga acceso a Earth Engine.")
-                return None
-        else:
-            # try project-based or interactive initialization
-            try:
-                if project:
-                    ee.Initialize(project=project)
-                else:
-                    ee.Initialize()
-            except Exception as e:
-                print("❌ ee.Initialize failed:", type(e), e)
-                print("   Si no estás autenticado, ejecuta: `earthengine authenticate` desde tu shell o configura una cuenta de servicio.")
-                return None
-    except Exception as e:
-        print("❌ Error durante la inicialización de EE:", type(e), e)
-        return None
-
-    # defaults
-    if fecha_fin is None:
-        fecha_fin = datetime.utcnow().date().isoformat()
-    if fecha_inicio is None:
-        fecha_inicio = (datetime.utcnow().date().replace(year=datetime.utcnow().year - 1)).isoformat()
-
-    # Spain bbox: [minLon, minLat, maxLon, maxLat] (peninsula + Baleares, ignores Canarias for simplicity)
-    bbox = [-10.7, 36.0, 4.6, 44.2]
-    geometry = ee.Geometry.Rectangle(bbox)
-
-    collection_id = 'NOAA/VIIRS/DNB/MONTHLY_V1/VCMCFG'
-
-    start = ee.Date(fecha_inicio)
-    end = ee.Date(fecha_fin)
-    col = ee.ImageCollection(collection_id).filterDate(start, end).filterBounds(geometry)
-    if col.size().getInfo() == 0:
-        print("⚠️ No VIIRS images found for the specified period.")
-        return None
-
-    image = col.mean().clip(geometry)
-
-    # create grid coords
-    coords = _create_point_grid_coords(bbox, spacing_km)
-    # limit number of points to avoid huge requests
-    max_points = 2000
-    if len(coords) > max_points:
-        coords = coords[:: max(1, len(coords) // max_points)]
-
-    feats = [ee.Feature(ee.Geometry.Point([lon, lat])) for lon, lat in coords]
-    pts_fc = ee.FeatureCollection(feats)
-
-    # sample
-    try:
-        sample = image.sampleRegions(collection=pts_fc, scale=scale, geometries=True)
-        info = sample.getInfo()
-    except Exception as e:
-        print("❌ Error al muestrear la imagen VIIRS:", type(e), e)
-        return None
-
-    features = info.get('features', [])
-    if not features:
-        print("⚠️ Muestreo no devolvió features.")
-        return None
+    with open(gj, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    munis = [(feat.get("properties", {}).get("NAME" ) or feat.get("properties", {}).get("name"), shape(feat.get("geometry"))) for feat in data.get("features", [])]
 
     rows = []
-    band_names = list(image.bandNames().getInfo())
-    for f in features:
-        props = f.get('properties', {})
-        geom = f.get('geometry', {})
-        coords = None
-        if geom and geom.get('type') == 'Point':
-            coords = geom.get('coordinates')
-        row = {b: props.get(b) for b in band_names}
-        if coords:
-            row['lon'] = coords[0]
-            row['lat'] = coords[1]
-        rows.append(row)
-
+    for tif in tif_paths:
+        base = os.path.basename(tif)
+        try:
+            ym = base.replace('.tif','').split('_')[-1]
+            year = int(ym[:4]); month = int(ym[4:6])
+        except Exception:
+            year = None; month = None
+        try:
+            ds = rasterio.open(tif)
+        except Exception as e:
+            print("❌ No se pudo abrir tif:", tif, e)
+            continue
+        for name, geom in munis:
+            if sample_mode == 'centroid':
+                pt = geom.centroid
+                try:
+                    # transform lon/lat to dataset CRS if needed
+                    coords = [(pt.x, pt.y)]
+                    # rasterio.sample expects coords in dataset CRS; assume tif is EPSG:4326 or small error otherwise
+                    vals = list(ds.sample(coords))
+                    val = float(vals[0][0]) if vals and len(vals[0])>0 else None
+                    if val is None or (ds.nodatavals and val == ds.nodatavals[0]):
+                        rows.append({"municipality": name, "year": year, "month": month, "mean": None, "tif": tif})
+                    else:
+                        rows.append({"municipality": name, "year": year, "month": month, "mean": float(val), "tif": tif})
+                except Exception:
+                    rows.append({"municipality": name, "year": year, "month": month, "mean": None, "tif": tif})
+            else:
+                # mask mode
+                try:
+                    out_image, _ = rasterio.mask.mask(ds, [json.loads(json.dumps(geom.__geo_interface__))], crop=True)
+                except Exception:
+                    rows.append({"municipality": name, "year": year, "month": month, "mean": None, "tif": tif})
+                    continue
+                arr = out_image[0].astype(float)
+                nd = ds.nodatavals[0] if ds.nodatavals else None
+                if nd is not None:
+                    arr[arr == nd] = np.nan
+                valid = np.isfinite(arr)
+                if not valid.any():
+                    rows.append({"municipality": name, "year": year, "month": month, "mean": None, "tif": tif})
+                else:
+                    rows.append({"municipality": name, "year": year, "month": month, "mean": float(np.nanmean(arr)), "tif": tif})
+        ds.close()
     df = pd.DataFrame(rows)
-    # ensure out dir exists
-    out_dir = os.path.abspath(os.path.dirname(out_csv))
-    os.makedirs(out_dir, exist_ok=True)
+    os.makedirs(os.path.dirname(out_csv), exist_ok=True)
     df.to_csv(out_csv, index=False)
-    print(f"✅ VIIRS sample guardado en: {out_csv} (filas: {len(df)})")
+    print(f"✅ Guardado {out_csv}")
     return out_csv
+
+
+def export_viirs_periods(periods: List[Tuple[int,int]], aggregate_level: str = 'province', url_template: Optional[str] = None, provinces_geojson: Optional[str] = None, municipalities_geojson: Optional[str] = None, out_dir: str = "data/luz_nocturna/viirs_tifs", out_csv: Optional[str] = None, sample_mode: str = 'centroid') -> Optional[str]:
+    """High level: download periods and aggregate by requested level ('province' or 'municipality').
+    """
+    tifs = download_viirs_timeseries(periods, url_template=url_template, out_dir=out_dir)
+    if not tifs:
+        return None
+    if aggregate_level == 'province':
+        out = out_csv or os.path.join(os.path.dirname(out_dir), 'viirs_by_province.csv')
+        return aggregate_by_province(tifs, provinces_geojson=provinces_geojson, out_csv=out)
+    else:
+        out = out_csv or os.path.join(os.path.dirname(out_dir), 'viirs_by_municipality.csv')
+        return aggregate_by_municipality(tifs, municipalities_geojson=municipalities_geojson, out_csv=out, sample_mode=sample_mode)
 
 
 if __name__ == '__main__':
-    # ejemplo rápido
-    export_viirs_spain()
+    print("Este módulo proporciona utilidades para descargar y agregar VIIRS. Importa las funciones desde tu script.")
+
+
+
+def download_viirs_timeseries(year_from: int, year_to: int, months: list[int] | None = None, url_template: str = None, out_dir: str = "data/luz_nocturna/viirs_tifs") -> list:
+    """Download monthly VIIRS GeoTIFFs for a range of years.
+
+    Parameters:
+      year_from, year_to: inclusive range of years
+      months: list of month ints (1-12). If None, defaults to 1..12.
+      url_template: template containing {year} and {month:02d}. If None, reads env var VIIRS_URL_TEMPLATE.
+      out_dir: directory to store downloaded tifs.
+
+    Returns list of local file paths downloaded (or existing).
+    """
+    if months is None:
+        months = list(range(1, 13))
+    if not url_template:
+        url_template = os.getenv('VIIRS_URL_TEMPLATE')
+    if not url_template:
+        print("❌ No hay plantilla de URL para VIIRS. Define VIIRS_URL_TEMPLATE o pasa url_template al llamar.")
+        return []
+
+    os.makedirs(out_dir, exist_ok=True)
+    downloaded = []
+    for year in range(year_from, year_to + 1):
+        for month in months:
+            url = None
+            try:
+                url = url_template.format(year=year, month=month)
+            except Exception as e:
+                print(f"⚠️ Error formateando la plantilla con year={year} month={month}:", e)
+                continue
+            fname = f"viirs_{year}{month:02d}.tif"
+            out_path = os.path.join(out_dir, fname)
+            if os.path.exists(out_path):
+                print(f"→ Ya existe: {out_path}")
+                downloaded.append(out_path)
+                continue
+            print(f"→ Descargando {url} -> {out_path}")
+            ok = _download_file(url, out_path)
+            if ok:
+                downloaded.append(out_path)
+            else:
+                print(f"  ⚠️ Falló descarga para {year}-{month:02d}")
+    return downloaded
+
+
+DEFAULT_PROVINCES_GEOJSON = "https://raw.githubusercontent.com/codeforgermany/click_that_hood/main/public/data/spain-provinces.geojson"
+
+
+def _ensure_provinces_geojson(local_path: str | None = None, url: str = DEFAULT_PROVINCES_GEOJSON) -> str | None:
+    """Return a path to a GeoJSON of Spanish provinces. If local_path exists, use it; otherwise download from url into a temp file."""
+    if local_path and os.path.exists(local_path):
+        return local_path
+    try:
+        print(f"→ Descargando GeoJSON de provincias desde: {url}")
+        resp = requests.get(url, timeout=60)
+        resp.raise_for_status()
+        tmpf = tempfile.NamedTemporaryFile(delete=False, suffix="_provinces.geojson")
+        tmpf.write(resp.content)
+        tmpf.flush()
+        tmpf.close()
+        return tmpf.name
+    except Exception as e:
+        print("❌ No se pudo obtener GeoJSON de provincias:", type(e), e)
+        return None
+
+
+def aggregate_viirs_by_province(tif_paths: list[str], provinces_geojson: str | None = None, out_csv: str = "data/luz_nocturna/viirs_province_timeseries.csv") -> str | None:
+    """Aggregate list of VIIRS GeoTIFFs by Spanish province.
+
+    For each tif file, attempts to compute the mean value within each province polygon.
+    Returns path to CSV with columns: province, year, month, mean, count
+    """
+    if not tif_paths:
+        print("⚠️ No hay GeoTIFFs para agregar.")
+        return None
+
+    gj_path = _ensure_provinces_geojson(provinces_geojson)
+    if not gj_path:
+        print("❌ No hay geojson de provincias disponible. Proporciona provinces_geojson.")
+        return None
+
+    # load geojson
+    with open(gj_path, 'r', encoding='utf-8') as f:
+        gj = json.load(f)
+    features = gj.get('features', [])
+    provinces = []
+    for feat in features:
+        props = feat.get('properties', {})
+        # heurística de nombre
+        name = props.get('name') or props.get('NAME') or props.get('prov_name') or props.get('province') or props.get('ADMIN') or str(props)
+        provinces.append({'name': name, 'geometry': feat.get('geometry')})
+
+    rows = []
+    for tif in tif_paths:
+        try:
+            base = os.path.basename(tif)
+            # intentar extraer year/month del nombre viirs_YYYYMM.tif
+            parts = base.replace('.tif','').split('_')
+            ym = parts[-1]
+            year = int(ym[:4])
+            month = int(ym[4:6])
+        except Exception:
+            year = None
+            month = None
+
+        try:
+            ds = rasterio.open(tif)
+        except Exception as e:
+            print(f"❌ No se pudo abrir {tif}:", type(e), e)
+            continue
+
+        band_count = ds.count
+        for prov in provinces:
+            geom = prov['geometry']
+            try:
+                out_image, out_transform = rasterio.mask.mask(ds, [geom], crop=True)
+            except Exception:
+                # no intersección or error
+                mean_val = None
+                count = 0
+                rows.append({'province': prov['name'], 'year': year, 'month': month, 'mean': mean_val, 'count': count, 'tif': tif})
+                continue
+            # out_image shape: (bands, h, w)
+            arr = out_image.astype(float)
+            # set nodata to nan
+            nd = ds.nodata
+            if nd is not None:
+                arr[arr == nd] = np.nan
+            # compute mean across all bands by stacking first band only (assume radiance in band 1)
+            band_arr = arr[0]
+            # mask all-nans
+            valid = np.isfinite(band_arr)
+            if not valid.any():
+                mean_val = None
+                count = 0
+            else:
+                mean_val = float(np.nanmean(band_arr))
+                count = int(np.sum(valid))
+            rows.append({'province': prov['name'], 'year': year, 'month': month, 'mean': mean_val, 'count': count, 'tif': tif})
+        ds.close()
+
+    import pandas as pd
+    df = pd.DataFrame(rows)
+    os.makedirs(os.path.dirname(out_csv), exist_ok=True)
+    df.to_csv(out_csv, index=False)
+    print(f"✅ Agregación por provincia guardada en: {out_csv} (filas: {len(df)})")
+    return out_csv
+
+
+
+def export_viirs_timeseries_by_province(periods: list[tuple], url_template: str | None = None, provinces_geojson: str | None = None, out_dir: str = "data/luz_nocturna/viirs_tifs", out_csv: str = "data/luz_nocturna/viirs_province_timeseries.csv") -> str | None:
+    """Download VIIRS for explicit (year, month) periods and aggregate by province.
+
+    periods: list of (year, month) tuples, e.g. [(2023,1),(2023,2)]
+    url_template: optional template (overrides env)
+    provinces_geojson: optional geojson path for provinces
+    out_dir: folder to store downloaded tifs
+    out_csv: output CSV path
+
+    Returns path to out_csv or None on failure.
+    """
+    # Prepare list of months grouped by year for the downloader convenience
+    if not periods:
+        print("⚠️ No se proporcionaron periodos (year,month).")
+        return None
+
+    # normalize into dict year->[months]
+    years = {}
+    for y, m in periods:
+        years.setdefault(int(y), []).append(int(m))
+
+    # download files
+    downloaded = []
+    for y, months in years.items():
+        files = download_viirs_timeseries(y, y, months=sorted(list(set(months))), url_template=url_template, out_dir=out_dir)
+        downloaded.extend(files)
+
+    if not downloaded:
+        print("❌ No se descargaron GeoTIFFs.")
+        return None
+
+    # aggregate by province
+    result = aggregate_viirs_by_province(downloaded, provinces_geojson=provinces_geojson, out_csv=out_csv)
+    return result
