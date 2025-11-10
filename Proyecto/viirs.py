@@ -3,6 +3,7 @@ import geemap
 import pandas as pd
 from tqdm import tqdm
 
+# Autenticación e inicialización
 ee.Authenticate()
 ee.Initialize(project='bubbly-reducer-477312-d0')
 
@@ -22,15 +23,20 @@ municipios_unicos = municipios_raw.distinct('GISCO_ID').map(disolver_por_municip
 
 # 3) VIIRS mensual
 def viirs_mes(fecha_iso):
-    return ee.ImageCollection("NOAA/VIIRS/DNB/MONTHLY_V1/VCMCFG") \
-        .filterDate(fecha_iso, ee.Date(fecha_iso).advance(1, 'month')) \
-        .select('avg_rad') \
+    return (
+        ee.ImageCollection("NOAA/VIIRS/DNB/MONTHLY_V1/VCMCFG")
+        .filterDate(fecha_iso, ee.Date(fecha_iso).advance(1, 'month'))
+        .select('avg_rad')
         .first()
+    )
 
-reducer = ee.Reducer.mean() \
-    .combine(ee.Reducer.min(), sharedInputs=True) \
-    .combine(ee.Reducer.max(), sharedInputs=True) \
+# Reducers combinados (media, min, max, desviación estándar)
+reducer = (
+    ee.Reducer.mean()
+    .combine(ee.Reducer.min(), sharedInputs=True)
+    .combine(ee.Reducer.max(), sharedInputs=True)
     .combine(ee.Reducer.stdDev(), sharedInputs=True)
+)
 
 def zonal_stats(img, fecha_iso):
     return img.reduceRegions(
@@ -40,10 +46,10 @@ def zonal_stats(img, fecha_iso):
         tileScale=8
     ).map(lambda f: f.set('date', ee.Date(fecha_iso).format('YYYY-MM')))
 
-# 4) Rango de meses
-meses = pd.date_range("2020-01-01", "2020-02-01", freq="MS")
-dfs = []
+# 4) 🔄 Rango de meses — ahora de 2020 a 2025 (5 años)
+meses = pd.date_range("2018-01-01", "2023-01-01", freq="MS")
 
+dfs = []
 for fecha in tqdm(meses, desc="Descargando meses"):
     img = viirs_mes(str(fecha.date()))
     if img is None:
@@ -52,8 +58,9 @@ for fecha in tqdm(meses, desc="Descargando meses"):
     df_mes = geemap.ee_to_df(stats)
     dfs.append(df_mes)
 
-# 5) Concatenar y guardar
+# 5) Concatenar y guardar CSV único
 df = pd.concat(dfs, ignore_index=True)
-df.to_csv("viirs_municipios.csv", index=False)
-print("✅ CSV único guardado: viirs_municipios.csv")
+df.to_csv("viirs_municipios_2020_2025.csv", index=False)
+
+print("✅ CSV único guardado: viirs_municipios_2020_2025.csv")
 print("Filas por mes:", len(df) // len(meses))
