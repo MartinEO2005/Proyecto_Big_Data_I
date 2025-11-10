@@ -1,11 +1,10 @@
 import pandas as pd
 
 # 1) Leer CSV completo
-df = pd.read_csv("viirs_municipios_2meses.csv")
+df = pd.read_csv(r"C:\Users\Martin Otero\Desktop\luminosidad_municipios.csv")
 
 # 2) Normalizar nombres de columnas
 df = df.rename(columns={
-    'GISCO_ID': 'id',
     'LAU_NAME': 'municipio'
 })
 if 'date' not in df.columns:
@@ -16,7 +15,7 @@ if 'date' not in df.columns:
             break
 
 # 3) Deduplicar: una fila por municipio+mes
-key_cols = ['id','date']
+key_cols = ['date']
 num_cols = df.select_dtypes(include=['number']).columns.tolist()
 agg_dict = {c: 'mean' for c in num_cols if c not in key_cols}
 

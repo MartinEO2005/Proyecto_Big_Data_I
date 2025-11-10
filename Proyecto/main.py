@@ -2,7 +2,6 @@ from config import OUTDIR, COLLECTION_S2, COLLECTION_S1, DATE_FROM, DATE_TO, MAX
 from catalog import build_filter, query_catalog, items_to_df
 from osm import fetch_rail_stations
 from storage import save_df_to_theme
-from viirs import tqdm, pd
 
 # módulos de demografía
 import demografia
@@ -93,72 +92,6 @@ def run_all():
             print("  ⚠️ demografiaciudades no devolvió datos (vacío)")
     except Exception as e:
         print("  ❌ Error al ejecutar demografiaciudades:", type(e), e)
-
-        # 5) VIIRS desde Earth Engine (dos bloques de 5 años)
-    try:
-        print("-> Descargando VIIRS desde Earth Engine (municipios España)")
-        import ee, geemap
-        ee.Authenticate()
-        ee.Initialize(opt_project='bubbly-reducer-477312-d0')
-
-        municipios_raw = ee.FeatureCollection(
-            "projects/bubbly-reducer-477312-d0/assets/LAU_RG_01M_2024_3035"
-        ).filter(ee.Filter.eq('CNTR_CODE', 'ES'))
-
-        def disolver_por_municipio(f):
-            gid = f.get('GISCO_ID')
-            nombre = f.get('LAU_NAME')
-            geom = municipios_raw.filter(ee.Filter.eq('GISCO_ID', gid)).geometry().dissolve()
-            return ee.Feature(geom).set({'GISCO_ID': gid, 'LAU_NAME': nombre})
-
-        municipios_unicos = municipios_raw.distinct('GISCO_ID').map(disolver_por_municipio)
-
-        def viirs_mes(fecha_iso):
-            return ee.ImageCollection("NOAA/VIIRS/DNB/MONTHLY_V1/VCMCFG") \
-                .filterDate(fecha_iso, ee.Date(fecha_iso).advance(1, 'month')) \
-                .select('avg_rad') \
-                .first()
-
-        reducer = ee.Reducer.mean() \
-            .combine(ee.Reducer.min(), sharedInputs=True) \
-            .combine(ee.Reducer.max(), sharedInputs=True) \
-            .combine(ee.Reducer.stdDev(), sharedInputs=True)
-
-        def zonal_stats(img, fecha_iso):
-            return img.reduceRegions(
-                collection=municipios_unicos,
-                reducer=reducer,
-                scale=500,
-                tileScale=8
-            ).map(lambda f: f.set('date', ee.Date(fecha_iso).format('YYYY-MM')))
-
-        def descargar_bloque(inicio, fin, nombre_csv):
-            meses = pd.date_range(inicio, fin, freq="MS")
-            dfs = []
-            for fecha in tqdm(meses, desc=f"VIIRS {inicio} a {fin}"):
-                img = viirs_mes(str(fecha.date()))
-                if img is None:
-                    continue
-                stats = zonal_stats(img, str(fecha.date()))
-                df_mes = geemap.ee_to_df(stats)
-                dfs.append(df_mes)
-            df = pd.concat(dfs, ignore_index=True)
-            p = save_df_to_theme(df, "luz_nocturna", nombre_csv, base_outdir=OUTDIR)
-            print("  ✅ VIIRS bloque guardado en:", p)
-            return df
-
-        # Descargar dos bloques de 5 años
-        df1 = descargar_bloque("2013-01-01", "2018-01-01", "viirs_municipios_2013_2017.csv")
-        df2 = descargar_bloque("2018-01-01", "2023-01-01", "viirs_municipios_2018_2022.csv")
-
-        # Unir ambos
-        df_all = pd.concat([df1, df2], ignore_index=True)
-        p_final = save_df_to_theme(df_all, "luz_nocturna", "viirs_municipios_2013_2022.csv", base_outdir=OUTDIR)
-        print("  ✅ VIIRS final guardado en:", p_final)
-
-    except Exception as e:
-        print("  ❌ Error al descargar VIIRS:", type(e), e)
-
 
 if __name__ == "__main__":
     run_all()
