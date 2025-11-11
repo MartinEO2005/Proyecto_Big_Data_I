@@ -69,6 +69,6 @@ def save_population_data(df: pd.DataFrame):
 
 
 if __name__ == "__main__":
-    df = fetch_population_by_municipality(years=1)  # Cambia a None para todos los años
+    df = fetch_population_by_municipality(None)  # Cambia a None para todos los años
     save_population_data(df)
     print(df.head())
