@@ -93,23 +93,5 @@ def run_all():
     except Exception as e:
         print("  ❌ Error al ejecutar demografiaciudades:", type(e), e)
 
-    # 5) Intentar ejecutar viirs (Earth Engine). IMPORTANTE: puede requerir autenticación/EE)
-    try:
-        print("-> Intentando obtener VIIRS via mirror público (sin Earth Engine)")
-        import viirs as vi
-        out_csv = os.path.join(OUTDIR, "luz_nocturna", "viirs_spain_sample.csv")
-        # Llama al downloader genérico que usa VIIRS_URL_TEMPLATE (o parámetro) y muestrea
-        # pasar la plantilla desde config (puede ser None)
-        p = vi.export_viirs_spain_aws(out_csv=out_csv, spacing_km=10, aoi_wkt=AOI_WKT, url_template=VIIRS_URL_TEMPLATE)
-        if p:
-            print("  ✅ VIIRS descargado y muestreado en:", p)
-        else:
-            print("  ⚠️ VIIRS no se pudo descargar/muestrear. Revisa la variable VIIRS_URL_TEMPLATE o descarga manualmente.")
-    except Exception as e:
-        print("  ⚠️ viirs no pudo ejecutarse/importarse:", type(e), e)
-
-    print("Orquestador: ejecución terminada.")
-
-
 if __name__ == "__main__":
     run_all()
