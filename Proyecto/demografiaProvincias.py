@@ -1,15 +1,12 @@
-# demografia.py
+# demografiaProvincias.py
 import requests
 import pandas as pd
 from pathlib import Path
 
-# --- Configuración ---
-EUROSTAT_API_URL = "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/demo_r_pjanaggr3"
+__all__ = ["fetch_population_total_nuts3", "save_population_data", "fetch_population_and_save"]
 
-# Carpeta de salida (como en los otros módulos del proyecto)
-OUTDIR = Path(__file__).resolve().parent.parent / "neo_lumina_output"
-OUTDIR.mkdir(parents=True, exist_ok=True)
-OUTPUT_FILE = OUTDIR / "demografia_poblacion.csv"
+# --- Configuración por defecto ---
+EUROSTAT_API_URL = "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/demo_r_pjanaggr3"
 
 
 def fetch_population_total_nuts3():
@@ -65,16 +62,30 @@ def fetch_population_total_nuts3():
     return df
 
 
-def save_population_data(df: pd.DataFrame):
+def save_population_data(df: pd.DataFrame, outdir: Path = None, filename="demografia_poblacion.csv"):
     """Guarda los datos en un archivo CSV"""
     if df.empty:
         print("⚠️ No hay datos para guardar.")
-        return
-    df.to_csv(OUTPUT_FILE, index=False)
-    print(f"💾 Datos guardados en: {OUTPUT_FILE}")
+        return None
+    if outdir is None:
+        outdir = Path(__file__).resolve().parent / "data"
+    outdir.mkdir(parents=True, exist_ok=True)
+    output_file = outdir / filename
+    df.to_csv(output_file, index=False)
+    print(f"💾 Datos guardados en: {output_file}")
+    return output_file
+
+
+def fetch_population_and_save(base_outdir="data", filename="demografia_poblacion.csv"):
+    """
+    Función principal para el main.py.
+    Descarga los datos y los guarda en CSV en `base_outdir`.
+    Devuelve la ruta del archivo guardado.
+    """
+    df = fetch_population_total_nuts3()
+    path = save_population_data(df, outdir=Path(base_outdir), filename=filename)
+    return path
 
 
 if __name__ == "__main__":
-    df = fetch_population_total_nuts3()
-    save_population_data(df)
-    print(df.head())
+    fetch_population_and_save()
