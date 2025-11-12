@@ -1,15 +1,13 @@
-# demografia.py
+# demografiaProvincias.py
 import requests
 import pandas as pd
 from pathlib import Path
+from storage import save_df_to_theme  # ✅ integración con storage.py
 
-# --- Configuración ---
+__all__ = ["fetch_population_total_nuts3", "fetch_population_and_save"]
+
+# --- Configuración por defecto ---
 EUROSTAT_API_URL = "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/demo_r_pjanaggr3"
-
-# Carpeta de salida (como en los otros módulos del proyecto)
-OUTDIR = Path(__file__).resolve().parent.parent / "neo_lumina_output"
-OUTDIR.mkdir(parents=True, exist_ok=True)
-OUTPUT_FILE = OUTDIR / "demografia_poblacion.csv"
 
 
 def fetch_population_total_nuts3():
@@ -65,16 +63,22 @@ def fetch_population_total_nuts3():
     return df
 
 
-def save_population_data(df: pd.DataFrame):
-    """Guarda los datos en un archivo CSV"""
-    if df.empty:
-        print("⚠️ No hay datos para guardar.")
-        return
-    df.to_csv(OUTPUT_FILE, index=False)
-    print(f"💾 Datos guardados en: {OUTPUT_FILE}")
+def fetch_population_and_save(base_outdir="outputs/data", filename="demografia_poblacion_provincias.csv"):
+    """
+    Función principal para el main.py.
+    Descarga los datos y los guarda en CSV dentro de la carpeta temática 'demografia'.
+    Devuelve la ruta del archivo guardado.
+    """
+    df = fetch_population_total_nuts3()
+    if df is None or df.empty:
+        print("⚠️ No hay datos demográficos para guardar.")
+        return None
+
+    # ✅ Usa el sistema de carpetas de storage.py
+    path = save_df_to_theme(df, theme="demografia", filename=filename, base_outdir=base_outdir)
+    print(f"💾 Datos demográficos guardados en: {path}")
+    return path
 
 
 if __name__ == "__main__":
-    df = fetch_population_total_nuts3()
-    save_population_data(df)
-    print(df.head())
+    fetch_population_and_save()

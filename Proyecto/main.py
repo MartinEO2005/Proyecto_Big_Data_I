@@ -4,7 +4,7 @@ from osm import fetch_rail_stations
 from storage import save_df_to_theme
 
 # módulos de demografía
-import demografia
+import demografiaProvincias
 import demografiaciudades
 
 import os
@@ -55,31 +55,19 @@ def run_all():
     except Exception as e:
         print("  ❌ Error al descargar estaciones OSM:", type(e), e)
 
-    # 3) Demografía (INE)
-    try:
-        print("-> Descargando datos demográficos (INE)...")
-        # demografia.fetch_population_and_save guarda dos CSVs y devuelve las rutas
-        if hasattr(demografia, "fetch_population_and_save"):
-            path_mun, path_prov = demografia.fetch_population_and_save(filename_municipal="population_municipal.csv",
-                                                                        filename_province="population_by_province.csv",
-                                                                        base_outdir=OUTDIR)
-            print("  ✅ Demografía guardada:", path_mun, path_prov)
-        else:
-            # Fallback: intentar obtener el dataframe vía fetch_population_ine_api()
-            print("  ⚠️ demografia.fetch_population_and_save no disponible; usando fallback fetch_population_ine_api()")
-            if hasattr(demografia, "fetch_population_ine_api"):
-                df_demo = demografia.fetch_population_ine_api()
-                if df_demo is not None and not df_demo.empty:
-                    p1 = save_df_to_theme(df_demo, "demografia", "population_municipal.csv", base_outdir=OUTDIR)
-                    df_prov = df_demo.groupby(["province", "year"], as_index=False)["population"].sum().rename(columns={"population": "population_total"})
-                    p2 = save_df_to_theme(df_prov, "demografia", "population_by_province.csv", base_outdir=OUTDIR)
-                    print("  ✅ Demografía guardada (fallback):", p1, p2)
-                else:
-                    print("  ⚠️ Fallback demografia no devolvió datos.")
+     # 3) Demografía (Eurostat)
+        try:
+            print("-> Descargando datos demográficos (Eurostat, provincias)...")
+            import demografiaProvincias as demografia_prov
+
+            path_demografia = demografia_prov.fetch_population_and_save(base_outdir=OUTDIR)
+            if path_demografia is not None:
+                print("  ✅ Demografía guardada en:", path_demografia)
             else:
-                print("  ❌ demografia no expone funciones utilizables en este entorno.")
-    except Exception as e:
-        print("  ❌ Error al ejecutar demografia.fetch_population_and_save:", type(e), e)
+                print("  ⚠️ No se pudieron obtener datos demográficos (DataFrame vacío).")
+        except Exception as e:
+            print("  ❌ Error al ejecutar demografiaProvincias.fetch_population_and_save:", type(e), e)
+
 
     # 4) Demografía por ciudades (INE alternativa)
     try:
