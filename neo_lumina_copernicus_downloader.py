@@ -51,6 +51,14 @@ from pathlib import Path
 import re
 import subprocess
 
+import hashlib
+
+import os
+
+os.environ["COPERNICUS_USER"] = "46jiangwenjie@gmail.com"
+os.environ["COPERNICUS_PASSWORD"] = "X-66404611mm"
+
+
 CAT_BASE = "https://catalogue.dataspace.copernicus.eu/odata/v1/Products"
 TOKEN_URL = "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
 
@@ -176,8 +184,9 @@ def follow_redirects(session: requests.Session, url: str, max_hops: int = 10) ->
 def download_product_zip(session: requests.Session, product_id: str, identifier: str, out_dir: str, overwrite: bool = False) -> str:
     """
     Descarga el .SAFE (ZIP) completo desde el endpoint OData Products(<GUID>)/$value
-    (versión streaming: menos RAM y más robusta)
+    Gestiona redirecciones manualmente para conservar Authorization y reintenta cortes de conexión.
     """
+    # URL inicial en catalogue (tu CAT_BASE ya apunta a catalogue)
     url = f"{CAT_BASE}({product_id})/$value"
     os.makedirs(out_dir, exist_ok=True)
     out_zip = os.path.join(out_dir, f"{identifier}.zip")
@@ -186,17 +195,42 @@ def download_product_zip(session: requests.Session, product_id: str, identifier:
         print(f"➜ Ya existe {out_zip}, se omite descarga.")
         return out_zip
 
-    # seguimos respetando redirecciones
-    # pero ahora haremos la petición final en streaming
-    resp = session.get(url, allow_redirects=True, stream=True, timeout=600)
-    resp.raise_for_status()
+    # --- redirecciones manuales (sin perder Authorization) ---
+    r = session.get(url, allow_redirects=False, timeout=120)
+    hops = 0
+    final_url = url
+    while r.status_code in (301, 302, 303, 307, 308) and hops < 10:
+        loc = r.headers.get("Location")
+        if not loc:
+            break
+        final_url = loc
+        r = session.get(final_url, allow_redirects=False, timeout=120)
+        hops += 1
 
-    with open(out_zip, "wb") as f:
-        for chunk in resp.iter_content(chunk_size=1024 * 1024):  # 1MB
-            if chunk:
-                f.write(chunk)
+    # --- descarga con reintentos y backoff exponencial ---
+    max_retries = 3
+    backoff = 3  # segundos
+    last_exc = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            resp = session.get(final_url, stream=True, timeout=600)
+            resp.raise_for_status()
+            with open(out_zip, "wb") as f:
+                for chunk in resp.iter_content(chunk_size=1024 * 1024):  # 1MB
+                    if chunk:
+                        f.write(chunk)
+            return out_zip  # éxito
+        except requests.exceptions.RequestException as e:
+            last_exc = e
+            if attempt == max_retries:
+                raise
+            print(f"Conexión interrumpida, reintento {attempt}/{max_retries} en {backoff}s… ({e})")
+            time.sleep(backoff)
+            backoff *= 2
 
-    return out_zip
+    # Si llegó aquí, re-levanta la última excepción
+    if last_exc:
+        raise last_exc
 
 
 # ----------------- extracción desde el ZIP -----------------
@@ -271,14 +305,22 @@ def extract_selected_from_zip(zip_path: str, mode: str, bands: list[str] | None,
         os.makedirs(base_out, exist_ok=True)
 
         for m in sorted(to_get):
-            safe_name = m.replace("/", "_")
+            # nombre base + hash corto para evitar rutas larguísimas en Windows
+            orig_name = Path(m).name
+            h = hashlib.sha1(m.encode("utf-8")).hexdigest()[:8]
+            safe_name = f"{h}_{orig_name}"  # p.ej. 1a2b3c4d_T30TVK_..._TCI_10m.jp2
+
             out_file = os.path.join(base_out, safe_name)
+            os.makedirs(os.path.dirname(out_file), exist_ok=True)
+
             with zf.open(m) as src, open(out_file, "wb") as dst:
                 dst.write(src.read())
+
             extracted.append(out_file)
             print(f"✔ Extraído: {out_file}")
 
     return extracted
+
 
 # ----------------- conversión JP2 -> GeoTIFF/COG -----------------
 
