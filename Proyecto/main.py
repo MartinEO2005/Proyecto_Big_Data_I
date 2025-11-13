@@ -2,6 +2,10 @@ from config import OUTDIR, COLLECTION_S2, COLLECTION_S1, DATE_FROM, DATE_TO, MAX
 from catalog import build_filter, query_catalog, items_to_df
 from osm import fetch_rail_stations
 from storage import save_df_to_theme
+from tqdm import tqdm
+import os
+import viirs
+import time
 
 # módulos de demografía
 import demografiaProvincias
@@ -72,7 +76,7 @@ def run_all():
     # 4) Demografía por ciudades (INE alternativa)
     try:
         print("-> Descargando población por municipio (demografiaciudades)...")
-        df_cities = demografiaciudades.fetch_population_by_municipality(years=1)
+        df_cities = demografiaciudades.fetch_population_by_municipality(years=30)
         if df_cities is not None and not df_cities.empty:
             p = save_df_to_theme(df_cities, "demografia", "demografia_poblacion_municipios.csv", base_outdir=OUTDIR)
             print("  ✅ Demografía municipales guardada en:", p)
@@ -80,6 +84,27 @@ def run_all():
             print("  ⚠️ demografiaciudades no devolvió datos (vacío)")
     except Exception as e:
         print("  ❌ Error al ejecutar demografiaciudades:", type(e), e)
+ 
+    # 5) VIIRS (descarga y limpieza)
+try:
+    print("\n🌙 -> Descargando datos de luz nocturna VIIRS (NOAA)...")
+
+        # Barra de progreso simple para envolver toda la descarga
+    start_time = time.time()
+    for _ in tqdm(range(1), desc="Descargando VIIRS", ncols=80, colour="cyan"):
+            viirs.fetch_viirs_and_save(
+                geojson_path="municipios_es.geojson",
+                anio_ini=2018,
+                anio_fin=2019,
+                base_outdir=OUTDIR,
+            )
+
+    elapsed = time.time() - start_time
+    print(f"\n⏱️ Tiempo total VIIRS: {elapsed/60:.2f} minutos")
+
+except Exception as e:
+    print("  ❌ Error al ejecutar módulo VIIRS:", type(e), e)
+
 
 if __name__ == "__main__":
     run_all()
