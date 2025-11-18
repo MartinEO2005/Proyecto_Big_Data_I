@@ -7,38 +7,66 @@ from tqdm import tqdm
 import os
 import time
 import pandas as pd
+import ee
 
 import viirs
 import demografiaProvincias
 import demografiaciudades
-import viirs_provincial_gaul # módulo que genera CSV provincial (debe exponer main())
+import viirs_provincias_gaul  # módulo provincial (main(outdir, project))
+
+# ROOT unificado para todos los outputs de datos
+BASE_DIR = "data"
+LUZ_DIR = os.path.join(BASE_DIR, "luz_nocturna")
+PROV_DIR = os.path.join(LUZ_DIR, "provincias")
+MUN_DIR  = os.path.join(LUZ_DIR, "municipios")
+DEFAULT_PROJECT = "bubbly-reducer-477312-d0"
 
 def ensure_outdir(path: str):
     os.makedirs(path, exist_ok=True)
 
-def run_all():
-    """Orquestador principal: ejecuta módulos y guarda CSVs en OUTDIR."""
-    print("Orquestador: iniciando ejecución de módulos. Salida en:", OUTDIR)
-    ensure_outdir(OUTDIR)
+def init_ee_orchestrator(project: str | None = DEFAULT_PROJECT):
+    """Inicializa Earth Engine una vez desde el orquestador."""
+    try:
+        ee.Initialize(project=project)
+        print(f"✅ Earth Engine inicializado desde orquestador (project={project})")
+    except Exception:
+        print("🔑 Autenticando Earth Engine desde orquestador...")
+        ee.Authenticate()
+        ee.Initialize(project=project)
+        print(f"✅ Earth Engine autenticado e inicializado desde orquestador (project={project})")
 
-    # 0) VIIRS por provincias (EE) -> ahora ejecutamos primero para que puedas verlo pronto
+def run_all():
+    """Orquestador principal: ejecuta módulos y guarda CSVs en data/..."""
+    print("Orquestador: iniciando ejecución de módulos. Salida en:", BASE_DIR)
+    ensure_outdir(BASE_DIR)
+    ensure_outdir(LUZ_DIR)
+    ensure_outdir(PROV_DIR)
+    ensure_outdir(MUN_DIR)
+
+    # Inicializar Earth Engine centralmente
+    try:
+        init_ee_orchestrator(project=DEFAULT_PROJECT)
+    except Exception as e:
+        print("  ❌ Error inicializando Earth Engine en orquestador:", type(e), e)
+        # No continuar si no hay EE
+        return
+
+    # 0) VIIRS por provincias (EE) -> prioridad, escribe en data/luz_nocturna/provincias
     try:
         print("\n🌙 -> Generando VIIRS por provincias (EE) [PRIORIDAD]")
-        csv_path = None
         try:
-            csv_path = viirs_provincial_gaul.main()
-        except Exception as e:
-            print("  ⚠️ Error ejecutando viirs_provincias_gaul.main():", type(e), e)
-            raise
-
+            csv_path = viirs_provincias_gaul.main(outdir=PROV_DIR, project=DEFAULT_PROJECT)
+        except TypeError:
+            # si el módulo no acepta project param, intentar con solo outdir
+            csv_path = viirs_provincias_gaul.main(outdir=PROV_DIR)
         if csv_path:
-            try:
-                df_viirs_prov = pd.read_csv(csv_path)
-                saved = save_df_to_theme(df_viirs_prov, theme="luz_nocturna", filename=os.path.basename(csv_path), base_outdir=OUTDIR)
-                print("  ✅ VIIRS provincias guardado en:", saved)
-            except Exception as e:
-                print("  ⚠️ No se pudo guardar VIIRS provincias con save_df_to_theme:", type(e), e)
-                print("  -> El CSV está en:", csv_path)
+            df_viirs_prov = pd.read_csv(csv_path)
+            saved = save_df_to_theme(df_viirs_prov,
+                                     theme="luz_nocturna",
+                                     filename=os.path.basename(csv_path),
+                                     base_outdir=BASE_DIR,
+                                     subpath="provincias")
+            print("  ✅ VIIRS provincias guardado en:", saved)
         else:
             print("  ⚠️ El módulo de VIIRS no devolvió ruta al CSV final.")
     except Exception as e:
@@ -50,7 +78,7 @@ def run_all():
         filt_s2 = build_filter(COLLECTION_S2, DATE_FROM, DATE_TO, aoi_wkt=AOI_WKT, cloud=MAX_CLOUD)
         items_s2 = query_catalog(filt_s2, top=TOP)
         df_s2 = items_to_df(items_s2)
-        p = save_df_to_theme(df_s2, "satelital", "sentinel2_products.csv", base_outdir=OUTDIR)
+        p = save_df_to_theme(df_s2, "satelital", "sentinel2_products.csv", base_outdir=BASE_DIR)
         print("  ✅ Sentinel-2 CSV guardado en:", p)
     except Exception as e:
         print("  ❌ Error al generar CSV Sentinel-2:", type(e), e)
@@ -61,7 +89,7 @@ def run_all():
         filt_s1 = build_filter(COLLECTION_S1, DATE_FROM, DATE_TO, aoi_wkt=AOI_WKT)
         items_s1 = query_catalog(filt_s1, top=TOP)
         df_s1 = items_to_df(items_s1)
-        p = save_df_to_theme(df_s1, "satelital", "sentinel1_products.csv", base_outdir=OUTDIR)
+        p = save_df_to_theme(df_s1, "satelital", "sentinel1_products.csv", base_outdir=BASE_DIR)
         print("  ✅ Sentinel-1 CSV guardado en:", p)
     except Exception as e:
         print("  ❌ Error al generar CSV Sentinel-1:", type(e), e)
@@ -71,7 +99,7 @@ def run_all():
         print("-> Descargando estaciones ferroviarias desde OSM (Overpass)")
         df_trans = fetch_rail_stations(AOI_WKT)
         if df_trans is not None and not df_trans.empty:
-            p = save_df_to_theme(df_trans, "transporte", "rail_stations.csv", base_outdir=OUTDIR)
+            p = save_df_to_theme(df_trans, "transporte", "rail_stations.csv", base_outdir=BASE_DIR)
             print("  ✅ Rail stations guardado en:", p)
         else:
             print("  ⚠️ No se obtuvieron estaciones ferroviarias (DataFrame vacío)")
@@ -81,7 +109,7 @@ def run_all():
     # 4) Demografía (Eurostat - provincias)
     try:
         print("-> Descargando datos demográficos (Eurostat, provincias)...")
-        path_demografia = demografiaProvincias.fetch_population_and_save(base_outdir=OUTDIR)
+        path_demografia = demografiaProvincias.fetch_population_and_save(base_outdir=BASE_DIR)
         if path_demografia is not None:
             print("  ✅ Demografía guardada en:", path_demografia)
         else:
@@ -94,25 +122,31 @@ def run_all():
         print("-> Descargando población por municipio (demografiaciudades)...")
         df_cities = demografiaciudades.fetch_population_by_municipality(years=30)
         if df_cities is not None and not df_cities.empty:
-            p = save_df_to_theme(df_cities, "demografia", "demografia_poblacion_municipios.csv", base_outdir=OUTDIR)
+            p = save_df_to_theme(df_cities, "demografia", "demografia_poblacion_municipios.csv", base_outdir=BASE_DIR)
             print("  ✅ Demografía municipales guardada en:", p)
         else:
             print("  ⚠️ demografiaciudades no devolvió datos (vacío)")
     except Exception as e:
         print("  ❌ Error al ejecutar demografiaciudades:", type(e), e)
 
-    # 6) VIIRS por municipios (local / rasterio pipeline)
+    # 6) VIIRS por municipios (raster pipeline) -> pedir que escriba en MUN_DIR si acepta base_outdir
     try:
         print("\n🌙 -> Descargando VIIRS por municipios (NOAA, raster pipeline)")
-        start_time = time.time()
-        viirs.fetch_viirs_and_save(
-            geojson_path="municipios_es.geojson",
-            anio_ini=2018,
-            anio_fin=2019,
-            base_outdir=OUTDIR,
-        )
-        elapsed = time.time() - start_time
-        print(f"\n⏱️ Tiempo total VIIRS municipios: {elapsed/60:.2f} minutos")
+        try:
+            viirs.fetch_viirs_and_save(
+                geojson_path="municipios_es.geojson",
+                anio_ini=2018,
+                anio_fin=2019,
+                base_outdir=MUN_DIR,
+            )
+            print("  ✅ VIIRS municipales escritos en:", MUN_DIR)
+        except TypeError:
+            viirs.fetch_viirs_and_save(
+                geojson_path="municipios_es.geojson",
+                anio_ini=2018,
+                anio_fin=2019,
+            )
+            print("  ⚠️ viirs.fetch_viirs_and_save no admite base_outdir; comprueba dónde escribe de forma predeterminada.")
     except Exception as e:
         print("  ❌ Error al ejecutar módulo VIIRS municipios:", type(e), e)
 
