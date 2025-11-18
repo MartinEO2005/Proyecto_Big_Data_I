@@ -1,4 +1,4 @@
-# viirs_provincias_gaul_full.py
+# viirs_provincias_gaul.py
 import ee
 import geemap
 import pandas as pd
@@ -11,7 +11,7 @@ ee.Initialize(project='bubbly-reducer-477312-d0')
 
 OUTDIR = 'outputs/data/luz_nocturna/tmp_provincias'
 FINAL_NAME = 'viirs_provincias_2018_2022.csv'
-YEARS = range(2018, 2023)
+YEARS = range(2018, 2019)
 SCALE = 1000
 TILE_SCALE = 16
 SIMPLIFY_TOL = 1000
