@@ -8,21 +8,18 @@ import time
 
 # Valores por defecto (se pueden sobrescribir pasando outdir a main)
 DEFAULT_OUTDIR = 'data/luz_nocturna/provincias'
-YEARS = range(2018, 2019)  # Cambia a range(2018, 2023) para 2018-2022
+YEARS = range(2018, 2023)  # 2018-2022 inclusive
 SCALE = 1000
 TILE_SCALE = 16
 SIMPLIFY_TOL = 1000
 DEFAULT_PROJECT = "bubbly-reducer-477312-d0"
 
 def init_ee(project: str | None = DEFAULT_PROJECT):
-    """Inicializa Earth Engine de forma idempotente. Intenta con project, authenticate si hace falta."""
     try:
-        # Si ya está inicializado esto simplemente no cambia nada
         ee.Initialize(project=project)
         print(f"✅ Earth Engine inicializado (project={project})")
         return
     except Exception:
-        # Intentar autenticar y volver a inicializar
         try:
             print("🔑 Autenticando Earth Engine...")
             ee.Authenticate()
@@ -30,14 +27,12 @@ def init_ee(project: str | None = DEFAULT_PROJECT):
             print(f"✅ Earth Engine autenticado e inicializado (project={project})")
             return
         except Exception:
-            # Último recurso: intentar sin project (fallback)
             try:
                 print("⚠️ Inicialización con project fallida; intentando ee.Initialize() sin project...")
                 ee.Initialize()
                 print("✅ Earth Engine inicializado sin project (modo fallback).")
                 return
             except Exception as e:
-                # relanzar para diagnóstico
                 raise e
 
 def build_provinces_from_gaul_adm2(simplify_tol=SIMPLIFY_TOL):
@@ -81,8 +76,10 @@ def zonal_stats_provinces(img, provinces_fc, fecha_iso):
     return stats
 
 def procesar_anio_provincias(prov_fc, anio, outdir):
+    # asegurarse de usar tmp_provincias para los CSVs anuales
     tmp_outdir = os.path.join(outdir, "tmp_provincias")
     os.makedirs(tmp_outdir, exist_ok=True)
+
     meses = pd.date_range(f"{anio}-01-01", f"{anio+1}-01-01", freq="MS", inclusive="left")
     dfs = []
     print(f"\n🗓️ Procesando año {anio} (provincias)")
@@ -93,7 +90,6 @@ def procesar_anio_provincias(prov_fc, anio, outdir):
         stats = zonal_stats_provinces(img, prov_fc, str(fecha.date()))
         try:
             df_mes = geemap.ee_to_df(stats)
-            # Normalizar nombres de columnas devueltas por EE
             rename_map = {}
             for col in list(df_mes.columns):
                 if col.endswith("_mean") and "mean" not in df_mes.columns:
@@ -120,13 +116,18 @@ def procesar_anio_provincias(prov_fc, anio, outdir):
         print(f"⚠️ Sin datos para {anio}")
         return None
     df_anio = pd.concat(dfs, ignore_index=True)
-    out_path = os.path.join(outdir, f"viirs_provincias_{anio}.csv")
+    # GUARDA EN tmp_provincias (corrección)
+    os.makedirs(tmp_outdir, exist_ok=True)
+    out_path = os.path.join(tmp_outdir, f"viirs_provincias_{anio}.csv")
     df_anio.to_csv(out_path, index=False)
     print(f"✅ Guardado: {out_path} ({len(df_anio)} filas)")
     return out_path
 
 def concatenar_csvs(outdir, final_name="viirs_provincias_2018_2022.csv"):
     tmp_outdir = os.path.join(outdir, "tmp_provincias")
+    if not os.path.isdir(tmp_outdir):
+        print("⚠️ No existe tmp_provincias; no hay CSVs para concatenar.")
+        return None
     files = sorted([f for f in os.listdir(tmp_outdir) if f.startswith("viirs_provincias_") and f.endswith(".csv")])
     if not files:
         print("⚠️ No hay CSVs para concatenar.")
@@ -137,6 +138,7 @@ def concatenar_csvs(outdir, final_name="viirs_provincias_2018_2022.csv"):
     df_final.to_csv(final_path, index=False)
     print(f"\n✅ CSV final combinado: {final_path} ({len(df_final)} filas)")
     return final_path
+
 
 def main(outdir: str | None = None, project: str | None = DEFAULT_PROJECT):
     """
