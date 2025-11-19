@@ -54,11 +54,13 @@ def run_all():
         csv_path = viirs_provincias_gaul.main(outdir=PROV_DIR, project=DEFAULT_PROJECT)
         if csv_path:
             df_viirs_prov = pd.read_csv(csv_path)
-            saved = save_df_to_theme(df_viirs_prov,
-                                     theme="luz_nocturna",
-                                     filename=os.path.basename(csv_path),
-                                     base_outdir=BASE_DIR,
-                                     subpath="provincias")
+            # guardar en data/luz_nocturna/provincias/ usando filename con subcarpeta
+            saved = save_df_to_theme(
+                df_viirs_prov,
+                theme="luz_nocturna",
+                filename=f"provincias/{os.path.basename(csv_path)}",
+                base_outdir=BASE_DIR
+            )
             print("  ✅ VIIRS provincias guardado en:", saved)
         else:
             print("  ⚠️ El módulo de VIIRS no devolvió ruta al CSV final.")
