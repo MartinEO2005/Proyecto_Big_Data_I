@@ -25,7 +25,6 @@ def ensure_outdir(path: str):
     os.makedirs(path, exist_ok=True)
 
 def init_ee_orchestrator(project: str | None = DEFAULT_PROJECT):
-    """Inicializa Earth Engine una vez desde el orquestador."""
     try:
         ee.Initialize(project=project)
         print(f"✅ Earth Engine inicializado desde orquestador (project={project})")
@@ -36,7 +35,6 @@ def init_ee_orchestrator(project: str | None = DEFAULT_PROJECT):
         print(f"✅ Earth Engine autenticado e inicializado desde orquestador (project={project})")
 
 def run_all():
-    """Orquestador principal: ejecuta módulos y guarda CSVs en data/..."""
     print("Orquestador: iniciando ejecución de módulos. Salida en:", BASE_DIR)
     ensure_outdir(BASE_DIR)
     ensure_outdir(LUZ_DIR)
@@ -48,17 +46,12 @@ def run_all():
         init_ee_orchestrator(project=DEFAULT_PROJECT)
     except Exception as e:
         print("  ❌ Error inicializando Earth Engine en orquestador:", type(e), e)
-        # No continuar si no hay EE
         return
 
-    # 0) VIIRS por provincias (EE) -> prioridad, escribe en data/luz_nocturna/provincias
+    # VIIRS por provincias (prioridad)
     try:
         print("\n🌙 -> Generando VIIRS por provincias (EE) [PRIORIDAD]")
-        try:
-            csv_path = viirs_provincias_gaul.main(outdir=PROV_DIR, project=DEFAULT_PROJECT)
-        except TypeError:
-            # si el módulo no acepta project param, intentar con solo outdir
-            csv_path = viirs_provincias_gaul.main(outdir=PROV_DIR)
+        csv_path = viirs_provincias_gaul.main(outdir=PROV_DIR, project=DEFAULT_PROJECT)
         if csv_path:
             df_viirs_prov = pd.read_csv(csv_path)
             saved = save_df_to_theme(df_viirs_prov,

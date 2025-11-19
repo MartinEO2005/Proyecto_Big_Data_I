@@ -1,10 +1,11 @@
 import pandas as pd
 
 # 1) Leer CSV completo
-df = pd.read_csv(r"C:\Users\Martin Otero\Desktop\luminosidad_municipios.csv")
+df = pd.read_csv("salida_viirs/viirs_bloque_0.csv")
 
 # 2) Normalizar nombres de columnas
 df = df.rename(columns={
+    'GISCO_ID': 'id',
     'LAU_NAME': 'municipio'
 })
 if 'date' not in df.columns:
@@ -15,7 +16,7 @@ if 'date' not in df.columns:
             break
 
 # 3) Deduplicar: una fila por municipio+mes
-key_cols = ['date']
+key_cols = ['id','date']
 num_cols = df.select_dtypes(include=['number']).columns.tolist()
 agg_dict = {c: 'mean' for c in num_cols if c not in key_cols}
 
@@ -25,7 +26,6 @@ df_dedup = df.groupby(key_cols, as_index=False).agg(agg_dict)
 df_names = df.groupby(key_cols, as_index=False)[['municipio']].first()
 df_dedup = pd.merge(df_dedup, df_names, on=key_cols, how='left')
 
-# 5) Guardar limpio
 df_dedup.to_csv("viirs_municipios_clean.csv", index=False)
 print("✅ CSV limpio guardado: viirs_municipios_clean.csv")
 print("Filas:", len(df_dedup))
