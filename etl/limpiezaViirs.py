@@ -1,31 +1,31 @@
 import pandas as pd
 
-# 1) Leer CSV completo
-df = pd.read_csv("salida_viirs/viirs_bloque_0.csv")
+# Cargar dataset original
+df = pd.read_csv("viirs_provincias_2018_2022.csv")
 
-# 2) Normalizar nombres de columnas
-df = df.rename(columns={
-    'GISCO_ID': 'id',
-    'LAU_NAME': 'municipio'
-})
-if 'date' not in df.columns:
-    # detecta columna de fecha si tiene otro nombre
-    for c in df.columns:
-        if 'DATE' in c.upper():
-            df = df.rename(columns={c: 'date'})
-            break
+# Seleccionar columnas y hacer copia segura
+df_limpio = df[["PROV_CODE", "PROV_NAME", "date", "mean"]].copy()
 
-# 3) Deduplicar: una fila por municipio+mes
-key_cols = ['id','date']
-num_cols = df.select_dtypes(include=['number']).columns.tolist()
-agg_dict = {c: 'mean' for c in num_cols if c not in key_cols}
+# Corrección de provincias con caracteres corruptos
+correcciones = {
+    "AlmerÃ­a": "Almeria",
+    "CÃ¡diz": "Cadiz",
+    "CÃ³rdoba": "Cordoba",
+    "JaÃ©n": "Jaen",
+    "MÃ¡laga": "Malaga",
+    "Ãvila": "Avila",
+    "LeÃ³n": "Leon",
+    "CastellÃ³n/CastellÃ³": "Castellon/Castello",
+    "CÃ¡ceres": "Caceres",
+    "A CoruÃ±a": "A Coruna",
+    "Araba/Ãlava": "Araba/Alava",
+    "Valencia/ValÃ¨ncia": "Valencia/Valencia"
+}
 
-df_dedup = df.groupby(key_cols, as_index=False).agg(agg_dict)
+df_limpio["PROV_NAME"] = df_limpio["PROV_NAME"].replace(correcciones)
 
-# 4) Recuperar nombre de municipio (first)
-df_names = df.groupby(key_cols, as_index=False)[['municipio']].first()
-df_dedup = pd.merge(df_dedup, df_names, on=key_cols, how='left')
+df_limpio["mean"] = df_limpio["mean"].round(4)
+df_limpio.to_csv("viirs_provincias_2018_2022.csv", index=False, encoding="utf-8-sig")
 
-df_dedup.to_csv("viirs_municipios_clean.csv", index=False)
-print("✅ CSV limpio guardado: viirs_municipios_clean.csv")
-print("Filas:", len(df_dedup))
+print("CSV reemplazado correctamente.")
+print(df_limpio.head())
