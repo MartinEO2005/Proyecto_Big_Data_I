@@ -41,6 +41,28 @@ def run_all():
     ensure_outdir(PROV_DIR)
     ensure_outdir(MUN_DIR)
 
+
+    # 6) VIIRS por municipios (raster pipeline) -> pedir que escriba en MUN_DIR si acepta base_outdir
+    try:
+        print("\n🌙 -> Descargando VIIRS por municipios (NOAA, raster pipeline)")
+        try:
+            viirs.fetch_viirs_and_save(
+                geojson_path="municipios_es.geojson",
+                anio_ini=2018,
+                anio_fin=2019,
+                base_outdir=MUN_DIR,
+            )
+            print("  ✅ VIIRS municipales escritos en:", MUN_DIR)
+        except TypeError:
+            viirs.fetch_viirs_and_save(
+                geojson_path="municipios_es.geojson",
+                anio_ini=2018,
+                anio_fin=2019,
+            )
+            print("  ⚠️ viirs.fetch_viirs_and_save no admite base_outdir; comprueba dónde escribe de forma predeterminada.")
+    except Exception as e:
+        print("  ❌ Error al ejecutar módulo VIIRS municipios:", type(e), e)
+        
     # Inicializar Earth Engine centralmente
     try:
         init_ee_orchestrator(project=DEFAULT_PROJECT)
@@ -124,26 +146,7 @@ def run_all():
     except Exception as e:
         print("  ❌ Error al ejecutar demografiaciudades:", type(e), e)
 
-    # 6) VIIRS por municipios (raster pipeline) -> pedir que escriba en MUN_DIR si acepta base_outdir
-    try:
-        print("\n🌙 -> Descargando VIIRS por municipios (NOAA, raster pipeline)")
-        try:
-            viirs.fetch_viirs_and_save(
-                geojson_path="municipios_es.geojson",
-                anio_ini=2018,
-                anio_fin=2019,
-                base_outdir=MUN_DIR,
-            )
-            print("  ✅ VIIRS municipales escritos en:", MUN_DIR)
-        except TypeError:
-            viirs.fetch_viirs_and_save(
-                geojson_path="municipios_es.geojson",
-                anio_ini=2018,
-                anio_fin=2019,
-            )
-            print("  ⚠️ viirs.fetch_viirs_and_save no admite base_outdir; comprueba dónde escribe de forma predeterminada.")
-    except Exception as e:
-        print("  ❌ Error al ejecutar módulo VIIRS municipios:", type(e), e)
+    
 
 if __name__ == "__main__":
     run_all()
