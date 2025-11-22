@@ -1,24 +1,33 @@
+#!/usr/bin/env python3
 # main.py
+"""
+Orquestador principal: integra OSM dentro de run_all() (sin subprocess).
+"""
+
+import os
+import importlib
+from pathlib import Path
+import pandas as pd
+import geopandas as gpd
+
 from config import OUTDIR, COLLECTION_S2, COLLECTION_S1, DATE_FROM, DATE_TO, MAX_CLOUD, TOP, AOI_WKT, VIIRS_URL_TEMPLATE
 from catalog import build_filter, query_catalog, items_to_df
-from osm import fetch_rail_stations
 from storage import save_df_to_theme
 from tqdm import tqdm
-import os
 import time
-import pandas as pd
 import ee
-
+import osm_muni_metrics as osm_metrics 
 import viirs
 import demografiaProvincias
 import demografiaciudades
-import viirs_provincias_gaul  # módulo provincial (main(outdir, project))
+import viirs_provincias_gaul
 
 # ROOT unificado para todos los outputs de datos
 BASE_DIR = "data"
 LUZ_DIR = os.path.join(BASE_DIR, "luz_nocturna")
 PROV_DIR = os.path.join(LUZ_DIR, "provincias")
 MUN_DIR  = os.path.join(LUZ_DIR, "municipios")
+TRANS_DIR = os.path.join(BASE_DIR, "transporte")
 DEFAULT_PROJECT = "bubbly-reducer-477312-d0"
 
 def ensure_outdir(path: str):
@@ -41,13 +50,84 @@ def run_all():
     ensure_outdir(PROV_DIR)
     ensure_outdir(MUN_DIR)
 
-    # VIIRS por provincias (prioridad)
+    try:
+        print("\n🚆 -> Generando métricas municipales de conectividad ferroviaria (OSM)")
+
+        # directorios y paths
+        ensure_outdir(TRANS_DIR)
+
+        # localiza el GeoJSON de municipios (primero en data/, luego en cwd)
+        munis_candidates = [
+            os.path.join(BASE_DIR, "municipios_es.geojson"),
+            "municipios_es.geojson",
+            os.path.join(MUN_DIR, "municipios_es.geojson")
+        ]
+        munis_path = None
+        for p in munis_candidates:
+            if os.path.exists(p):
+                munis_path = p
+                break
+
+        if munis_path is None:
+            raise FileNotFoundError(
+                "Fichero de municipios no encontrado. Buscado en: "
+                f"{munis_candidates}"
+            )
+
+        print(f"  -> Usando fichero de municipios: {munis_path}")
+
+        # lectura y sanity checks
+        gdf_munis = osm_metrics.read_munis(munis_path)
+        print(f"  -> Municipios leídos: {len(gdf_munis)}")
+
+        # fetch de estaciones OSM (puede ser costoso/time-consuming)
+        print("  -> Consultando Overpass para estaciones (puede tardar)...")
+        # usamos la constante del módulo si está definida, si no, caemos a 1.0
+        max_tile_area = getattr(osm_metrics, "MAX_TILE_AREA_DEG2", 1.0)
+        df_st = osm_metrics.fetch_all_stations(gdf_munis, max_tile_area_deg2=max_tile_area)
+        print(f"  -> Estaciones OSM obtenidas (rows): {len(df_st)}")
+
+        # convertir a GeoDataFrame (EPSG:3857 esperado por compute)
+        gdf_st = osm_metrics.df_to_gdf(df_st)
+        if gdf_st.empty:
+            # si no hay estaciones, creamos GeoDataFrame vacío con el CRS que espera compute
+            gdf_st = gpd.GeoDataFrame(
+                columns=["osm_id","source_type","name","lat","lon","tags","geometry"],
+                geometry="geometry",
+                crs="EPSG:4326"
+            ).to_crs(epsg=3857)
+
+        # prefijo de salida garantizando el directorio TRANS_DIR
+        out_prefix = os.path.join(TRANS_DIR, getattr(osm_metrics, "OUT_PREFIX", "muni_station_metrics_reduced"))
+
+        # Ejecuta cálculo y exporta (GPKG + CSV) — el propio módulo hace la exportación
+        out_gdf = osm_metrics.compute_metrics_and_export(gdf_st, gdf_munis, out_prefix=out_prefix)
+        print("  ✅ Métricas OSM exportadas con prefijo:", out_prefix)
+        print("     -> filas resultado:", len(out_gdf))
+
+    except FileNotFoundError as e:
+        print("  ❌ No se pudo ejecutar osm_muni_metrics:", type(e), e)
+    except Exception as e:
+        # captura errores en Overpass / geopandas IO / procesamiento
+        print("  ❌ Error al ejecutar módulo osm_muni_metrics:", type(e), e)
+        # intento de fallback mínimo: crear CSV de trazabilidad vacío para que el pipeline no se rompa
+        try:
+            fallback_csv = os.path.join(TRANS_DIR, "muni_station_metrics_failed.csv")
+            pd.DataFrame([{
+                "error": str(e),
+                "timestamp": pd.Timestamp.now()
+            }]).to_csv(fallback_csv, index=False)
+            print("  ⚠️ Fallback: creado CSV de fallo en:", fallback_csv)
+        except Exception as e2:
+            print("  ❌ No se pudo crear el CSV de fallback:", type(e2), e2)
+
+
+    # --- VIIRS por provincias (prioridad) ---
     try:
         print("\n🌙 -> Generando VIIRS por provincias (EE) [PRIORIDAD]")
         csv_path = viirs_provincias_gaul.main(outdir=PROV_DIR, project=DEFAULT_PROJECT)
         if csv_path:
             df_viirs_prov = pd.read_csv(csv_path)
-            # guardar en data/luz_nocturna/provincias/ usando filename con subcarpeta
             saved = save_df_to_theme(
                 df_viirs_prov,
                 theme="luz_nocturna",
@@ -60,7 +140,7 @@ def run_all():
     except Exception as e:
         print("  ❌ Error al ejecutar módulo VIIRS provincias:", type(e), e)
 
-    # 1) Sentinel-2
+    # --- Sentinel-2 ---
     try:
         print("-> Consultando catálogo Copernicus (Sentinel-2)")
         filt_s2 = build_filter(COLLECTION_S2, DATE_FROM, DATE_TO, aoi_wkt=AOI_WKT, cloud=MAX_CLOUD)
@@ -71,7 +151,7 @@ def run_all():
     except Exception as e:
         print("  ❌ Error al generar CSV Sentinel-2:", type(e), e)
 
-    # 2) Sentinel-1
+    # --- Sentinel-1 ---
     try:
         print("-> Consultando catálogo Copernicus (Sentinel-1)")
         filt_s1 = build_filter(COLLECTION_S1, DATE_FROM, DATE_TO, aoi_wkt=AOI_WKT)
@@ -82,19 +162,7 @@ def run_all():
     except Exception as e:
         print("  ❌ Error al generar CSV Sentinel-1:", type(e), e)
 
-    # 3) Transporte (OSM)
-    try:
-        print("-> Descargando estaciones ferroviarias desde OSM (Overpass)")
-        df_trans = fetch_rail_stations(AOI_WKT)
-        if df_trans is not None and not df_trans.empty:
-            p = save_df_to_theme(df_trans, "transporte", "rail_stations.csv", base_outdir=BASE_DIR)
-            print("  ✅ Rail stations guardado en:", p)
-        else:
-            print("  ⚠️ No se obtuvieron estaciones ferroviarias (DataFrame vacío)")
-    except Exception as e:
-        print("  ❌ Error al descargar estaciones OSM:", type(e), e)
-
-    # 4) Demografía (Eurostat - provincias)
+    # --- Demografía provincias ---
     try:
         print("-> Descargando datos demográficos (Eurostat, provincias)...")
         path_demografia = demografiaProvincias.fetch_population_and_save(base_outdir=BASE_DIR)
@@ -105,7 +173,7 @@ def run_all():
     except Exception as e:
         print("  ❌ Error al ejecutar demografiaProvincias.fetch_population_and_save:", type(e), e)
 
-    # 5) Demografía por municipios (INE alternativa)
+    # --- Demografía municipios ---
     try:
         print("-> Descargando población por municipio (demografiaciudades)...")
         df_cities = demografiaciudades.fetch_population_by_municipality(years=30)
@@ -116,36 +184,26 @@ def run_all():
             print("  ⚠️ demografiaciudades no devolvió datos (vacío)")
     except Exception as e:
         print("  ❌ Error al ejecutar demografiaciudades:", type(e), e)
-    
-     # 6) VIIRS por municipios (raster pipeline) -> pedir que escriba en MUN_DIR si acepta base_outdir
+
+
+    # --- VIIRS municipios ---
     try:
         print("\n🌙 -> Descargando VIIRS por municipios (NOAA, raster pipeline)")
-        try:
-            viirs.fetch_viirs_and_save(
-                geojson_path="municipios_es.geojson",
-                anio_ini=2018,
-                anio_fin=2019,
-                base_outdir=MUN_DIR,
-            )
-            print("  ✅ VIIRS municipales escritos en:", MUN_DIR)
-        except TypeError:
-            viirs.fetch_viirs_and_save(
-                geojson_path="municipios_es.geojson",
-                anio_ini=2018,
-                anio_fin=2019,
-            )
-            print("  ⚠️ viirs.fetch_viirs_and_save no admite base_outdir; comprueba dónde escribe de forma predeterminada.")
+        viirs.fetch_viirs_and_save(
+            geojson_path="municipios_es.geojson",
+            anio_ini=2018,
+            anio_fin=2019,
+            base_outdir=MUN_DIR
+        )
+        print("  ✅ VIIRS municipales escritos en:", MUN_DIR)
     except Exception as e:
         print("  ❌ Error al ejecutar módulo VIIRS municipios:", type(e), e)
-        
+
     # Inicializar Earth Engine centralmente
     try:
         init_ee_orchestrator(project=DEFAULT_PROJECT)
     except Exception as e:
         print("  ❌ Error inicializando Earth Engine en orquestador:", type(e), e)
-        return
-
-    
 
 if __name__ == "__main__":
     run_all()
