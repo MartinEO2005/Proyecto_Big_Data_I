@@ -1,0 +1,16 @@
+pandas
+numpy
+requests
+boto3
+python-dotenv
+pyproj
+shapely
+geopandas
+rasterio
+matplotlib
+scipy
+fiona
+s3fs
+botocore
+tqdm
+earthengine-api
