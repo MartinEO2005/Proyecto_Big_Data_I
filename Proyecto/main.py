@@ -49,7 +49,7 @@ def run_all():
     ensure_outdir(LUZ_DIR)
     ensure_outdir(PROV_DIR)
     ensure_outdir(MUN_DIR)
-
+    # 1) Metricas OSM municipios
     try:
         print("\n🚆 -> Generando métricas municipales de conectividad ferroviaria (OSM)")
 
