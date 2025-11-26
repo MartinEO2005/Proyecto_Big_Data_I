@@ -24,7 +24,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 import hashlib
 import subprocess
-import re
 import shutil
 
 import requests
@@ -92,12 +91,14 @@ def get_fresh_session() -> requests.Session:
 # -------------------------------
 # Filtro OData
 # -------------------------------
-def make_filter(collection: str,
-                start_iso: str,
-                end_iso: str,
-                wkt: str | None,
-                only_l2a: bool,
-                tile: str | None) -> str:
+def make_filter(
+    collection: str,
+    start_iso: str,
+    end_iso: str,
+    wkt: str | None,
+    only_l2a: bool,
+    tile: str | None,
+) -> str:
 
     base = (
         f"Collection/Name eq '{collection}' "
@@ -124,14 +125,11 @@ def fetch_page(params: dict) -> dict:
 
     for attempt in range(1, max_retries + 1):
         try:
-            # 缩短一点超时时间，避免长时间卡死
             r = requests.get(url, timeout=120)
             r.raise_for_status()
             return r.json()
 
-        except (requests.exceptions.ReadTimeout,
-                requests.exceptions.ConnectionError) as e:
-            # 这里统一处理：超时 / 远程主机断开 / 中间网络问题
+        except (requests.exceptions.ReadTimeout, requests.exceptions.ConnectionError) as e:
             if attempt == max_retries:
                 print(f"[ERROR] Catálogo sigue fallando tras {max_retries} intentos.")
                 raise
@@ -140,22 +138,22 @@ def fetch_page(params: dict) -> dict:
                 f"[WARN] Error de conexión con el catálogo "
                 f"(intento {attempt}/{max_retries}): {e}"
             )
-            # 逐渐增加等待时间：5s, 10s, 15s, ...
-            time.sleep(5 * attempt)
+            time.sleep(5 * attempt)  # backoff 5s, 10s, 15s...
 
 
-
-def fetch_all(collection: str,
-              start_iso: str,
-              end_iso: str,
-              wkt: str | None,
-              top: int,
-              max_pages: int,
-              orderby: str,
-              include_count: bool,
-              only_l2a: bool,
-              tile: str | None,
-              select: str | None) -> dict:
+def fetch_all(
+    collection: str,
+    start_iso: str,
+    end_iso: str,
+    wkt: str | None,
+    top: int,
+    max_pages: int,
+    orderby: str,
+    include_count: bool,
+    only_l2a: bool,
+    tile: str | None,
+    select: str | None,
+) -> dict:
 
     params = {
         "$filter": make_filter(collection, start_iso, end_iso, wkt, only_l2a, tile),
@@ -197,10 +195,20 @@ def fetch_all(collection: str,
 def to_flat_df(js: dict) -> pd.DataFrame:
     df = json_normalize(js.get("value", []))
     if not df.empty:
-        first = [c for c in [
-            "Id", "Name", "ContentDate.Start", "ContentDate.End",
-            "ContentType", "ContentLength", "OriginDate", "GeoFootprint"
-        ] if c in df.columns]
+        first = [
+            c
+            for c in [
+                "Id",
+                "Name",
+                "ContentDate.Start",
+                "ContentDate.End",
+                "ContentType",
+                "ContentLength",
+                "OriginDate",
+                "GeoFootprint",
+            ]
+            if c in df.columns
+        ]
         rest = [c for c in df.columns if c not in first]
         df = df[first + rest]
     return df
@@ -209,11 +217,13 @@ def to_flat_df(js: dict) -> pd.DataFrame:
 # -------------------------------
 # Descarga ZIP desde zipper
 # -------------------------------
-def download_product_zip(session: requests.Session,
-                         product_id: str,
-                         identifier: str,
-                         out_dir: str,
-                         overwrite: bool = False) -> Path:
+def download_product_zip(
+    session: requests.Session,
+    product_id: str,
+    identifier: str,
+    out_dir: str,
+    overwrite: bool = False,
+) -> Path:
     """
     Descarga el producto completo (.SAFE) como ZIP desde zipper.dataspace.copernicus.eu
     usando el token de la sesión.
@@ -289,11 +299,13 @@ def build_patterns(mode: str, bands: list[str] | None, collection: str) -> list[
     return ["*IMG_DATA*/R10m/*.jp2"]
 
 
-def extract_selected_from_zip(zip_path: Path,
-                              mode: str,
-                              bands: list[str] | None,
-                              out_dir: str,
-                              collection: str) -> list[Path]:
+def extract_selected_from_zip(
+    zip_path: Path,
+    mode: str,
+    bands: list[str] | None,
+    out_dir: str,
+    collection: str,
+) -> list[Path]:
     pats = build_patterns(mode, bands, collection)
     extracted: list[Path] = []
 
@@ -363,17 +375,9 @@ def jp2_to_rgb_png(b02: Path, b03: Path, b04: Path, dst_png: Path):
     Image.fromarray(rgb).save(dst_png)
     print(f"🖼 PNG RGB generado: {dst_png}")
 
-def save_as_tiff_with_rasterio(src_jp2: Path, dst_tif: Path):
-    """Convierte un JP2 a GeoTIFF usando solo rasterio (sin gdal_translate externo)."""
-    with rasterio.open(src_jp2) as src:
-        profile = src.profile.copy()
-        profile.update(driver="GTiff")  # 强制写成 GeoTIFF
-        with rasterio.open(dst_tif, "w", **profile) as dst:
-            for i in range(1, src.count + 1):
-                dst.write(src.read(i), i)
 
 def ensure_gdal_translate():
-    """确保系统中有 gdal_translate 命令，否则抛出清晰错误。"""
+    """Asegura que exista gdal_translate en el PATH, si no lanza RuntimeError."""
     exe = shutil.which("gdal_translate")
     if exe is None:
         raise RuntimeError(
@@ -383,6 +387,7 @@ def ensure_gdal_translate():
         )
     return exe
 
+
 def gdal_jp2_to_tiff(src_jp2: Path, dst_tif: Path):
     """
     Usa gdal_translate para convertir JP2 -> GeoTIFF.
@@ -391,22 +396,23 @@ def gdal_jp2_to_tiff(src_jp2: Path, dst_tif: Path):
     exe = ensure_gdal_translate()
     args = [
         exe,
-        "-of", "GTiff",
+        "-of",
+        "GTiff",
         src_jp2.as_posix(),
-        dst_tif.as_posix()
+        dst_tif.as_posix(),
     ]
     subprocess.check_call(args)
 
 
 def batch_convert_extracted(extract_root: Path, out_dir: Path):
     """
-    对 extract_root 下的所有 JP2 做三件事：
-      1) 使用 GDAL (gdal_translate) 转成 GeoTIFF (.tif)
-      2) 如果文件名里有 TCI，则额外做一个 PNG 可视化
-      3) 如果 B02/B03/B04 三个波段都存在，合成一个 RGB_truecolor.png
+    Para todos los JP2 en extract_root:
+      1) Usar GDAL (gdal_translate) para convertir a GeoTIFF (.tif)
+      2) Si hay TCI, generar PNG rápido
+      3) Si existen B02/B03/B04, generar RGB_truecolor.png
 
-    GeoTIFF 会放在 out_dir / "tiff"
-    PNG 会放在 out_dir / "png"
+    GeoTIFF -> out_dir / "tiff"
+    PNG     -> out_dir / "png"
     """
     jp2s = list(extract_root.rglob("*.jp2"))
     if not jp2s:
@@ -418,14 +424,14 @@ def batch_convert_extracted(extract_root: Path, out_dir: Path):
     tiff_dir.mkdir(parents=True, exist_ok=True)
     png_dir.mkdir(parents=True, exist_ok=True)
 
-    # 确认 GDAL 存在（这里如果没装会直接抛 RuntimeError，提示你安装）
+    # Comprobamos GDAL aquí (lanzará error claro si no está instalado)
     ensure_gdal_translate()
 
     n = 0
     b02 = b03 = b04 = None
 
     for jp2 in jp2s:
-        # ---------- 1) JP2 -> GeoTIFF (GDAL) ----------
+        # 1) JP2 -> GeoTIFF (GDAL)
         dst_tif = tiff_dir / (jp2.stem + ".tif")
         try:
             gdal_jp2_to_tiff(jp2, dst_tif)
@@ -434,7 +440,7 @@ def batch_convert_extracted(extract_root: Path, out_dir: Path):
         except Exception as e:
             print(f"⚠️ Error convirtiendo a GeoTIFF {jp2.name}: {e}")
 
-        # ---------- 2) TCI -> PNG ----------
+        # 2) TCI -> PNG
         up = jp2.name.upper()
         if "TCI" in up:
             png = png_dir / (jp2.stem + ".png")
@@ -443,7 +449,7 @@ def batch_convert_extracted(extract_root: Path, out_dir: Path):
             except Exception as e:
                 print(f"⚠️ Error generando PNG para {jp2.name}: {e}")
 
-        # ---------- 3) 记录 B02/B03/B04 ----------
+        # 3) registrar B02/B03/B04
         if "B02" in up:
             b02 = jp2
         if "B03" in up:
@@ -451,7 +457,7 @@ def batch_convert_extracted(extract_root: Path, out_dir: Path):
         if "B04" in up:
             b04 = jp2
 
-    # ---------- 4) 合成 RGB_truecolor.png ----------
+    # 4) Si tenemos B02/B03/B04, componer RGB
     if b02 and b03 and b04:
         rgb_png = png_dir / "RGB_truecolor.png"
         try:
@@ -478,7 +484,7 @@ def worker(item, args):
         product_id=pid,
         identifier=identifier,
         out_dir=args.out_dir,
-        overwrite=args.overwrite
+        overwrite=args.overwrite,
     )
 
     print(f"[{identifier}] ZIP guardado en: {out_zip}")
@@ -488,7 +494,7 @@ def worker(item, args):
         mode=args.asset,
         bands=args.bands,
         out_dir=args.out_dir,
-        collection=args.collection
+        collection=args.collection,
     )
 
     if not extracted:
@@ -502,43 +508,51 @@ def worker(item, args):
 
 
 # -------------------------------
-# CLI
+# CLI args
 # -------------------------------
 def parse_args():
     ap = argparse.ArgumentParser(description="Descargador NeoLumina Copernicus (ES)")
 
     ap.add_argument("--collection", type=str, default="SENTINEL-2")
+
     ap.add_argument("--aoi", type=str, choices=["config", "custom"], default="config")
     ap.add_argument("--wkt", type=str, default=None)
 
     ap.add_argument("--top", type=int, default=20)
     ap.add_argument("--max-pages", type=int, default=5)
     ap.add_argument("--orderby", type=str, default="ContentDate/Start desc")
-    ap.add_argument("--select", type=str,
-                    default="Id,Name,ContentDate,ContentType,ContentLength,OriginDate,GeoFootprint")
+    ap.add_argument(
+        "--select",
+        type=str,
+        default="Id,Name,ContentDate,ContentType,ContentLength,OriginDate,GeoFootprint",
+    )
 
     ap.add_argument("--download", action="store_true")
     ap.add_argument("--asset", type=str, default="tci")
-    ap.add_argument("--bands", type=lambda s: [x.strip() for x in s.split(",")] if s else None)
+    ap.add_argument(
+        "--bands",
+        type=lambda s: [x.strip() for x in s.split(",")] if s else None,
+    )
     ap.add_argument("--convert", action="store_true")
 
     ap.add_argument("--workers", type=int, default=1)
     ap.add_argument("--overwrite", action="store_true")
 
-    ap.add_argument("--out-dir", type=str, default=os.path.join(OUTDIR, "satelital", "copernicus"))
+    ap.add_argument(
+        "--out-dir",
+        type=str,
+        default=os.path.join(OUTDIR, "satelital", "copernicus"),
+    )
 
     return ap.parse_args()
 
 
 # -------------------------------
-# main
+# Núcleo reutilizable
 # -------------------------------
-def main():
-    args = parse_args()
-
-    DOWNLOAD_ROOT = Path(OUTDIR) / "satelital" / "copernicus"
+def _internal_main(args):
+    DOWNLOAD_ROOT = Path(args.out_dir)
     DOWNLOAD_ROOT.mkdir(parents=True, exist_ok=True)
-    args.out_dir = DOWNLOAD_ROOT.as_posix()
 
     if args.aoi == "config":
         wkt = AOI_WKT
@@ -566,7 +580,7 @@ def main():
         include_count=True,
         only_l2a=True,
         tile=None,
-        select=args.select
+        select=args.select,
     )
 
     df = to_flat_df(js)
@@ -591,11 +605,72 @@ def main():
 
     pd.DataFrame(results, columns=["identifier", "status"]).to_csv(
         DOWNLOAD_ROOT / "download_summary.csv",
-        index=False
+        index=False,
     )
 
     print("\nDescarga completada. Resumen guardado en:", DOWNLOAD_ROOT)
     return df
+
+
+# -------------------------------
+# main (para ejecución por terminal)
+# -------------------------------
+def main():
+    args = parse_args()
+
+    # Si no se especifica out_dir, usar la ruta estándar de OUTDIR
+    if not args.out_dir:
+        DOWNLOAD_ROOT = Path(OUTDIR) / "satelital" / "copernicus"
+        DOWNLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+        args.out_dir = DOWNLOAD_ROOT.as_posix()
+
+    return _internal_main(args)
+
+
+# -------------------------------
+# run(...) (para usar desde otros módulos / main.py)
+# -------------------------------
+def run(
+    collection: str = "SENTINEL-2",
+    aoi: str = "config",
+    wkt: str | None = None,
+    top: int = 20,
+    max_pages: int = 5,
+    orderby: str = "ContentDate/Start desc",
+    select: str = "Id,Name,ContentDate,ContentType,ContentLength,OriginDate,GeoFootprint",
+    download: bool = False,
+    asset: str = "tci",
+    bands: list[str] | None = None,
+    convert: bool = False,
+    workers: int = 1,
+    overwrite: bool = False,
+    out_dir: str | None = None,
+):
+    class Obj:
+        """Contenedor simple para simular argparse.Namespace"""
+        pass
+
+    args = Obj()
+    args.collection = collection
+    args.aoi = aoi
+    args.wkt = wkt
+    args.top = top
+    args.max_pages = max_pages
+    args.orderby = orderby
+    args.select = select
+    args.download = download
+    args.asset = asset
+    args.bands = bands
+    args.convert = convert
+    args.workers = workers
+    args.overwrite = overwrite
+
+    if out_dir is None:
+        args.out_dir = os.path.join(OUTDIR, "satelital", "copernicus")
+    else:
+        args.out_dir = out_dir
+
+    return _internal_main(args)
 
 
 if __name__ == "__main__":
