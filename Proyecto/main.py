@@ -13,6 +13,7 @@ import geopandas as gpd
 from config import OUTDIR, COLLECTION_S2, COLLECTION_S1, DATE_FROM, DATE_TO, MAX_CLOUD, TOP, AOI_WKT, VIIRS_URL_TEMPLATE
 from catalog import build_filter, query_catalog, items_to_df
 from storage import save_df_to_theme
+from neo_lumina_copernicus_downloader import run as downloader_run
 from tqdm import tqdm
 import time
 import ee
@@ -161,6 +162,26 @@ def run_all():
         print("  ✅ Sentinel-1 CSV guardado en:", p)
     except Exception as e:
         print("  ❌ Error al generar CSV Sentinel-1:", type(e), e)
+        
+     # --- Downloader Copernicus: descarga real de imágenes Sentinel-2 ---
+    try:
+        print("\n📡 -> Iniciando downloader Copernicus (descarga de imágenes)...")
+
+        downloader_run(
+            collection="SENTINEL-2",
+            aoi="config",
+            download=True,     # activa la descarga
+            convert=True,      # genera TIFF + PNG
+            top=5,             # baja SOLO 5 imágenes
+            workers=2,         # procesamiento paralelo
+            asset="tci"        # True color TCI
+        )
+
+        print("  ✅ Downloader Copernicus completado: imágenes disponibles en data/satelital/copernicus/")
+
+    except Exception as e:
+        print("  ❌ Error ejecutando downloader Copernicus:", type(e), e)
+
 
     # --- Demografía provincias ---
     try:
