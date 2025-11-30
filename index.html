@@ -15,13 +15,27 @@
       --text-muted: #9ca3af;
       --border-subtle: #1f2937;
     }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ⭐ NUEVO BODY CON FONDO DE IMAGEN ⭐ */
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: radial-gradient(circle at top, #020617 0, #000 55%);
+
+      /* Fondo: imagen + oscurecido */
+      background:
+        linear-gradient(rgba(0,0,0,0.65), rgba(0,0,0,0.85)),
+        url("mi-fondo-nocturno.jpg");
+
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+
       color: var(--text-main);
       line-height: 1.6;
     }
+
     a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
 
@@ -31,7 +45,7 @@
       top: 0;
       z-index: 50;
       backdrop-filter: blur(14px);
-      background: linear-gradient(to right, rgba(15,23,42,0.96), rgba(2,6,23,0.96));
+      background: rgba(15,23,42,0.7);
       border-bottom: 1px solid rgba(15,23,42,1);
     }
     .nav {
@@ -43,18 +57,13 @@
       gap: 14px;
     }
 
-    /* AÑADIDO — LOGO NUEVO */
     .logo-img {
       height: 80px; 
       width: auto;
       border-radius: 8px;
     }
 
-    .brand {
-      display: flex;
-      flex-direction: column;
-      gap: 1px;
-    }
+    .brand { display: flex; flex-direction: column; gap: 1px; }
     .brand-title {
       font-weight: 600;
       letter-spacing: 0.08em;
@@ -72,12 +81,8 @@
       gap: 18px;
       font-size: 13px;
     }
-    .nav-links a {
-      color: var(--text-muted);
-    }
-    .nav-links a:hover {
-      color: var(--accent);
-    }
+    .nav-links a { color: var(--text-muted); }
+    .nav-links a:hover { color: var(--accent); }
 
     /* Hero */
     .hero {
@@ -103,11 +108,11 @@
       color: white;
     }
 
-    /* AÑADIDO — QUITAR GRADIENTE */
     .hero h1 span {
       color: white !important;
       background: none !important;
       -webkit-background-clip: initial !important;
+      background-clip: initial !important;
     }
 
     .hero p {
@@ -116,12 +121,14 @@
       max-width: 600px;
       margin-bottom: 18px;
     }
+
     .hero-actions {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
       margin-bottom: 18px;
     }
+
     .btn-primary {
       border-radius: 999px;
       padding: 10px 18px;
@@ -131,9 +138,9 @@
       font-size: 13px;
       cursor: pointer;
     }
-    .btn-primary:hover {
-      box-shadow: 0 0 18px rgba(56,189,248,0.5);
-    }
+
+    .btn-primary:hover { box-shadow: 0 0 18px rgba(56,189,248,0.5); }
+
     .btn-ghost {
       border-radius: 999px;
       padding: 9px 16px;
@@ -143,13 +150,8 @@
       font-size: 13px;
       cursor: pointer;
     }
-    .pill-strip {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      font-size: 11px;
-      color: var(--text-muted);
-    }
+
+    .pill-strip { display: flex; flex-wrap: wrap; gap: 8px; font-size: 11px; color: var(--text-muted); }
     .pill {
       border-radius: 999px;
       border: 1px solid var(--border-subtle);
@@ -160,21 +162,17 @@
     .hero-card {
       border-radius: 18px;
       padding: 16px 16px 14px;
-      background: radial-gradient(circle at top, rgba(34,211,238,0.13), rgba(15,23,42,1));
-      border: 1px solid rgba(30,64,175,0.8);
-      box-shadow: 0 22px 45px rgba(15,23,42,0.9);
+      background: rgba(15,23,42,0.85);
+      border: 1px solid rgba(30,64,175,0.7);
+      box-shadow: 0 22px 45px rgba(0,0,0,0.6);
       font-size: 13px;
     }
+
     .hero-card-title {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
     }
-    .hero-card-title span {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
+    .hero-card-title span { font-size: 12px; color: var(--text-muted); }
+
     .status-badge {
       font-size: 11px;
       padding: 4px 8px;
@@ -182,31 +180,24 @@
       background: var(--accent-soft);
       color: var(--accent);
     }
+
     .hero-metrics {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
       margin-top: 10px;
     }
+
     .metric {
       padding: 8px 9px;
       border-radius: 12px;
       background: rgba(15,23,42,0.9);
       border: 1px solid rgba(15,23,42,1);
     }
-    .metric-label {
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-bottom: 4px;
-    }
-    .metric-value {
-      font-size: 17px;
-      font-weight: 600;
-    }
-    .metric-tag {
-      font-size: 11px;
-      color: var(--accent);
-    }
+
+    .metric-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+    .metric-value { font-size: 17px; font-weight: 600; }
+    .metric-tag { font-size: 11px; color: var(--accent); }
 
     /* Sections */
     section {
@@ -214,15 +205,9 @@
       margin: 0 auto;
       padding: 26px 18px;
     }
-    section h2 {
-      font-size: 18px;
-      margin-bottom: 8px;
-    }
-    section p {
-      font-size: 14px;
-      color: var(--text-muted);
-      max-width: 850px;
-    }
+
+    section h2 { font-size: 18px; margin-bottom: 8px; }
+    section p  { font-size: 14px; color: var(--text-muted); max-width: 850px; }
 
     .columns {
       display: grid;
@@ -231,42 +216,33 @@
       margin-top: 12px;
       font-size: 14px;
     }
+
     .card {
-      background: var(--card);
+      background: rgba(15,23,42,0.9);
       border-radius: 16px;
       border: 1px solid var(--border-subtle);
       padding: 14px 14px 12px;
     }
-    .card h3 {
-      font-size: 14px;
-      margin-bottom: 6px;
-    }
-    .card p {
-      font-size: 13px;
-    }
 
-    /* Mapa placeholder */
+    .card h3 { font-size: 14px; margin-bottom: 6px; }
+    .card p  { font-size: 13px; }
+
     .map-wrapper {
       margin-top: 14px;
       border-radius: 18px;
       border: 1px dashed rgba(148,163,184,0.5);
       padding: 14px;
-      background: radial-gradient(circle at top, rgba(15,23,42,1), #020617);
+      background: rgba(15,23,42,0.85);
       font-size: 13px;
       color: var(--text-muted);
     }
+
     .map-placeholder {
       width: 100%;
       height: 280px;
       border-radius: 14px;
       border: 1px solid var(--border-subtle);
-      background: repeating-linear-gradient(
-        45deg,
-        #020617,
-        #020617 10px,
-        #030712 10px,
-        #030712 20px
-      );
+      background: rgba(2,6,23,0.7);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -276,14 +252,7 @@
       padding: 0 16px;
     }
 
-    /* Beneficiarios */
-    .chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 10px;
-      font-size: 12px;
-    }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; font-size: 12px; }
     .chip {
       border-radius: 999px;
       border: 1px solid var(--border-subtle);
@@ -291,7 +260,6 @@
       background: rgba(15,23,42,0.95);
     }
 
-    /* Footer */
     footer {
       border-top: 1px solid var(--border-subtle);
       padding: 12px 18px 18px;
@@ -302,26 +270,17 @@
     }
 
     @media (max-width: 800px) {
-      .hero {
-        grid-template-columns: minmax(0, 1fr);
-      }
-      .columns {
-        grid-template-columns: minmax(0, 1fr);
-      }
-      .nav-links {
-        display: none;
-      }
+      .hero { grid-template-columns: 1fr; }
+      .columns { grid-template-columns: 1fr; }
+      .nav-links { display: none; }
     }
   </style>
 </head>
-<body>
 
+<body>
 <header>
   <div class="nav">
-
-    <!-- AQUÍ VA TU LOGO NUEVO -->
     <img src="logo-geolumica.jpg" alt="Logo GeoLumica" class="logo-img">
-
     <div class="brand">
       <div class="brand-title">GEOLUMICA</div>
       <div class="brand-sub">Crecimiento urbano, conectividad y despoblación</div>
@@ -341,21 +300,14 @@
   <section class="hero">
     <div>
       <div class="hero-kicker">Proyecto de análisis territorial y big data</div>
-      <h1>
-        GeoLumica analiza <span>crecimiento urbano, conectividad y actividad económica</span> a escala europea.
-      </h1>
-      <p>
-        Observación satelital, inteligencia artificial y análisis territorial combinados para entender
-        qué territorios crecen, cuáles se mantienen estables y cuáles se deslizan hacia la despoblación.
-      </p>
+      <h1>GeoLumica analiza <span>crecimiento urbano, conectividad y actividad económica</span> a escala europea.</h1>
+      <p>Observación satelital, inteligencia artificial y análisis territorial combinados para entender qué territorios crecen, cuáles se mantienen estables y cuáles se deslizan hacia la despoblación.</p>
+
       <div class="hero-actions">
-        <button class="btn-primary" onclick="document.getElementById('mapa').scrollIntoView({behavior:'smooth'})">
-          Ver mapa interactivo (prototipo)
-        </button>
-        <button class="btn-ghost" onclick="document.getElementById('como-funciona').scrollIntoView({behavior:'smooth'})">
-          Ver metodología
-        </button>
+        <button class="btn-primary" onclick="document.getElementById('mapa').scrollIntoView({behavior:'smooth'})">Ver mapa interactivo (prototipo)</button>
+        <button class="btn-ghost" onclick="document.getElementById('como-funciona').scrollIntoView({behavior:'smooth'})">Ver metodología</button>
       </div>
+
       <div class="pill-strip">
         <span class="pill">Imágenes ópticas</span>
         <span class="pill">Luminosidad nocturna (VIIRS, DMSP)</span>
@@ -369,16 +321,15 @@
         <span>Estado del prototipo</span>
         <span class="status-badge">Versión inicial · Web + mapa</span>
       </div>
-      <p>
-        GeoLumica propone un sistema capaz de representar, de forma visual y dinámica,
-        la distribución del crecimiento, la conectividad y la actividad económica en Europa.
-      </p>
+      <p>GeoLumica propone un sistema capaz de representar, de forma visual y dinámica, la distribución del crecimiento, la conectividad y la actividad económica en Europa.</p>
+
       <div class="hero-metrics">
         <div class="metric">
           <div class="metric-label">Indicadores clave</div>
           <div class="metric-value">3</div>
           <div class="metric-tag">Crecimiento · Conectividad · Actividad</div>
         </div>
+
         <div class="metric">
           <div class="metric-label">Clasificación territorial</div>
           <div class="metric-value">4</div>
@@ -391,35 +342,22 @@
   <!-- QUÉ ES -->
   <section id="que-es">
     <h2>¿Qué es GeoLumica?</h2>
-    <p>
-      GeoLumica es una iniciativa que busca comprender cómo las ciudades europeas están evolucionando
-      en torno a sus infraestructuras de transporte y cómo, al mismo tiempo, algunas regiones se
-      enfrentan a procesos silenciosos de despoblación y declive económico.
-      El proyecto combina la observación satelital, la inteligencia artificial y el análisis territorial
-      para ofrecer una visión integral del crecimiento urbano y la conectividad.
-    </p>
+    <p>GeoLumica es una iniciativa que busca comprender cómo las ciudades europeas están evolucionando en torno a sus infraestructuras de transporte y cómo algunas regiones se enfrentan a procesos silenciosos de despoblación.</p>
   </section>
 
   <!-- CÓMO FUNCIONA -->
   <section id="como-funciona">
     <h2>Cómo funciona GeoLumica</h2>
     <div class="columns">
+
       <div>
-        <p>
-          A través de imágenes ópticas de los satélites analizamos los cambios en el uso del suelo
-          y la expansión de las zonas urbanizadas. En paralelo, empleamos datos de luminosidad nocturna
-          —provenientes de sensores como VIIRS y DMSP— para medir la intensidad de la actividad económica
-          y social en cada región.
-        </p>
-        <p style="margin-top:8px;">
-          Estos indicadores se integran con la red ferroviaria europea, entendida no solo como infraestructura
-          física, sino como un factor de cohesión que determina el acceso a empleo, educación, servicios
-          y oportunidades.
-        </p>
+        <p>A través de imágenes ópticas de los satélites analizamos los cambios en el uso del suelo y la expansión de las zonas urbanizadas. En paralelo, empleamos datos de luminosidad nocturna para medir la intensidad de la actividad económica.</p>
+
+        <p style="margin-top:8px;">Estos indicadores se integran con la red ferroviaria europea, entendida no solo como infraestructura, sino como un factor de cohesión territorial.</p>
       </div>
+
       <div class="card">
         <h3>Capas de información clave</h3>
-        <p>El sistema integra:</p>
         <ul style="margin-top:6px; padding-left:18px; font-size:13px; color:var(--text-muted);">
           <li>Imágenes ópticas para detectar cambios de uso del suelo.</li>
           <li>Series temporales de luminosidad nocturna (VIIRS, DMSP).</li>
@@ -427,25 +365,18 @@
           <li>Indicadores territoriales y demográficos.</li>
         </ul>
       </div>
+
     </div>
   </section>
 
   <!-- MAPA -->
   <section id="mapa">
     <h2>Mapa dinámico e interactivo</h2>
-    <p>
-      La propuesta de GeoLumica es desarrollar un mapa dinámico e interactivo capaz de mostrar, de forma
-      comprensible, cómo se distribuyen el crecimiento, la conectividad y la actividad económica a lo largo
-      del territorio. A partir de diferentes indicadores, el sistema permite clasificar las zonas en categorías
-      como “en auge”, “estables”, “en declive” o “en riesgo de despoblación”.
-    </p>
+    <p>GeoLumica permitirá visualizar el crecimiento, la conectividad y la actividad económica mediante un mapa interactivo dinámico.</p>
 
     <div class="map-wrapper">
       <strong style="font-size:12px; color:var(--text-main);">Zona de mapa interactivo</strong>
-      <p style="margin-top:4px;">
-        Aquí se integrará el mapa con datos geoespaciales (municipios, red ferroviaria, luminosidad nocturna…).
-        Esta caja es solo un marcador visual dentro del mockup de la web.
-      </p>
+      <p style="margin-top:4px;">Aquí se integrará el mapa con datos geoespaciales.</p>
 
       <div id="map" class="map-placeholder">
         Aquí irá el mapa interactivo de GeoLumica (Leaflet + GeoJSON).
@@ -456,28 +387,20 @@
   <!-- VALOR -->
   <section id="valor">
     <h2>¿Para quién es GeoLumica?</h2>
-    <p>
-      El valor de GeoLumica radica en su capacidad para transformar datos complejos en información estratégica.
-      Gobiernos locales y regionales pueden utilizarla para planificar infraestructuras, diseñar políticas
-      contra la despoblación y evaluar el impacto de sus decisiones. Inversores e instituciones financieras
-      pueden detectar oportunidades emergentes y anticipar la evolución del mercado inmobiliario.
-    </p>
+    <p>GeoLumica transforma datos complejos en información estratégica para administraciones públicas, inversores, operadores de transporte y organizaciones sociales.</p>
+
     <div class="columns" style="margin-top:14px;">
       <div class="card">
         <h3>Planificación y políticas públicas</h3>
-        <p>
-          Para gobiernos y administraciones públicas, GeoLumica actúa como un panel de control territorial:
-          identifica zonas en auge, territorios estables y espacios en riesgo de declive o despoblación.
-        </p>
+        <p>Un panel de control para detectar crecimiento, estabilidad o declive territorial.</p>
       </div>
+
       <div class="card">
         <h3>Mercado, transporte y análisis social</h3>
-        <p>
-          Inversores, operadores de transporte y organizaciones académicas disponen de una base sólida para
-          estudiar cambios demográficos y económicos, priorizar inversiones y anticipar tendencias.
-        </p>
+        <p>Una base analítica para estudiar tendencias demográficas y económicas.</p>
       </div>
     </div>
+
     <div class="chips">
       <span class="chip">Gobiernos locales y regionales</span>
       <span class="chip">Instituciones financieras</span>
