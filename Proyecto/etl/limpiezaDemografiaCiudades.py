@@ -1,17 +1,35 @@
 import pandas as pd
 import re
 
-# 1 Cargar CSV
-df = pd.read_csv("demografia_poblacion_municipios.csv", dtype=str)  # usa dtype=str para evitar sorpresas con códigos
+# Función para reparar mojibake típico (UTF-8 leído como Latin-1)
+def fix_mojibake(s: str) -> str:
+    if not isinstance(s, str):
+        return s
+    try:
+        return s.encode("latin1").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return s
 
+# -----------------------------
+# 1 Cargar CSV
+# -----------------------------
+df = pd.read_csv("demografia_poblacion_municipios.csv", dtype=str)
+
+# -----------------------------
 # 0. Tipos y limpieza básica
-df['municipio'] = df['municipio'].astype(str).str.strip()
+# -----------------------------
+# Reparar mojibake en la columna municipio antes de cualquier otra operación
+if 'municipio' in df.columns:
+    df['municipio'] = df['municipio'].astype(str).apply(fix_mojibake).str.strip()
+else:
+    raise KeyError("No se encontró la columna 'municipio' en el CSV.")
+
 df['population'] = pd.to_numeric(df['population'], errors='coerce')
 df['year'] = pd.to_numeric(df['year'], errors='coerce').astype('Int64')
 
 # 1. Rellenar codigos vacíos para que no se pierdan filas al agrupar
-df['cod_prov'] = df['cod_prov'].fillna('').astype(str)
-df['cod_muni'] = df['cod_muni'].fillna('').astype(str)
+df['cod_prov'] = df.get('cod_prov', pd.Series([''] * len(df))).fillna('').astype(str)
+df['cod_muni'] = df.get('cod_muni', pd.Series([''] * len(df))).fillna('').astype(str)
 
 # 2. Quitar sufijos fijos redundantes
 def remove_fixed_suffixes(text):
@@ -88,19 +106,17 @@ df_wide[['Total','Hombres','Mujeres']] = df_wide[['Total','Hombres','Mujeres']].
 df_wide = df_wide[['cod_prov', 'cod_muni', 'municipio_clean', 'year', 'Total', 'Hombres', 'Mujeres']]
 df_wide = df_wide.sort_values(['municipio_clean','year']).reset_index(drop=True)
 
-# 1) Eliminar cod_prov / cod_muni si están completamente vacías
+# 9) Eliminar cod_prov / cod_muni si están completamente vacías
 for c in ['cod_prov', 'cod_muni']:
     if c in df_wide.columns:
-        # considerar vacías tanto NaN como cadenas vacías
         if df_wide[c].replace('', pd.NA).isna().all():
             df_wide = df_wide.drop(columns=c)
 
-# 2) Renombrar municipio_clean a municipio (mantener el nombre solicitado)
+# 10) Renombrar municipio_clean a municipio (mantener el nombre solicitado)
 if 'municipio_clean' in df_wide.columns:
     df_wide = df_wide.rename(columns={'municipio_clean': 'municipio'})
 
-# 3) Agrupar por municipio y después por year (suma por si hubiera duplicados)
-#    y ordenar por municipio -> year
+# 11) Agrupar por municipio y después por year (suma por si hubiera duplicados) y ordenar
 group_cols = ['municipio', 'year']
 value_cols = ['Total', 'Hombres', 'Mujeres']
 
@@ -115,10 +131,12 @@ print("Filas resultantes:", len(df_final))
 print(df_final.head(10).to_string())
 
 #----------------------------------------------------------------------------------------
-# Conteo de municipios con  5 años
+# Conteo de municipios con exactamente 5 años y con menos de 5 años
 num_igual_5 = df_final.groupby('municipio')['year'].nunique().eq(5).sum()
-print("Municipios con exactamente 5 años:", num_igual_5)
-
-# Conteo de municipios con menos de 5 años
 num_menor_5 = df_final.groupby('municipio')['year'].nunique().lt(5).sum()
+print("Municipios con exactamente 5 años:", num_igual_5)
 print("Municipios con menos de 5 años:", num_menor_5)
+
+# 12) Exportar resultado final con codificación segura para Excel
+df_final.to_csv("demografia_municipios_limpio.csv", index=False, encoding="utf-8-sig")
+print("✅ Exportado: demografia_municipios_limpio.csv (utf-8-sig)")
