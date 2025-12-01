@@ -114,8 +114,7 @@ df_final = (df_wide
 print("Filas resultantes:", len(df_final))
 print(df_final.head(10).to_string())
 
-#----------------------------------------------------------------------------------------
-# Conteo de municipios con  5 años
+# Conteo de municipios con exactamente 5 años
 num_igual_5 = df_final.groupby('municipio')['year'].nunique().eq(5).sum()
 print("Municipios con exactamente 5 años:", num_igual_5)
 
