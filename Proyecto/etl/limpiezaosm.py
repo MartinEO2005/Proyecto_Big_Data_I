@@ -15,8 +15,8 @@ import numpy as np
 # -----------------------------
 # CONFIGURA AQUÍ (si no pasas argumentos)
 # -----------------------------
-INPUT_CSV  = "muni_station_metrics_reduced.csv"
-OUTPUT_CSV = "muni_station_metrics_with_prov.csv"
+INPUT_CSV  = r"data/transporte/muni_station_metrics_reduced.csv"
+OUTPUT_CSV = r"data/transporte/muni_station_metrics_with_prov.csv"
 
 # -----------------------------
 # Mapa INE 2 dígitos → nombre oficial
@@ -148,7 +148,7 @@ def main(input_path, output_path=None):
     # 8) Guardar CSV con PROV_NAME al principio y numéricos a 3 decimales
     if output_path:
         os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-        df.to_csv(output_path, index=False, encoding="utf-8-sig", float_format="%.3f")
+        df.to_csv(output_path, index=False, encoding="utf-8-sig", float_format="%.4f")
         print("\nCSV guardado en:", output_path)
     else:
         print("\nNo se guardó archivo. Pasa ruta de salida como segundo argumento para guardar.")
