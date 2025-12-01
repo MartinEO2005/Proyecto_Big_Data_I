@@ -50,6 +50,18 @@ def run_all():
     ensure_outdir(LUZ_DIR)
     ensure_outdir(PROV_DIR)
     ensure_outdir(MUN_DIR)
+
+     # --- Demografía provincias ---
+    try:
+        print("-> Descargando datos demográficos (Eurostat, provincias)...")
+        path_demografia = demografiaProvincias.fetch_population_and_save(base_outdir=BASE_DIR)
+        if path_demografia is not None:
+            print("  ✅ Demografía guardada en:", path_demografia)
+        else:
+            print("  ⚠️ No se pudieron obtener datos demográficos (DataFrame vacío).")
+    except Exception as e:
+        print("  ❌ Error al ejecutar demografiaProvincias.fetch_population_and_save:", type(e), e)
+
     # 1) Metricas OSM municipios
     try:
         print("\n🚆 -> Generando métricas municipales de conectividad ferroviaria (OSM)")
@@ -181,18 +193,6 @@ def run_all():
 
     except Exception as e:
         print("  ❌ Error ejecutando downloader Copernicus:", type(e), e)
-
-
-    # --- Demografía provincias ---
-    try:
-        print("-> Descargando datos demográficos (Eurostat, provincias)...")
-        path_demografia = demografiaProvincias.fetch_population_and_save(base_outdir=BASE_DIR)
-        if path_demografia is not None:
-            print("  ✅ Demografía guardada en:", path_demografia)
-        else:
-            print("  ⚠️ No se pudieron obtener datos demográficos (DataFrame vacío).")
-    except Exception as e:
-        print("  ❌ Error al ejecutar demografiaProvincias.fetch_population_and_save:", type(e), e)
 
     # --- Demografía municipios ---
     try:
