@@ -10,6 +10,7 @@ scripts_a_ejecutar = [
     "limpiezaDemografiaProvincias.py",
     "limpiezaosm.py",
     "limpiezaViirs.py"
+    "unionDemografias.py"
 ]
 
 def ejecutar_todo():
