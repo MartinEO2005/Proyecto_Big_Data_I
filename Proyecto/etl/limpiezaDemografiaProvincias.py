@@ -165,7 +165,7 @@ df_final_output = df_grouped[['cod_prov', 'NombreProvincia', 'year', 'PoblacionP
 
 
 # Guardar el resultado limpio
-FILE_OUTPUT = Path("demografia_provincial_limpio.csv")
+FILE_OUTPUT = Path("data/demografia_provincial_limpio.csv")
 df_final_output.to_csv(FILE_OUTPUT, index=False, encoding='utf-8-sig')
 
 # mostrar poblacion total por año para verificacion
