@@ -52,6 +52,13 @@ def run_all():
     ensure_outdir(PROV_DIR)
     ensure_outdir(MUN_DIR)
 
+        # --- Renta municipal (INE Atlas) ---
+    try:
+        print("\n💶 -> Descargando renta municipal (INE Atlas)...")
+        path_renta = consumo_renta_media_pib.fetch_renta_municipios_and_save(base_outdir=BASE_DIR)
+        print("  ✅ Renta municipal guardada en:", path_renta)
+    except Exception as e:
+        print("  ❌ Error al ejecutar renta_municipios:", type(e), e)
 
     # --- Consumo Energía (CNMC) ---
     try:
