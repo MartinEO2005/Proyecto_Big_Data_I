@@ -14,8 +14,3 @@ s3fs
 botocore
 tqdm
 earthengine-api
-json
-os
-sys
-unicodedata
-tqdm
