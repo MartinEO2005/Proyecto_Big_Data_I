@@ -22,7 +22,8 @@ import viirs
 import demografiaProvincias
 import demografiaciudades
 import viirs_provincias_gaul
-import consumo_electrico_gas  # <--- Nuevo import
+import consumo_electrico_gas  
+import consumo_renta_media_pib
 # ROOT unificado para todos los outputs de datos
 BASE_DIR = "data"
 LUZ_DIR = os.path.join(BASE_DIR, "luz_nocturna")
@@ -50,6 +51,7 @@ def run_all():
     ensure_outdir(LUZ_DIR)
     ensure_outdir(PROV_DIR)
     ensure_outdir(MUN_DIR)
+
 
     # --- Consumo Energía (CNMC) ---
     try:
