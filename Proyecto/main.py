@@ -22,7 +22,7 @@ import viirs
 import demografiaProvincias
 import demografiaciudades
 import viirs_provincias_gaul
-
+import consumo_electrico_gas  # <--- Nuevo import
 # ROOT unificado para todos los outputs de datos
 BASE_DIR = "data"
 LUZ_DIR = os.path.join(BASE_DIR, "luz_nocturna")
@@ -50,6 +50,17 @@ def run_all():
     ensure_outdir(LUZ_DIR)
     ensure_outdir(PROV_DIR)
     ensure_outdir(MUN_DIR)
+
+    # --- Consumo Energía (CNMC) ---
+    try:
+        print("\n⚡ -> Descargando consumo energético provincial (CNMC)...")
+        path_energia = consumo_electrico_gas.fetch_energy_consumption_and_save(base_outdir=BASE_DIR)
+        if path_energia:
+            print("  ✅ Datos de energía guardados en:", path_energia)
+        else:
+            print("  ⚠️ No se pudieron obtener datos de energía.")
+    except Exception as e:
+        print("  ❌ Error al ejecutar energia_cnmc:", type(e), e)
 
      # --- Demografía provincias ---
     try:
