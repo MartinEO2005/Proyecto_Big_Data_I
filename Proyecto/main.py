@@ -25,6 +25,8 @@ import viirs_provincias_gaul
 import consumo_electrico_gas  
 import consumo_renta_media_pib
 import migracion_downloader
+import empresas_transporte_downloader
+
 # ROOT unificado para todos los outputs de datos
 BASE_DIR = "data"
 LUZ_DIR = os.path.join(BASE_DIR, "luz_nocturna")
@@ -52,6 +54,14 @@ def run_all():
     ensure_outdir(LUZ_DIR)
     ensure_outdir(PROV_DIR)
     ensure_outdir(MUN_DIR)
+
+    # --- Empresas transporte (INE t=4721) ---
+    try:
+        print("\n🏭 -> Descargando empresas por municipio y provincia (INE t=4721)...")
+        path_empresas = empresas_transporte_downloader.procesar()
+        print("  ✅ Empresas guardadas en:", path_empresas)
+    except Exception as e:
+        print("  ❌ Error al ejecutar empresas_transporte_downloader:", type(e), e)
 
         # --- Migración interior (INE t=69743) ---
     try:
