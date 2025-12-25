@@ -45,7 +45,7 @@ load_dotenv(ENV_PATH)
 # ===============================
 # Config del proyecto
 # ===============================
-from config import AOI_WKT, DATE_FROM, DATE_TO, OUTDIR
+from extraction.config import AOI_WKT, DATE_FROM, DATE_TO, OUTDIR
 
 # ===============================
 # URLs Copernicus

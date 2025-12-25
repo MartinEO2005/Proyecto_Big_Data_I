@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 # main.py
-"""
-Orquestador principal: integra OSM dentro de run_all() (sin subprocess).
-"""
 
 import os
 import importlib
@@ -10,22 +7,22 @@ from pathlib import Path
 import pandas as pd
 import geopandas as gpd
 
-from config import OUTDIR, COLLECTION_S2, COLLECTION_S1, DATE_FROM, DATE_TO, MAX_CLOUD, TOP, AOI_WKT, VIIRS_URL_TEMPLATE
-from catalog import build_filter, query_catalog, items_to_df
-from storage import save_df_to_theme
-from neo_lumina_copernicus_downloader import run as downloader_run
+from extraction.config import OUTDIR, COLLECTION_S2, COLLECTION_S1, DATE_FROM, DATE_TO, MAX_CLOUD, TOP, AOI_WKT, VIIRS_URL_TEMPLATE
+from extraction.catalog import build_filter, query_catalog, items_to_df
+from extraction.storage import save_df_to_theme
+from extraction.neo_lumina_copernicus_downloader import run as downloader_run
 from tqdm import tqdm
 import time
 import ee
-import osm_muni_metrics as osm_metrics 
-import viirs
-import demografiaProvincias
-import demografiaciudades
-import viirs_provincias_gaul
-import consumo_electrico_gas  
-import consumo_renta_media_pib
-import migracion_downloader
-import empresas_transporte_downloader
+from extraction import osm_muni_metrics as osm_metrics 
+from extraction import viirs
+from extraction import demografiaProvincias
+from extraction import demografiaciudades
+from extraction import viirs_provincias_gaul
+from extraction  import consumo_electrico_gas  
+from extraction  import consumo_renta_media_pib
+from extraction  import migracion_downloader
+from extraction import empresas_transporte_downloader
 
 # ROOT unificado para todos los outputs de datos
 BASE_DIR = "data"
@@ -214,26 +211,7 @@ def run_all():
     except Exception as e:
         print("  ❌ Error al generar CSV Sentinel-1:", type(e), e)
         
-     # --- Downloader Copernicus: descarga real de imágenes Sentinel-2 ---
-    try:
-        print("\n📡 -> Iniciando downloader Copernicus (descarga de imágenes)...")
-
-        downloader_run(
-            collection="SENTINEL-2",
-            aoi="config",
-            download=True,     # activa la descarga
-            convert=True,      # genera TIFF + PNG
-            top=5,             # baja SOLO 5 imágenes
-            workers=2,         # procesamiento paralelo
-            asset="tci"        # True color TCI
-        )
-
-        print("  ✅ Downloader Copernicus completado: imágenes disponibles en data/satelital/copernicus/")
-
-    except Exception as e:
-        print("  ❌ Error ejecutando downloader Copernicus:", type(e), e)
-
-    # --- Demografía municipios ---
+        # --- Demografía municipios ---
     try:
         print("-> Descargando población por municipio (demografiaciudades)...")
         df_cities = demografiaciudades.fetch_population_by_municipality(years=30)
@@ -264,6 +242,25 @@ def run_all():
         init_ee_orchestrator(project=DEFAULT_PROJECT)
     except Exception as e:
         print("  ❌ Error inicializando Earth Engine en orquestador:", type(e), e)
+
+    # --- Downloader Copernicus: descarga real de imágenes Sentinel-2 ---
+    try:
+        print("\n📡 -> Iniciando downloader Copernicus (descarga de imágenes)...")
+
+        downloader_run(
+            collection="SENTINEL-2",
+            aoi="config",
+            download=True,     # activa la descarga
+            convert=True,      # genera TIFF + PNG
+            top=5,             # baja SOLO 5 imágenes
+            workers=2,         # procesamiento paralelo
+            asset="tci"        # True color TCI
+        )
+
+        print("  ✅ Downloader Copernicus completado: imágenes disponibles en data/satelital/copernicus/")
+
+    except Exception as e:
+        print("  ❌ Error ejecutando downloader Copernicus:", type(e), e)
 
 if __name__ == "__main__":
     run_all()

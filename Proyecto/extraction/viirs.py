@@ -6,7 +6,7 @@ import geopandas as gpd
 import os
 import time
 from tqdm import tqdm
-from storage import save_df_to_theme
+from extraction.storage import save_df_to_theme
 import warnings
 
 warnings.filterwarnings("ignore")
