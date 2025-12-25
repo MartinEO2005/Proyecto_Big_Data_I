@@ -24,6 +24,7 @@ import demografiaciudades
 import viirs_provincias_gaul
 import consumo_electrico_gas  
 import consumo_renta_media_pib
+import migracion_downloader
 # ROOT unificado para todos los outputs de datos
 BASE_DIR = "data"
 LUZ_DIR = os.path.join(BASE_DIR, "luz_nocturna")
@@ -51,6 +52,14 @@ def run_all():
     ensure_outdir(LUZ_DIR)
     ensure_outdir(PROV_DIR)
     ensure_outdir(MUN_DIR)
+
+        # --- Migración interior (INE t=69743) ---
+    try:
+        print("\n🚚 -> Descargando migración interior municipal (INE)...")
+        path_migracion = migracion_downloader.fetch_migracion_interior_and_save(base_outdir=BASE_DIR)
+        print("  ✅ Migración interior guardada en:", path_migracion)
+    except Exception as e: 
+        print("  ❌ Error al ejecutar migracion_downloader:", type(e), e)
 
         # --- Renta municipal (INE Atlas) ---
     try:
