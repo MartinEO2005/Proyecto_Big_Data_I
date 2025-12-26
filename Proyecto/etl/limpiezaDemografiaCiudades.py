@@ -1,142 +1,194 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import pandas as pd
-import re
+import re, json, unicodedata, difflib, os
+import numpy as np
 
-# Función para reparar mojibake típico (UTF-8 leído como Latin-1)
-def fix_mojibake(s: str) -> str:
-    if not isinstance(s, str):
-        return s
-    try:
-        return s.encode("latin1").decode("utf-8")
-    except (UnicodeEncodeError, UnicodeDecodeError):
-        return s
+# --------------------------
+# Configuración de Rutas
+# --------------------------
+MUNI_RAW = "data/demografia/demografia_poblacion_municipios.csv"
+GEOJSON = "municipios_es.geojson"
+PROV_CSV = "data/demografia/demografia_poblacion_provincias.csv"
+MIGRACIONES_CSV = "data/migracion/migracion_interior_municipios.csv" 
+OUTPUT = "demografia_municipios_con_provincia.csv"
 
-# -----------------------------
-# 1 Cargar CSV
-# -----------------------------
-df = pd.read_csv("data/demografia/demografia_poblacion_municipios.csv", dtype=str)
+# --------------------------
+# Helpers de Limpieza
+# --------------------------
+def normalize(s):
+    if pd.isna(s): return ""
+    t = str(s).lower().strip()
+    t = unicodedata.normalize('NFKD', t)
+    t = "".join(c for c in t if not unicodedata.combining(c))
+    t = t.replace("ñ", "n")
+    t = re.sub(r"[^a-z0-9\s]", " ", t)
+    t = re.sub(r"\s{2,}", " ", t).strip()
+    return t
 
-# -----------------------------
-# 0. Tipos y limpieza básica
-# -----------------------------
-# Reparar mojibake en la columna municipio antes de cualquier otra operación
-if 'municipio' in df.columns:
-    df['municipio'] = df['municipio'].astype(str).apply(fix_mojibake).str.strip()
-else:
-    raise KeyError("No se encontró la columna 'municipio' en el CSV.")
+def clean_municipio_string(text):
+    if pd.isna(text): return pd.Series([pd.NA, 'Total'])
+    t = str(text).strip()
+    cat = 'Total'
+    if re.search(r'\b(Hombres?)\b', t, re.IGNORECASE): cat = 'Hombres'
+    elif re.search(r'\b(Mujeres?)\b', t, re.IGNORECASE): cat = 'Mujeres'
+    
+    patterns = [r'\.?\s*Total\.\s*Total habitantes\.\s*Personas\.?$', r'\.?\s*Total habitantes\.\s*Personas\.?$', r'\.?\s*Personas\.?$', r'\.?\s*Total\s*$']
+    clean_name = t
+    for pat in patterns:
+        clean_name = re.sub(pat, '', clean_name, flags=re.IGNORECASE)
+    clean_name = re.sub(r'\.?\s*(Hombres?|Mujeres?|Total)\s*$', '', clean_name, flags=re.IGNORECASE)
+    return pd.Series([clean_name.strip(' .'), cat])
 
+# --------------------------
+# 1) Cargar y Limpiar Municipios
+# --------------------------
+print("1) Cargando municipios...")
+df = pd.read_csv(MUNI_RAW, dtype=str)
 df['population'] = pd.to_numeric(df['population'], errors='coerce')
 df['year'] = pd.to_numeric(df['year'], errors='coerce').astype('Int64')
+df = df.dropna(subset=['population'])
 
-# 1. Rellenar codigos vacíos para que no se pierdan filas al agrupar
-df['cod_prov'] = df.get('cod_prov', pd.Series([''] * len(df))).fillna('').astype(str)
-df['cod_muni'] = df.get('cod_muni', pd.Series([''] * len(df))).fillna('').astype(str)
+df[['municipio_clean', 'categoria']] = df['municipio'].apply(clean_municipio_string)
+df['municipio_norm'] = df['municipio_clean'].apply(normalize)
 
-# 2. Quitar sufijos fijos redundantes
-def remove_fixed_suffixes(text):
-    if pd.isna(text):
-        return text
-    s = text
-    # eliminar las frases repetidas al final (case-insensitive)
-    s = re.sub(r'(?i)\s*\.?\s*Total habitantes\s*\.?\s*', ' ', s)
-    s = re.sub(r'(?i)\s*\.?\s*Personas\s*\.?\s*', ' ', s)
-    # limpiar puntos finales sobrantes y espacios
-    s = re.sub(r'\s*\.\s*$', '', s).strip()
-    s = re.sub(r'\s{2,}', ' ', s)
-    return s.strip()
+df_pivot = df.pivot_table(
+    index=['municipio_clean', 'municipio_norm', 'year'],
+    columns='categoria', values='population', aggfunc='sum'
+).reset_index().fillna(0)
 
-df['municipio_tmp'] = df['municipio'].apply(remove_fixed_suffixes)
+# --------------------------
+# 2) Construir Diccionarios de Referencia (Mapping)
+# --------------------------
+print("2) Construyendo diccionarios de referencia...")
 
-# 3. Extraer nombre y categoría (buscando la primera aparición de Hombres/Mujeres/Total)
-def extract_name_and_category(text):
-    if pd.isna(text) or text.strip() == '':
-        return pd.Series([pd.NA, pd.NA])
-    t = text.strip()
-    m = re.search(r'\b(Hombres|Hombre|Mujeres|Mujer|Total)\b', t, flags=re.I)
-    if m:
-        cat_raw = m.group(0)
-        name = t[:m.start()].rstrip(' .').strip()
-        c = cat_raw.lower()
-        if 'hombre' in c:
-            cat = 'Hombres'
-        elif 'mujer' in c:
-            cat = 'Mujeres'
-        else:
-            cat = 'Total'
-    else:
-        # fallback: separar por primer punto si existe
-        if '.' in t:
-            left, right = t.split('.', 1)
-            name = left.strip()
-            cat = right.strip().capitalize()
-            if 'hombre' in cat.lower(): cat = 'Hombres'
-            if 'mujer' in cat.lower(): cat = 'Mujeres'
-            if 'total' in cat.lower(): cat = 'Total'
-        else:
-            name = t
-            cat = pd.NA
-    return pd.Series([name, cat])
+# A) Desde Migraciones (Prioridad 1)
+master_mapping = {}
+if os.path.exists(MIGRACIONES_CSV):
+    df_migra = pd.read_csv(MIGRACIONES_CSV, dtype=str)
+    df_migra['nom_norm'] = df_migra['nombre_municipio'].apply(normalize)
+    master_mapping = df_migra.drop_duplicates('nom_norm').set_index('nom_norm')['codigo_provincia'].to_dict()
+    print(f"   - Referencia Migraciones: {len(master_mapping)} municipios.")
 
-df[['municipio_clean', 'categoria']] = df['municipio_tmp'].apply(extract_name_and_category)
+# B) Desde GeoJSON (Prioridad 2)
+with open(GEOJSON, encoding="utf-8") as f:
+    gj = json.load(f)
+geo_props = []
+for feat in gj.get("features", []):
+    p = feat.get("properties", {})
+    lid = str(p.get("LAU_ID", ""))
+    if len(lid) >= 2:
+        geo_props.append({'n': normalize(p.get("LAU_NAME", "")), 'c': lid[:2]})
+mapping_geojson = pd.DataFrame(geo_props).drop_duplicates('n').set_index('n')['c'].to_dict()
 
-# 4. Si municipio_clean quedó vacío, usar municipio sin sufijos
-df['municipio_clean'] = df['municipio_clean'].fillna(df['municipio_tmp'])
+# ... (mantén tus funciones de normalize y clean_municipio_string arriba) ...
 
-# 5. Filtrar filas con población válida
-df = df[df['population'].notna()]
+# --------------------------
+# NUEVO: DICCIONARIO DE CORRECCIONES MANUALES
+# --------------------------
+CORRECCIONES_MANUALES = {
+    "oza dos rios": "15", # A Coruña
+    "cesuras": "15",      # A Coruña
+    "cotobade": "36",     # Pontevedra (se fusionó en Cerdedo-Cotobade)
+    "atez atetz": "31",   # Navarra
+    "novetle novele": "46" # Valencia
+}
 
-# 6. Agrupar y pivotar (ahora cod_prov/cod_muni no son NaN)
-df_group = (df
-            .groupby(['cod_prov', 'cod_muni', 'municipio_clean', 'year', 'categoria'], dropna=False)['population']
-            .sum()
-            .reset_index())
+# ... (Secciones 1 y 2 igual que antes) ...
 
-df_wide = df_group.pivot_table(index=['cod_prov', 'cod_muni', 'municipio_clean', 'year'],
-                               columns='categoria',
-                               values='population',
-                               aggfunc='first').reset_index()
+# --------------------------
+# 3) Asignar Provincias (Triple Fallback + Parche Manual)
+# --------------------------
+print("3) Asignando provincias...")
 
-# 7. Asegurar columnas esperadas y tipos
-for col in ['Total', 'Hombres', 'Mujeres']:
-    if col not in df_wide.columns:
-        df_wide[col] = pd.NA
+# Paso 1: Migraciones
+df_pivot['region_code'] = df_pivot['municipio_norm'].map(master_mapping)
 
-df_wide[['Total','Hombres','Mujeres']] = df_wide[['Total','Hombres','Mujeres']].fillna(0).astype('Int64')
+# Paso 2: GeoJSON
+mask = df_pivot['region_code'].isna()
+df_pivot.loc[mask, 'region_code'] = df_pivot.loc[mask, 'municipio_norm'].map(mapping_geojson)
 
-# 8. Orden final
-df_wide = df_wide[['cod_prov', 'cod_muni', 'municipio_clean', 'year', 'Total', 'Hombres', 'Mujeres']]
-df_wide = df_wide.sort_values(['municipio_clean','year']).reset_index(drop=True)
+# Paso 3: PARCHE MANUAL (Para Oza, Cesuras, etc.)
+mask = df_pivot['region_code'].isna()
+df_pivot.loc[mask, 'region_code'] = df_pivot.loc[mask, 'municipio_norm'].map(CORRECCIONES_MANUALES)
 
-# 9) Eliminar cod_prov / cod_muni si están completamente vacías
-for c in ['cod_prov', 'cod_muni']:
-    if c in df_wide.columns:
-        if df_wide[c].replace('', pd.NA).isna().all():
-            df_wide = df_wide.drop(columns=c)
+# Paso 4: Fuzzy Match (Para el resto)
+mask = df_pivot['region_code'].isna()
+missing_names = df_pivot.loc[mask, 'municipio_norm'].unique()
+if len(missing_names) > 0:
+    all_refs = {**mapping_geojson, **master_mapping}
+    choices = list(all_refs.keys())
+    fuzzy_map = {}
+    for name in missing_names:
+        if not name: continue
+        m = difflib.get_close_matches(name, choices, n=1, cutoff=0.75) # Bajamos un poco el cutoff
+        if m: fuzzy_map[name] = all_refs[m[0]]
+    df_pivot.loc[mask, 'region_code'] = df_pivot.loc[mask, 'municipio_norm'].map(fuzzy_map)
 
-# 10) Renombrar municipio_clean a municipio (mantener el nombre solicitado)
-if 'municipio_clean' in df_wide.columns:
-    df_wide = df_wide.rename(columns={'municipio_clean': 'municipio'})
+# Limpiar códigos (Asegurar 2 dígitos)
+df_pivot['region_code'] = df_pivot['region_code'].astype(str).str.replace(r'\.0$', '', regex=True).str.zfill(2)
+df_pivot.loc[df_pivot['region_code'].isin(['nan', 'None', '']), 'region_code'] = pd.NA
 
-# 11) Agrupar por municipio y después por year (suma por si hubiera duplicados) y ordenar
-group_cols = ['municipio', 'year']
-value_cols = ['Total', 'Hombres', 'Mujeres']
+# --------------------------
+# 4) Merge Provincial y Relleno Temporal (Igual que el anterior)
+# --------------------------
+# ... (Aquí va la lógica de df_final.groupby('region_code')['population'].ffill().bfill() que pusimos antes) ...
 
-df_final = (df_wide
-            .groupby(group_cols, as_index=False)[value_cols]
-            .sum()
-            .sort_values(['municipio', 'year'])
-            .reset_index(drop=True)
-           )
+# --------------------------
+# 4) Merge Provincial con Reutilización de Datos (Lógica de Relleno)
+# --------------------------
+print("4) Uniendo con población provincial (Lógica de relleno temporal)...")
 
-print("Filas resultantes:", len(df_final))
-print(df_final.head(10).to_string())
+# A) Cargar provincias y asegurar formato
+df_p = pd.read_csv(PROV_CSV, dtype=str)
+df_p['region_code'] = df_p['region_code'].str.zfill(2)
+df_p['year'] = pd.to_numeric(df_p['year'], errors='coerce')
+df_p['population'] = pd.to_numeric(df_p['population'], errors='coerce')
+df_p = df_p.dropna(subset=['region_code', 'year'])
 
-#----------------------------------------------------------------------------------------
-# Conteo de municipios con exactamente 5 años y con menos de 5 años
-num_igual_5 = df_final.groupby('municipio')['year'].nunique().eq(5).sum()
-num_menor_5 = df_final.groupby('municipio')['year'].nunique().lt(5).sum()
-print("Municipios con exactamente 5 años:", num_igual_5)
-print("Municipios con menos de 5 años:", num_menor_5)
+# B) Crear una "Matriz Maestra" de Provincias
+# Esto asegura que tengamos el nombre de la provincia siempre disponible por código
+prov_names = df_p.drop_duplicates('region_code').set_index('region_code')['region_name'].to_dict()
 
-# 12) Exportar resultado final con codificación segura para Excel
-df_final.to_csv("demografia_municipios_limpio.csv", index=False, encoding="utf-8-sig")
-print("✅ Exportado: demografia_municipios_limpio.csv (utf-8-sig)")
+# C) Unir por Año y Provincia (Merge inicial)
+# Primero intentamos el cruce normal
+df_final = pd.merge(
+    df_pivot, 
+    df_p[['region_code', 'year', 'population']], 
+    on=['region_code', 'year'], 
+    how='left'
+)
+
+# D) Rellenar Nombres de Provincia faltantes
+df_final['region_name'] = df_final['region_code'].map(prov_names)
+
+# E) RELLENO TEMPORAL (La clave del éxito)
+# Ordenamos para que el relleno tenga sentido cronológico
+df_final = df_final.sort_values(['region_code', 'year'])
+
+print("   - Rellenando huecos de población provincial...")
+# Agrupamos por provincia y rellenamos la población hacia arriba y hacia abajo
+# Esto hace que si tenemos datos de 2021, se copien a 1996 y a 2024
+df_final['population'] = df_final.groupby('region_code')['population'].ffill().bfill()
+
+# F) Limpieza final
+df_final = df_final.rename(columns={
+    'municipio_clean': 'municipio', 
+    'population': 'provincia_population'
+})
+
+# --------------------------
+# 5) Exportar
+# --------------------------
+print("5) Guardando resultado final...")
+cols_finales = [
+    'region_code', 'region_name', 'year', 'provincia_population', 
+    'municipio', 'Total', 'Hombres', 'Mujeres'
+]
+
+# Solo las columnas que existen
+df_export = df_final[[c for c in cols_finales if c in df_final.columns]]
+df_export.to_csv(OUTPUT, index=False, encoding='utf-8-sig')
+
+print(f"✅ ¡Hecho! Población provincial recuperada para todos los años.")
