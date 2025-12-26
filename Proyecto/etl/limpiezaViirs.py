@@ -5,9 +5,9 @@ from tqdm import tqdm
 # -----------------------------
 # Configuración de entrada/salida
 # -----------------------------
-MUNI_CSV = "viirs_municipios_final.csv"             # LAU_ID, LAU_NAME, date, mean (municipal), ...
-PROV_CSV = "viirs_provincias_2018_2022.csv"         # PROV_CODE, PROV_NAME, date, mean (provincial)
-OUTPUT_CSV = "viirs_municipios_con_mean_prov.csv"   # archivo resultante
+MUNI_CSV = "data/luz_nocturna/municipios/luz_nocturna/viirs_luz_nocturna.csv"      # LAU_ID, LAU_NAME, date, mean (municipal), ...
+PROV_CSV = "data/luz_nocturna/provincias/viirs_provincias_2018_2022.csv"   # PROV_CODE, PROV_NAME, date, mean (provincial)
+OUTPUT_CSV = "data/clean/viirsFinal_limpio.csv"   # archivo resultante
 
 # -----------------------------
 # Funciones de normalización
@@ -123,11 +123,20 @@ def main():
     # 8) Merge por PROV_NAME + date (left para no perder municipios)
     df_final = df_muni.merge(df_prov, on=["PROV_NAME", "date"], how="left")
 
-    # 9) Diagnóstico de mean_prov faltante
+    # 9) Diagnóstico y Relleno de nulos (Imputación Temporal)
     missing_mean = int(df_final["mean_prov"].isna().sum())
-    total_rows = len(df_final)
-    pct_missing_mean = (missing_mean / total_rows * 100) if total_rows else 0.0
-    print(f"mean_prov faltante tras merge: {missing_mean} filas ({pct_missing_mean:.2f}%)")
+    if missing_mean > 0:
+        print(f"⚠️ Detectados {missing_mean} nulos en 'mean_prov'. Aplicando relleno temporal...")
+        
+        # Primero ordenamos por provincia y fecha para que el relleno sea coherente
+        df_final = df_final.sort_values(by=["PROV_NAME", "date"])
+        
+        # 'ffill' (forward fill) propaga el último valor válido hacia adelante
+        # 'bfill' (backward fill) por si el nulo es el primer dato de la serie
+        df_final["mean_prov"] = df_final.groupby("PROV_NAME")["mean_prov"].ffill().bfill()
+        
+        new_missing = int(df_final["mean_prov"].isna().sum())
+        print(f"✅ Nulos restantes tras imputación: {new_missing}")
 
     # 10) Reordenar columnas: primero provinciales (PROV_NAME, date, mean_prov)
     prov_cols = ["PROV_NAME", "date", "mean_prov"]
