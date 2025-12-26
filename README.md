@@ -21,6 +21,7 @@ neo_lumina/
       └─ luz_nocturna/    -> CSV plantilla para VIIRS DNB
 
 Flujo del proyecto:
+
 1. main.py ejecuta todos los módulos.
 2. catalog.py consulta metadatos Sentinel y devuelve DataFrames.
 3. osm.py descarga estaciones de tren dentro del AOI.
@@ -29,6 +30,7 @@ Flujo del proyecto:
 6. Los CSV se usarán más adelante para análisis, ML y visualización.
 
 Notas:
-- Los CSV se dividen por temática para facilitar la interpretación.
-- La plantilla VIIRS debe completarse con enlaces VNL de NOAA/EOG.
-- Los datos satelitales y de transporte se descargan automáticamente.
+
+docker build -t proyecto_big_data .
+
+docker run --rm `-v "$env:USERPROFILE.config\earthengine:/root/.config/earthengine" `
