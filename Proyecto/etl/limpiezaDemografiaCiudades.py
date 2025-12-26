@@ -13,7 +13,7 @@ def fix_mojibake(s: str) -> str:
 # -----------------------------
 # 1 Cargar CSV
 # -----------------------------
-df = pd.read_csv("data/demografia_poblacion_municipios.csv", dtype=str)
+df = pd.read_csv("data/demografia/demografia_poblacion_municipios.csv", dtype=str)
 
 # -----------------------------
 # 0. Tipos y limpieza básica
