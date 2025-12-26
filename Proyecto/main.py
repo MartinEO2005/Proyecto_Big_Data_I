@@ -88,15 +88,25 @@ def run_all():
         print("  ❌ Error al ejecutar energia_cnmc:", type(e), e)
 
      # --- Demografía provincias ---
+    # --- EXTRACCIÓN DE DATOS DEMOGRÁFICOS ---
     try:
-        print("-> Descargando datos demográficos (Eurostat, provincias)...")
+        # Nota: Ahora conectamos con la API del INE (Padrón Continuo, Tabla 2852)
+        print("-> Descargando datos demográficos oficiales (INE, provincias)...")
+        
         path_demografia = demografiaProvincias.fetch_population_and_save(base_outdir=BASE_DIR)
-        if path_demografia is not None:
-            print("  ✅ Demografía guardada en:", path_demografia)
+        
+        if path_demografia:
+            print(f"  ✅ Demografía guardada exitosamente en: {path_demografia}")
+            
+            # Verificación opcional de carga para el log del main
+            import pandas as pd
+            df_check = pd.read_csv(path_demografia)
+            print(f"     [Log] Registros: {len(df_check)} | Último año: {df_check['year'].max()}")
         else:
-            print("  ⚠️ No se pudieron obtener datos demográficos (DataFrame vacío).")
+            print("  ⚠️ Advertencia: El proceso terminó sin generar el archivo (DataFrame vacío).")
+            
     except Exception as e:
-        print("  ❌ Error al ejecutar demografiaProvincias.fetch_population_and_save:", type(e), e)
+        print(f"  ❌ Error crítico en la fase de demografía: {type(e).__name__} -> {e}")
 
     # 1) Metricas OSM municipios
     try:

@@ -1,104 +1,95 @@
-# DemografiaProvincias.py - VERSIÓN CON URL ESTABLE (Tabla 7421)
-
 import requests
 import pandas as pd
-import json 
-from pyjstat import pyjstat 
 from pathlib import Path
 
-# --- DUMMY FUNCTION (Asegúrate de que 'storage.py' funcione o usa esta) ---
 def save_df_to_theme(df, theme, filename, base_outdir):
     out_path = Path(base_outdir) / theme / filename
     out_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(out_path, index=False, encoding='utf-8-sig')
     return out_path
-# -------------------------------------------------------------------------
 
 __all__ = ["fetch_population_total_nuts3", "fetch_population_and_save"]
 
-# --- Nueva Configuración: API del INE (Tabla 7421: Población residente) ---
-# 🚨 URL FINAL y ESTABLE 🚨
-INE_API_URL = "https://servicios.ine.es/wstempus/js/es/DATOS_TABLA/t20/e7421/p08/l0.json"
-
+INE_API_URL = "https://servicios.ine.es/wstempus/js/es/DATOS_TABLA/2852"
 
 def fetch_population_total_nuts3():
-    """
-    Descarga población total por provincia desde la API del INE (Tabla 7421).
-    """
     try:
-        print(f"[INE] Intentando descargar datos desde la fuente estable (Tabla 7421): {INE_API_URL}")
+        print(f"[INE] Conectando a la API (Tabla 2852)...")
         r = requests.get(INE_API_URL, timeout=60)
-        r.raise_for_status() 
-        
-        print("✅ Conexión exitosa al INE. Procesando JSON-STAT...")
-        
-        # 1. Cargar el JSON-STAT del INE
-        data_json = json.loads(r.text)
-        
-        # 2. Convertir el objeto JSON-STAT a un DataFrame de pandas usando pyjstat
-        dataset_list = pyjstat.Dataset.read(data_json)
-        
-        if not dataset_list:
-             print("❌ El JSON-STAT del INE no contiene datasets.")
-             return pd.DataFrame()
-             
-        # Usamos 'omit' para obtener los totales por Sexo, Edad y Nacionalidad
-        df = dataset_list[0].to_dataframe(
-            omit=['Sexo', 'Edad (años)'] # La tabla 7421 tiene estas dos dimensiones clave.
-        )
-        
-        # 3. Limpieza y Formato
-        df.columns = [c.lower() for c in df.columns]
+        r.raise_for_status()
+        series_list = r.json()
 
-        col_provincia = next((c for c in df.columns if 'territorio' in c or 'provincia' in c), 'territorio')
-        col_año = next((c for c in df.columns if 'período' in c or 'año' in c), 'período')
-        col_valor = 'valor'
+        data_list = []
 
-        if col_provincia not in df.columns or col_año not in df.columns:
-            print("❌ No se pudieron identificar las columnas clave ('Provincia' o 'Período') tras pyjstat.")
+        # Diccionario auxiliar para poner los códigos que faltan en la API
+        # Esto asegura que 'Albacete' siempre tenga su '02'
+        mapa_codigos = {
+            'Albacete': '02', 'Alicante/Alacant': '03', 'Almería': '04', 'Araba/Álava': '01',
+            'Asturias': '33', 'Ávila': '05', 'Badajoz': '06', 'Balears, Illes': '07',
+            'Barcelona': '08', 'Bizkaia': '48', 'Burgos': '09', 'Cáceres': '10',
+            'Cádiz': '11', 'Cantabria': '39', 'Castellón/Castelló': '12', 'Ciudad Real': '13',
+            'Córdoba': '14', 'Coruña, A': '15', 'Cuenca': '16', 'Gipuzkoa': '20',
+            'Girona': '17', 'Granada': '18', 'Guadalajara': '19', 'Huelva': '21',
+            'Huesca': '22', 'Jaén': '23', 'León': '24', 'Lleida': '25', 'Lugo': '27',
+            'Madrid': '28', 'Málaga': '29', 'Murcia': '30', 'Navarra': '31',
+            'Ourense': '32', 'Palencia': '34', 'Palmas, Las': '35', 'Pontevedra': '36',
+            'Rioja, La': '26', 'Salamanca': '37', 'Santa Cruz de Tenerife': '38',
+            'Segovia': '40', 'Sevilla': '41', 'Soria': '42', 'Tarragona': '43',
+            'Teruel': '44', 'Toledo': '45', 'Valencia/València': '46', 'Valladolid': '47',
+            'Zamora': '49', 'Zaragoza': '50', 'Ceuta': '51', 'Melilla': '52'
+        }
+
+        print(f"✅ Procesando series...")
+
+        for serie in series_list:
+            nombre = serie.get('Nombre', '')
+            
+            # FILTRO EXACTO basado en tu ejemplo: "Albacete. Total. Total habitantes. Personas."
+            # 1. Buscamos que sea "Total"
+            # 2. Que no sea el "Total Nacional"
+            # 3. Que NO contenga "Hombres" ni "Mujeres"
+            if ". Total." in nombre and "Total Nacional" not in nombre and "Hombres" not in nombre and "Mujeres" not in nombre:
+                
+                # Extraemos el nombre de la provincia (lo que está antes del primer punto)
+                region_name = nombre.split('.')[0].strip()
+                
+                # Buscamos su código en nuestro mapa
+                region_code = mapa_codigos.get(region_name, "00")
+
+                for punto in serie.get('Data', []):
+                    data_list.append({
+                        'region_code': region_code,
+                        'region_name': region_name,
+                        'year': punto.get('Anyo'),
+                        'population': punto.get('Valor')
+                    })
+
+        if not data_list:
+            print("⚠️ No se encontraron coincidencias. Revisa el formato de la API.")
             return pd.DataFrame()
+
+        df = pd.DataFrame(data_list)
+        df = df.drop_duplicates(subset=['region_name', 'year'])
         
-        df_final = df[[col_provincia, col_año, col_valor]].copy()
-        df_final.columns = ['region_name', 'year', 'population']
+        # Formatos finales
+        df['population'] = pd.to_numeric(df['population'], errors='coerce')
+        df['year'] = pd.to_numeric(df['year'], errors='coerce').astype('Int64')
+        df = df.dropna(subset=['population', 'year'])
+        df = df.sort_values(by=['year', 'region_code'], ascending=[False, True])
 
-        df_final['region_code'] = df_final['region_name']
-        
-        df_final = df_final[['region_code', 'region_name', 'year', 'population']]
-        df_final['population'] = pd.to_numeric(df_final['population'], errors='coerce')
-        df_final['year'] = pd.to_numeric(df_final['year'], errors='coerce').astype('Int64')
-        df_final = df_final.dropna(subset=['population', 'year'])
+        return df
 
-        print(f"✅ Se descargaron {len(df_final)} registros de población total (INE)")
-        return df_final
-
-    except requests.exceptions.HTTPError as e:
-        print(f"❌ Error HTTP al conectar con el INE: {e.response.status_code}. La nueva URL podría haber fallado también.")
-        return pd.DataFrame()
     except Exception as e:
-        print(f"❌ Error inesperado al procesar el JSON-STAT del INE: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"❌ Error: {e}")
         return pd.DataFrame()
-
 
 def fetch_population_and_save(base_outdir="outputs/data", filename="demografia_poblacion_provincias.csv"):
-    """
-    Función principal llamada desde el main.py.
-    """
     df = fetch_population_total_nuts3()
-    if df is None or df.empty:
-        print("⚠️ No hay datos demográficos para guardar.")
-        return None
-
-    path = save_df_to_theme(df, theme="demografia", filename=filename, base_outdir=base_outdir)
-    print(f"💾 Datos demográficos guardados en: {path}")
-    return path
-
+    if df.empty: return None
+    return save_df_to_theme(df, theme="demografia", filename=filename, base_outdir=base_outdir)
 
 if __name__ == "__main__":
-    fetch_population_and_save()
-    
-    df_test = fetch_population_total_nuts3()
-    if not df_test.empty:
-        print("\nPrueba de coherencia (Suma total de provincias por año):")
-        print(df_test.groupby('year')['population'].sum().tail(5))
+    ruta = fetch_population_and_save(base_outdir="./test_output")
+    if ruta:
+        print(f"✅ ¡CONSEGUIDO! Datos de la API guardados.")
+        print(pd.read_csv(ruta).head(10))
