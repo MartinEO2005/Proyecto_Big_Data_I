@@ -124,10 +124,10 @@ output_folder = "data/clean"
 os.makedirs(output_folder, exist_ok=True)
 
 dfs_to_export = {
-    "consumo_provincias_cnmc": df1_consumo,
-    "migracion_interior_municipios": df2_migracion,
-    "renta_municipios": df3_renta_municipios,
-    "empresas_transporte_prov_mun": df4_empresasTrans
+    "consumo_electricoProv_final": df1_consumo,
+    "migracion_municipios_final": df2_migracion,
+    "rentamedia_municipios_final": df3_renta_municipios,
+    "empresas_transporte_final": df4_empresasTrans
 }
 
 for name, df in dfs_to_export.items():
