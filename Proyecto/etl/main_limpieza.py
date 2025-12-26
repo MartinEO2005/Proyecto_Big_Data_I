@@ -2,7 +2,6 @@ import os
 import sys
 import pandas as pd
 
-# 1. Importación de tus módulos de limpieza
 try:
     import limpieza_energia_migracion_renta  # Genera 4 CSVs
     import limpiezaDemografia               # Genera 1 CSV
@@ -30,17 +29,13 @@ def main():
     print("🚀 PROCESO INTEGRADO DE LIMPIEZA - DATASET 2025")
     print("="*60)
 
-    # El primer script se ejecuta al importar o llamamos a su lógica
     print("\n[1/4] Ejecutando Limpieza Socioeconómica (4 archivos)...")
-    # Si el script tiene lógica suelta, se ejecuta al importar. 
-    # Si tiene main(), añade: limpieza_energia_migracion_renta.main()
 
     print("\n[2/4] Ejecutando Limpieza de Demografía...")
     if hasattr(limpiezaDemografia, 'main'):
         limpiezaDemografia.main()
 
     print("\n[3/4] Ejecutando Limpieza de Transporte (OSM)...")
-    # Este script lo parametrizamos como en el ejemplo anterior
     limpiezaosm.main(
         "data/transporte/muni_station_metrics_reduced.csv",
         "data/clean/muni_station_osm_limpio.csv"
@@ -66,8 +61,6 @@ def main():
 
     for ruta in archivos_finales:
         verificar_salud_csv(ruta)
-
-    print("\n✨ Pipeline completado. Los datos están listos para el entrenamiento.")
 
 if __name__ == "__main__":
     main()

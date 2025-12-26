@@ -4,7 +4,7 @@ import numpy as np
 
 
 MUNI_RAW = "data/demografia/demografia_poblacion_municipios.csv"
-GEOJSON = "municipios_es.geojson"
+GEOJSON = "/app/municipios_es.geojson"
 PROV_CSV = "data/demografia/demografia_poblacion_provincias.csv"
 MIGRACIONES_CSV = "data/migracion/migracion_interior_municipios.csv" 
 OUTPUT = "data/clean/demografia_municipios_con_provincia.csv"
