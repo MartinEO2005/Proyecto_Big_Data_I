@@ -12,15 +12,11 @@ import unicodedata
 import pandas as pd
 import numpy as np
 
-# -----------------------------
-# CONFIGURA AQUÍ (si no pasas argumentos)
-# -----------------------------
-INPUT_CSV  = r"data/transporte/muni_station_metrics_reduced.csv"
-OUTPUT_CSV = r"data/transporte/muni_station_metrics_with_prov.csv"
 
-# -----------------------------
-# Mapa INE 2 dígitos → nombre oficial
-# -----------------------------
+INPUT_CSV  = r"data/transporte/muni_station_metrics_reduced.csv"
+OUTPUT_CSV = r"data/clean/muni_station_osm_limpio.csv"
+
+
 INE_PROV_MAP = {
     "01": "Álava", "02": "Albacete", "03": "Alicante", "04": "Almería", "05": "Ávila",
     "06": "Badajoz", "07": "Islas Baleares", "08": "Barcelona", "09": "Burgos", "10": "Cáceres",
@@ -35,7 +31,6 @@ INE_PROV_MAP = {
     "50": "Zaragoza", "51": "Ceuta", "52": "Melilla"
 }
 
-# Columnas de conteo que queremos revisar
 COUNT_COLS = [
     "stations_count", "stations_unique", "operator_count",
     "stations_within_1km_count", "stations_within_5km_count",
@@ -43,9 +38,7 @@ COUNT_COLS = [
     "accessible_count"
 ]
 
-# -----------------------------
-# Utilidades
-# -----------------------------
+
 def read_csv_flexible(path):
     try:
         return pd.read_csv(path, low_memory=False, encoding="utf-8")
@@ -74,15 +67,12 @@ def normalize_lau_name(val):
     v = str(val).strip()
     v = fix_mojibake(v)
     v = normalize_unicode_str(v)
-    # capitalización razonable
     v_title = v.title()
     for small in [" De ", " Del ", " La ", " Las ", " El ", " Y ", " A "]:
         v_title = v_title.replace(small, small.lower())
     return v_title
 
-# -----------------------------
-# Flujo principal
-# -----------------------------
+
 def main(input_path, output_path=None):
     if not os.path.exists(input_path):
         print("Error: archivo no encontrado:", input_path)
@@ -145,8 +135,10 @@ def main(input_path, output_path=None):
     for col, nulls, pct in nulls_summary:
         print(f"{col:40s} {nulls:8d} {pct:10.3f}")
 
-    # 8) Guardar CSV con PROV_NAME al principio y numéricos a 3 decimales
+# 8) Rellenar nulos con 0 y guardar CSV
     if output_path:
+        df = df.fillna(0) 
+        
         os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
         df.to_csv(output_path, index=False, encoding="utf-8-sig", float_format="%.4f")
         print("\nCSV guardado en:", output_path)

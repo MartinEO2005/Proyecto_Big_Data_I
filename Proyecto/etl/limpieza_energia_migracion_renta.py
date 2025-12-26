@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 
 # 1) CONSUMO ENERGÍA
 
@@ -96,3 +97,45 @@ df3_renta_municipios = df3_renta_municipios.dropna(subset=['pib'])
 
 print(f"\n🧽 Filas eliminadas por NaN en 'pib': {nulos_pib}")
 print(f"📌 Nuevo tamaño df3_renta_municipios: {df3_renta_municipios.shape}")
+
+# 4) Empresas de transporte
+
+df4_empresasTrans = pd.read_csv(r"data/empresas_transporte/empresas_transporte_prov_mun_anchos.csv")
+
+cols_años = [c for c in df4_empresasTrans.columns if c.isdigit()]
+
+nulos_por_columna = df4_empresasTrans.isnull().sum()
+print("\n1. Nulos por columna (Años):")
+print(nulos_por_columna[nulos_por_columna > 0])
+
+filas_con_nulos = df4_empresasTrans[df4_empresasTrans.isnull().any(axis=1)]
+print(f"\n2. Total de municipios con algún dato faltante: {len(filas_con_nulos)}")
+
+totalmente_vacias = df4_empresasTrans[df4_empresasTrans[cols_años].isnull().all(axis=1)]
+print(f"3. Municipios con 0 datos en toda la serie (2012-2021): {len(totalmente_vacias)}")
+
+ceros_por_año = (df4_empresasTrans[cols_años] == 0).sum()
+print("\n4. Presencia de valores '0.0' por año:")
+print(ceros_por_año)
+
+import os
+
+output_folder = "data/clean"
+os.makedirs(output_folder, exist_ok=True)
+
+dfs_to_export = {
+    "consumo_provincias_cnmc": df1_consumo,
+    "migracion_interior_municipios": df2_migracion,
+    "renta_municipios": df3_renta_municipios,
+    "empresas_transporte_prov_mun": df4_empresasTrans
+}
+
+for name, df in dfs_to_export.items():
+    df_final = df
+        # Construir ruta: data/clean/nombre_limpio.csv
+    file_path = os.path.join(output_folder, f"{name}_limpio.csv")
+    # Exportar
+    df_final.to_csv(file_path, index=False, encoding="utf-8-sig")
+    print(f"✅ Exportado: {file_path} ({df_final.shape[0]} filas)")
+
+print("\n✨ Proceso de limpieza y exportación finalizado.")
