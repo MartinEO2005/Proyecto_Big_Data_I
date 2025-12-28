@@ -1,15 +1,11 @@
 FROM python:3.11-slim
 WORKDIR /app
 
-# Instalamos lo básico
 RUN pip install --no-cache-dir pandas sqlalchemy
 
-# 1. Copiamos la carpeta data desde la raíz (donde estás lanzando el build)
-# Según tu foto, está ahí mismo.
-COPY data/ /app/data/
+# En lugar de COPY data/, copiamos TODO el contenido de la raíz
+# Esto fuerza a Docker a llevarse la carpeta data sí o sí
+COPY . .
 
-# 2. Copiamos el script main_dbconnection.py que está dentro de Proyecto/
-COPY Proyecto/main_dbconnection.py /app/main_dbconnection.py
-
-# 3. Lanzamos el script
-CMD ["python", "main_dbconnection.py"]
+# Luego ajustamos el CMD para que encuentre el script donde quedó
+CMD ["python", "Proyecto/main_dbconnection.py"]
