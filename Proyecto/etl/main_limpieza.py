@@ -54,7 +54,7 @@ def main():
         "data/clean/migracion_municipios_final_limpio.csv",
         "data/clean/rentamedia_municipios_final_limpio.csv",
         "data/clean/empresas_transporte_final_limpio.csv",
-        "data/clean/demografia_municipios_con_provincia.csv",
+        "data/clean/demografia_municipios_final.csv",
         "data/clean/muni_station_osm_limpio.csv",
         "data/clean/viirsFinal_limpio.csv"
     ]
