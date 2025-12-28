@@ -4,10 +4,15 @@ import numpy as np
 
 
 MUNI_RAW = "data/demografia/demografia_poblacion_municipios.csv"
-GEOJSON = "/app/municipios_es.geojson"
+if os.path.exists("/app/municipios_es.geojson"):
+    GEOJSON = "/app/municipios_es.geojson"
+else:
+    # Ruta relativa para cuando trabajas en Windows
+    # Asumiendo que el script está en Proyecto/etl/ y el geojson en la raíz
+    GEOJSON = "municipios_es.geojson"
 PROV_CSV = "data/demografia/demografia_poblacion_provincias.csv"
 MIGRACIONES_CSV = "data/migracion/migracion_interior_municipios.csv" 
-OUTPUT = "data/clean/demografia_municipios_con_provincia.csv"
+OUTPUT = "data/clean/demografia_municipios_final.csv"
 
 def normalize(s):
     if pd.isna(s): return ""
