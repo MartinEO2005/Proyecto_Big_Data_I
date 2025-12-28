@@ -14,26 +14,31 @@ TILE_SCALE = 16
 SIMPLIFY_TOL = 1000
 DEFAULT_PROJECT = "bubbly-reducer-477312-d0"
 
-def init_ee(project: str | None = DEFAULT_PROJECT):
+def init_ee(project="bubbly-reducer-477312-d0"):
+    """Inicialización profesional con Service Account y Scopes definidos."""
+    import os
+    import ee
+    from google.oauth2 import service_account
+    
+    json_path = 'google_credentials.json'
+    # Definimos el permiso específico para Earth Engine
+    EE_SCOPES = ['https://www.googleapis.com/auth/earthengine', 'https://www.googleapis.com/auth/cloud-platform']
+    
     try:
-        ee.Initialize(project=project)
-        print(f"✅ Earth Engine inicializado (project={project})")
-        return
-    except Exception:
-        try:
-            print("🔑 Autenticando Earth Engine...")
-            ee.Authenticate()
+        if os.path.exists(json_path):
+            # Cargamos las credenciales añadiendo los SCOPES
+            credentials = service_account.Credentials.from_service_account_file(
+                json_path, scopes=EE_SCOPES
+            )
+            ee.Initialize(credentials=credentials, project=project)
+            print(f"✅ Earth Engine conectado con Service Account: {credentials.service_account_email}")
+        else:
+            # Fallback para ejecución local fuera de Docker
             ee.Initialize(project=project)
-            print(f"✅ Earth Engine autenticado e inicializado (project={project})")
-            return
-        except Exception:
-            try:
-                print("⚠️ Inicialización con project fallida; intentando ee.Initialize() sin project...")
-                ee.Initialize()
-                print("✅ Earth Engine inicializado sin project (modo fallback).")
-                return
-            except Exception as e:
-                raise e
+            print("✅ Earth Engine inicializado con credenciales locales.")
+    except Exception as e:
+        print(f"❌ Error crítico de autenticación: {e}")
+        raise SystemExit(1)
 
 def build_provinces_from_gaul_adm2(simplify_tol=SIMPLIFY_TOL):
     gaul_lvl2 = ee.FeatureCollection("FAO/GAUL/2015/level2").filter(ee.Filter.eq('ADM0_NAME', 'Spain'))
