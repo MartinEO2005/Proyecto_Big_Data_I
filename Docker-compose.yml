@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  # 1. ETAPA DE DESCARGA
+  descarga:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+
+  # 2. ETAPA DE LIMPIEZA
+  limpieza:
+    build:
+      context: .
+      dockerfile: Dockerfile.limpieza
+    # Espera a que la descarga termine con éxito
+    depends_on:
+      descarga:
+        condition: service_completed_successfully
+    volumes:
+      - .:/app
+
+  # 3. ETAPA DE BASE DE DATOS
+  database:
+    build:
+      context: .
+      dockerfile: Dockerfile.db
+    # Espera a que la limpieza termine con éxito
+    depends_on:
+      limpieza:
+        condition: service_completed_successfully
+    volumes:
+      - .:/app
