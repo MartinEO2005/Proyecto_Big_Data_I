@@ -8,7 +8,7 @@ services:
       dockerfile: Dockerfile
     volumes:
       - .:/app
-
+    # No hace falta mapear .config si usamos el JSON directamente
   # 2. ETAPA DE LIMPIEZA
   limpieza:
     build:

@@ -14,16 +14,30 @@ warnings.filterwarnings("ignore")
 
 # --- 🔹 Inicialización de Earth Engine ---
 def init_ee(project="bubbly-reducer-477312-d0"):
-    """Inicializa Earth Engine de forma segura."""
+    """Inicialización profesional con Service Account y Scopes definidos."""
+    import os
+    import ee
+    from google.oauth2 import service_account
+    
+    json_path = 'google_credentials.json'
+    # Definimos el permiso específico para Earth Engine
+    EE_SCOPES = ['https://www.googleapis.com/auth/earthengine', 'https://www.googleapis.com/auth/cloud-platform']
+    
     try:
-        ee.Initialize(project=project)
-        print("✅ Earth Engine inicializado correctamente.")
-    except Exception:
-        print("🔑 Autenticando con Earth Engine...")
-        ee.Authenticate()
-        ee.Initialize(project=project)
-        print("✅ Earth Engine autenticado e inicializado.")
-
+        if os.path.exists(json_path):
+            # Cargamos las credenciales añadiendo los SCOPES
+            credentials = service_account.Credentials.from_service_account_file(
+                json_path, scopes=EE_SCOPES
+            )
+            ee.Initialize(credentials=credentials, project=project)
+            print(f"✅ Earth Engine conectado con Service Account: {credentials.service_account_email}")
+        else:
+            # Fallback para ejecución local fuera de Docker
+            ee.Initialize(project=project)
+            print("✅ Earth Engine inicializado con credenciales locales.")
+    except Exception as e:
+        print(f"❌ Error crítico de autenticación: {e}")
+        raise SystemExit(1)
 
 # --- 🔹 Obtener imagen VIIRS mensual ---
 def viirs_mes(fecha_iso):
