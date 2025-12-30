@@ -52,6 +52,44 @@ def run_all():
     ensure_outdir(PROV_DIR)
     ensure_outdir(MUN_DIR)
 
+    # --- VIIRS municipios ---
+    try:
+        print("\n🌙 -> Descargando VIIRS por municipios (NOAA, raster pipeline)")
+        viirs.fetch_viirs_and_save(
+            geojson_path="municipios_es.geojson",
+            anio_ini=2018,
+            anio_fin=2019,
+            base_outdir=MUN_DIR
+        )
+        print("  ✅ VIIRS municipales escritos en:", MUN_DIR)
+    except Exception as e:
+        print("  ❌ Error al ejecutar módulo VIIRS municipios:", type(e), e)
+
+    # Inicializar Earth Engine centralmente
+    try:
+        init_ee_orchestrator(project=DEFAULT_PROJECT)
+    except Exception as e:
+        print("  ❌ Error inicializando Earth Engine en orquestador:", type(e), e)
+
+    # --- VIIRS por provincias (prioridad) ---
+    try:
+        print("\n🌙 -> Generando VIIRS por provincias (EE) [PRIORIDAD]")
+        csv_path = viirs_provincias_gaul.main(outdir=PROV_DIR, project=DEFAULT_PROJECT)
+        if csv_path:
+            df_viirs_prov = pd.read_csv(csv_path)
+            saved = save_df_to_theme(
+                df_viirs_prov,
+                theme="luz_nocturna",
+                filename=f"provincias/{os.path.basename(csv_path)}",
+                base_outdir=BASE_DIR
+            )
+            print("  ✅ VIIRS provincias guardado en:", saved)
+        else:
+            print("  ⚠️ El módulo de VIIRS no devolvió ruta al CSV final.")
+    except Exception as e:
+        print("  ❌ Error al ejecutar módulo VIIRS provincias:", type(e), e)
+
+
     # --- Empresas transporte (INE t=4721) ---
     try:
         print("\n🏭 -> Descargando empresas por municipio y provincia (INE t=4721)...")
@@ -181,24 +219,6 @@ def run_all():
             print("  ❌ No se pudo crear el CSV de fallback:", type(e2), e2)
 
 
-    # --- VIIRS por provincias (prioridad) ---
-    try:
-        print("\n🌙 -> Generando VIIRS por provincias (EE) [PRIORIDAD]")
-        csv_path = viirs_provincias_gaul.main(outdir=PROV_DIR, project=DEFAULT_PROJECT)
-        if csv_path:
-            df_viirs_prov = pd.read_csv(csv_path)
-            saved = save_df_to_theme(
-                df_viirs_prov,
-                theme="luz_nocturna",
-                filename=f"provincias/{os.path.basename(csv_path)}",
-                base_outdir=BASE_DIR
-            )
-            print("  ✅ VIIRS provincias guardado en:", saved)
-        else:
-            print("  ⚠️ El módulo de VIIRS no devolvió ruta al CSV final.")
-    except Exception as e:
-        print("  ❌ Error al ejecutar módulo VIIRS provincias:", type(e), e)
-
     # --- Sentinel-2 ---
     try:
         print("-> Consultando catálogo Copernicus (Sentinel-2)")
@@ -234,24 +254,7 @@ def run_all():
         print("  ❌ Error al ejecutar demografiaciudades:", type(e), e)
 
 
-    # --- VIIRS municipios ---
-    try:
-        print("\n🌙 -> Descargando VIIRS por municipios (NOAA, raster pipeline)")
-        viirs.fetch_viirs_and_save(
-            geojson_path="municipios_es.geojson",
-            anio_ini=2018,
-            anio_fin=2019,
-            base_outdir=MUN_DIR
-        )
-        print("  ✅ VIIRS municipales escritos en:", MUN_DIR)
-    except Exception as e:
-        print("  ❌ Error al ejecutar módulo VIIRS municipios:", type(e), e)
-
-    # Inicializar Earth Engine centralmente
-    try:
-        init_ee_orchestrator(project=DEFAULT_PROJECT)
-    except Exception as e:
-        print("  ❌ Error inicializando Earth Engine en orquestador:", type(e), e)
+    
 
     # --- Downloader Copernicus: descarga real de imágenes Sentinel-2 ---
     try:
