@@ -58,7 +58,7 @@ def run_all():
         viirs.fetch_viirs_and_save(
             geojson_path="municipios_es.geojson",
             anio_ini=2018,
-            anio_fin=2019,
+            anio_fin=2023,
             base_outdir=MUN_DIR
         )
         print("  ✅ VIIRS municipales escritos en:", MUN_DIR)

@@ -15,7 +15,7 @@ def limpiar_texto(texto):
 
 def prepare_and_load():
     # 1. Configurar conexión (Ejemplo con SQLite, puedes cambiarlo a Postgres/MySQL)
-    engine = create_engine('sqlite:///proyecto_open_data.db')
+    engine = create_engine('sqlite:///proyecto_big_data.db')
     
     # 2. Carga de CSVs
     datasets = {
