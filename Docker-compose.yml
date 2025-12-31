@@ -6,27 +6,30 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    # 🔹 ESTA ES LA CLAVE: Inyecta las variables de tu .env al contenedor
+    env_file:
+      - .env
     volumes:
       - .:/app
-    # No hace falta mapear .config si usamos el JSON directamente
+    environment:
+      # Ayuda a que los logs (como la barra de descarga) se vean al instante
+      - PYTHONUNBUFFERED=1
+
   # 2. ETAPA DE LIMPIEZA
   limpieza:
     build:
       context: .
       dockerfile: Dockerfile.limpieza
-    # Espera a que la descarga termine con éxito
     depends_on:
       descarga:
         condition: service_completed_successfully
     volumes:
       - .:/app
-
   # 3. ETAPA DE BASE DE DATOS
   database:
     build:
       context: .
       dockerfile: Dockerfile.db
-    # Espera a que la limpieza termine con éxito
     depends_on:
       limpieza:
         condition: service_completed_successfully
