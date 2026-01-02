@@ -23,6 +23,7 @@ from extraction  import consumo_electrico_gas
 from extraction  import consumo_renta_media_pib
 from extraction  import migracion_downloader
 from extraction import empresas_transporte_downloader
+from extraction.neo_lumina_copernicus_downloader import run as downloader_run
 
 # ROOT unificado para todos los outputs de datos
 BASE_DIR = "data"
@@ -45,12 +46,26 @@ def init_ee_orchestrator(project: str | None = DEFAULT_PROJECT):
         ee.Initialize(project=project)
         print(f"✅ Earth Engine autenticado e inicializado desde orquestador (project={project})")
 
-def run_all():
+def run_all(num_images=None):
     print("Orquestador: iniciando ejecución de módulos. Salida en:", BASE_DIR)
     ensure_outdir(BASE_DIR)
     ensure_outdir(LUZ_DIR)
     ensure_outdir(PROV_DIR)
     ensure_outdir(MUN_DIR)
+
+# --- 3. SECCIÓN COPERNICUS: DESCARGA REAL (IMÁGENES) ---
+    try:
+        # Aquí es donde ocurre la descarga, extracción y creación de PNGs
+        # El parámetro 'top' del downloader_run ahora manda sobre el config.py
+        target = num_images if num_images is not None else TOP
+        print(f"\n📡 -> Iniciando descarga de {target} imágenes Sentinel-2...")
+        
+        downloader_run(top=target)
+
+        print(f"   ✅ Imágenes y metadatos listos en {BASE_DIR}/satelital/copernicus/")
+    except Exception as e:
+        print(f"   ❌ Error crítico en Downloader Copernicus: {e}")
+
 
     # --- VIIRS municipios ---
     try:
@@ -253,27 +268,5 @@ def run_all():
     except Exception as e:
         print("  ❌ Error al ejecutar demografiaciudades:", type(e), e)
 
-
-    
-
-    # --- Downloader Copernicus: descarga real de imágenes Sentinel-2 ---
-    try:
-        print("\n📡 -> Iniciando downloader Copernicus (descarga de imágenes)...")
-
-        downloader_run(
-            collection="SENTINEL-2",
-            aoi="config",
-            download=True,     # activa la descarga
-            convert=True,      # genera TIFF + PNG
-            top=5,             # baja SOLO 5 imágenes
-            workers=2,         # procesamiento paralelo
-            asset="tci"        # True color TCI
-        )
-
-        print("  ✅ Downloader Copernicus completado: imágenes disponibles en data/satelital/copernicus/")
-
-    except Exception as e:
-        print("  ❌ Error ejecutando downloader Copernicus:", type(e), e)
-
 if __name__ == "__main__":
-    run_all()
+    run_all(num_images=5)

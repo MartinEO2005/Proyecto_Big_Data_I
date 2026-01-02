@@ -1,677 +1,159 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""
-NeoLumina — Descargador final Copernicus (versión en español)
-
-Características:
- - Usa el catálogo OData para buscar productos (SENTINEL-2 por defecto)
- - Descarga cada producto desde zipper.dataspace.copernicus.eu (sin 401)
- - AOI, fechas y directorio de salida vienen de config.py
- - Usa .env (COPERNICUS_USER / COPERNICUS_PASSWORD) para autenticación
- - Descarga ZIP .SAFE, extrae JP2 necesarios, convierte a TIFF y PNG
-"""
-
-from __future__ import annotations
-
 import os
 import time
-import argparse
 import fnmatch
 import zipfile
-from urllib.parse import urlencode
+import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-import hashlib
-import subprocess
-import shutil
-
 import requests
 from dotenv import load_dotenv
-import pandas as pd
-from pandas import json_normalize
 import numpy as np
 import rasterio
 from PIL import Image
 
-# ===============================
-# Carga .env desde la raíz
-# ===============================
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-ENV_PATH = os.path.join(ROOT_DIR, ".env")
-print(f"[DEBUG] Cargando .env desde: {ENV_PATH}")
-load_dotenv(ENV_PATH)
+# Importamos la configuración oficial de tu proyecto
+try:
+    from extraction.config import AOI_WKT, DATE_FROM, DATE_TO, OUTDIR, CDSE_USER, CDSE_PASS, TOP as CONFIG_TOP
+except ImportError:
+    # Fallback por si se ejecuta fuera del paquete
+    AOI_WKT = "POLYGON((-4.2 40.2, -4.2 40.8, -3.2 40.8, -3.2 40.2, -4.2 40.2))"
+    DATE_FROM, DATE_TO = "2024-06-01", "2024-08-31"
+    OUTDIR = "data"
+    CDSE_USER = os.getenv("CDSE_USER")
+    CDSE_PASS = os.getenv("CDSE_PASS")
+    CONFIG_TOP = 5
 
-# ===============================
-# Config del proyecto
-# ===============================
-from extraction.config import AOI_WKT, DATE_FROM, DATE_TO, OUTDIR
-
-# ===============================
-# URLs Copernicus
-# ===============================
+# URLs de Copernicus Data Space Ecosystem
 CAT_BASE = "https://catalogue.dataspace.copernicus.eu/odata/v1/Products"
 TOKEN_URL = "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
 ZIPPER_BASE = "https://zipper.dataspace.copernicus.eu/odata/v1/Products"
 
+def stretch_2_98(band):
+    """Estiramiento de contraste para generar el PNG visual."""
+    lower, upper = np.percentile(band, (2, 98))
+    if upper <= lower: return np.zeros_like(band, dtype=np.uint8)
+    return (np.clip((band - lower) / (upper - lower), 0, 1) * 255).astype(np.uint8)
 
-# -------------------------------
-# Utilidades auth
-# -------------------------------
-def ensure_env(var: str) -> str:
-    v = os.getenv(var)
-    if not v:
-        raise RuntimeError(f"Falta la variable de entorno: {var}")
-    return v
-
-
-def get_keycloak(username: str, password: str) -> str:
-    data = {
-        "client_id": "cdse-public",
-        "username": username,
-        "password": password,
-        "grant_type": "password",
-    }
-    r = requests.post(TOKEN_URL, data=data, timeout=60)
-    r.raise_for_status()
-    return r.json()["access_token"]
-
-
-def get_fresh_session() -> requests.Session:
-    """Crea una sesión Requests con un token recién obtenido."""
-    user = ensure_env("COPERNICUS_USER")
-    pwd = ensure_env("COPERNICUS_PASSWORD")
-    token = get_keycloak(user, pwd)
-
-    s = requests.Session()
-    s.headers.update({"Authorization": f"Bearer {token}"})
-    return s
-
-
-# -------------------------------
-# Filtro OData
-# -------------------------------
-def make_filter(
-    collection: str,
-    start_iso: str,
-    end_iso: str,
-    wkt: str | None,
-    only_l2a: bool,
-    tile: str | None,
-) -> str:
-
-    base = (
-        f"Collection/Name eq '{collection}' "
-        f"and ContentDate/Start ge {start_iso}T00:00:00.000Z "
-        f"and ContentDate/Start le {end_iso}T23:59:59.999Z"
-    )
-
-    if wkt:
-        base += f" and OData.CSC.Intersects(area=geography'SRID=4326;{wkt}')"
-
-    if only_l2a and collection.upper().startswith("SENTINEL-2"):
-        base += " and not contains(Name,'L1C')"
-
-    if tile:
-        base += f" and contains(Name,'{tile}')"
-
-    return base
-
-
-def fetch_page(params: dict) -> dict:
-    """Pide UNA página al catálogo OData, con reintentos robustos."""
-    url = f"{CAT_BASE}?{urlencode(params)}"
-    max_retries = 5
-
-    for attempt in range(1, max_retries + 1):
-        try:
-            r = requests.get(url, timeout=120)
-            r.raise_for_status()
-            return r.json()
-
-        except (requests.exceptions.ReadTimeout, requests.exceptions.ConnectionError) as e:
-            if attempt == max_retries:
-                print(f"[ERROR] Catálogo sigue fallando tras {max_retries} intentos.")
-                raise
-
-            print(
-                f"[WARN] Error de conexión con el catálogo "
-                f"(intento {attempt}/{max_retries}): {e}"
-            )
-            time.sleep(5 * attempt)  # backoff 5s, 10s, 15s...
-
-
-def fetch_all(
-    collection: str,
-    start_iso: str,
-    end_iso: str,
-    wkt: str | None,
-    top: int,
-    max_pages: int,
-    orderby: str,
-    include_count: bool,
-    only_l2a: bool,
-    tile: str | None,
-    select: str | None,
-) -> dict:
-
-    params = {
-        "$filter": make_filter(collection, start_iso, end_iso, wkt, only_l2a, tile),
-        "$orderby": orderby,
-        "$top": str(top),
-    }
-    if include_count:
-        params["$count"] = "true"
-    if select:
-        params["$select"] = select
-
-    all_items, count, skip = [], None, 0
-
-    for _ in range(max_pages):
-        page_params = dict(params)
-        if skip:
-            page_params["$skip"] = str(skip)
-
-        js = fetch_page(page_params)
-
-        if "@odata.count" in js and count is None:
-            count = js["@odata.count"]
-
-        items = js.get("value", [])
-        all_items.extend(items)
-
-        if len(items) < top:
-            break
-
-        skip += top
-        time.sleep(0.3)
-
-    out = {"value": all_items}
-    if count is not None:
-        out["@odata.count"] = count
-    return out
-
-
-def to_flat_df(js: dict) -> pd.DataFrame:
-    df = json_normalize(js.get("value", []))
-    if not df.empty:
-        first = [
-            c
-            for c in [
-                "Id",
-                "Name",
-                "ContentDate.Start",
-                "ContentDate.End",
-                "ContentType",
-                "ContentLength",
-                "OriginDate",
-                "GeoFootprint",
-            ]
-            if c in df.columns
-        ]
-        rest = [c for c in df.columns if c not in first]
-        df = df[first + rest]
-    return df
-
-
-# -------------------------------
-# Descarga ZIP desde zipper
-# -------------------------------
-def download_product_zip(
-    session: requests.Session,
-    product_id: str,
-    identifier: str,
-    out_dir: str,
-    overwrite: bool = False,
-) -> Path:
+def process_and_extract(zip_path, identifier, out_dir, raw_data):
     """
-    Descarga el producto completo (.SAFE) como ZIP desde zipper.dataspace.copernicus.eu
-    usando el token de la sesión.
+    Extrae las bandas R10m, genera el JSON de metadatos para la BBDD
+    y crea un PNG visual. Luego borra el ZIP.
     """
+    product_dir = Path(out_dir) / identifier
+    product_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Metadatos cruciales para tu entrenamiento y BBDD
+    meta_info = {
+        "producto_id": identifier,
+        "uuid_copernicus": raw_data.get("Id"),
+        "fecha_adquisicion": raw_data.get("ContentDate", {}).get("Start"),
+        "geometria_wkt": raw_data.get("GeoFootprint"),
+        "nivel_nubes": next((a["Value"] for a in raw_data.get("Attributes", []) if a["Name"] == "cloudCover"), "N/A"),
+        "resolucion": "10m",
+        "timestamp_descarga": time.ctime()
+    }
+    
+    with open(product_dir / f"{identifier}_metadata.json", "w") as jf:
+        json.dump(meta_info, jf, indent=4)
 
-    url = f"{ZIPPER_BASE}({product_id})/$value"
-
-    out_dir = Path(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out_zip = out_dir / f"{identifier}.zip"
-
-    if out_zip.exists() and not overwrite:
-        print(f"✔ Ya existe {out_zip}, se omite la descarga.")
-        return out_zip
-
-    max_retries = 3
-    backoff = 5
-    last_exc = None
-
-    for attempt in range(1, max_retries + 1):
-        try:
-            resp = session.get(url, stream=True, timeout=600, allow_redirects=True)
-            resp.raise_for_status()
-            with open(out_zip, "wb") as f:
-                for chunk in resp.iter_content(chunk_size=1024 * 1024):
-                    if chunk:
-                        f.write(chunk)
-            print(f"💾 ZIP guardado en: {out_zip}")
-            return out_zip
-        except requests.RequestException as e:
-            last_exc = e
-            print(f"[{identifier}] Error de descarga (intento {attempt}/{max_retries}): {e}")
-            if attempt < max_retries:
-                print(f"   Reintentando en {backoff} s...")
-                time.sleep(backoff)
-                backoff *= 2
-
-    if last_exc:
-        raise last_exc
-
-
-# -------------------------------
-# Selección de JP2 dentro del ZIP
-# -------------------------------
-def build_patterns(mode: str, bands: list[str] | None, collection: str) -> list[str]:
-    mode = (mode or "").lower()
-    pats: list[str] = []
-
-    if mode == "tci":
-        # Intentar primero TCI; si no hay, coger B02/B03/B04 para poder hacer RGB
-        pats = [
-            "*IMG_DATA*/R10m/*TCI*.jp2",
-            "*IMG_DATA_R10m*/*TCI*.jp2",
-            "*IMG_DATA*/R10m/*B02*.jp2",
-            "*IMG_DATA*/R10m/*B03*.jp2",
-            "*IMG_DATA*/R10m/*B04*.jp2",
-        ]
-        return pats
-
-    if mode == "bands" and bands:
-        b = [x.strip().upper() for x in bands]
-        for band in b:
-            pats.append(f"*IMG_DATA*/R10m/*{band}*.jp2")
-        return pats
-
-    if mode in ("rgb", "auto"):
-        return [
-            "*IMG_DATA*/R10m/*B02*.jp2",
-            "*IMG_DATA*/R10m/*B03*.jp2",
-            "*IMG_DATA*/R10m/*B04*.jp2",
-        ]
-
-    return ["*IMG_DATA*/R10m/*.jp2"]
-
-
-def extract_selected_from_zip(
-    zip_path: Path,
-    mode: str,
-    bands: list[str] | None,
-    out_dir: str,
-    collection: str,
-) -> list[Path]:
-    pats = build_patterns(mode, bands, collection)
-    extracted: list[Path] = []
+    extracted_jp2 = []
+    # Buscamos bandas B02, B03, B04 en resolución 10m
+    patterns = ["*IMG_DATA*/R10m/*B02*.jp2", "*IMG_DATA*/R10m/*B03*.jp2", "*IMG_DATA*/R10m/*B04*.jp2"]
 
     with zipfile.ZipFile(zip_path, "r") as zf:
-        members = zf.namelist()
+        for member in zf.namelist():
+            if any(fnmatch.fnmatch(member, p) for p in patterns):
+                target_path = product_dir / Path(member).name
+                with zf.open(member) as source, open(target_path, "wb") as target:
+                    target.write(source.read())
+                extracted_jp2.append(target_path)
 
-        to_get = [m for m in members if any(fnmatch.fnmatch(m, p) for p in pats)]
+    # Generación de la imagen RGB (PNG)
+    try:
+        b02 = next(f for f in extracted_jp2 if "B02" in f.name)
+        b03 = next(f for f in extracted_jp2 if "B03" in f.name)
+        b04 = next(f for f in extracted_jp2 if "B04" in f.name)
+        
+        with rasterio.open(b04) as r4, rasterio.open(b03) as r3, rasterio.open(b02) as r2:
+            rgb = np.dstack([stretch_2_98(r4.read(1)), stretch_2_98(r3.read(1)), stretch_2_98(r2.read(1))])
+            Image.fromarray(rgb).save(product_dir / f"{identifier}_visual.png")
+    except Exception as e:
+        print(f"  ⚠️ Aviso: No se pudo generar el PNG para {identifier}: {e}")
 
-        if not to_get:
-            print(f"⚠ No se encontraron archivos que coincidan con {mode}/{bands}")
-            return []
+def worker(item, out_dir, user, password):
+    """Manejador individual de descarga con reintentos."""
+    ident = item["Name"].replace(".SAFE", "")
+    pid = item["Id"]
+    zip_path = Path(out_dir) / f"{ident}.zip"
 
-        base_out = Path(out_dir) / zip_path.stem / "extracted"
-        base_out.mkdir(parents=True, exist_ok=True)
-
-        for m in to_get:
-            name = Path(m).name
-            h = hashlib.sha1(m.encode()).hexdigest()[:8]
-            out_file = base_out / f"{h}_{name}"
-
-            with zf.open(m) as src, open(out_file, "wb") as dst:
-                dst.write(src.read())
-
-            extracted.append(out_file)
-
-    return extracted
-
-
-# -------------------------------
-# JP2 → PNG / TIFF
-# -------------------------------
-def jp2_to_png(src: str, dst: str):
-    with rasterio.open(src) as src_jp2:
-        rgb = src_jp2.read()
-        if rgb.shape[0] == 1:
-            rgb = np.repeat(rgb, 3, axis=0)
-        elif rgb.shape[0] >= 3:
-            rgb = rgb[:3, :, :]
-
-    rgb = rgb.astype("float32")
-    m = rgb.max()
-    if m <= 0:
-        m = 1.0
-    rgb = (255 * (rgb / m)).astype(np.uint8)
-    rgb = np.transpose(rgb, (1, 2, 0))
-    Image.fromarray(rgb).save(dst)
-    print("PNG generado:", dst)
-
-
-def jp2_to_rgb_png(b02: Path, b03: Path, b04: Path, dst_png: Path):
-    with rasterio.open(b04) as r4:
-        red = r4.read(1).astype("float32")
-    with rasterio.open(b03) as r3:
-        green = r3.read(1).astype("float32")
-    with rasterio.open(b02) as r2:
-        blue = r2.read(1).astype("float32")
-
-    def stretch(band):
-        mini, maxi = np.percentile(band, (2, 98))
-        if maxi - mini == 0:
-            return np.zeros_like(band, dtype=np.uint8)
-        band = np.clip((band - mini) / (maxi - mini), 0, 1)
-        return (band * 255).astype(np.uint8)
-
-    rgb = np.dstack([stretch(red), stretch(green), stretch(blue)])
-    dst_png.parent.mkdir(parents=True, exist_ok=True)
-    Image.fromarray(rgb).save(dst_png)
-    print(f"🖼 PNG RGB generado: {dst_png}")
-
-
-def ensure_gdal_translate():
-    """Asegura que exista gdal_translate en el PATH, si no lanza RuntimeError."""
-    exe = shutil.which("gdal_translate")
-    if exe is None:
-        raise RuntimeError(
-            "No se encontró 'gdal_translate' en el PATH.\n"
-            "Instala GDAL (por ejemplo con conda: 'conda install gdal') "
-            "y asegúrate de que 'gdal_translate' esté en las variables de entorno."
-        )
-    return exe
-
-
-def gdal_jp2_to_tiff(src_jp2: Path, dst_tif: Path):
-    """
-    Usa gdal_translate para convertir JP2 -> GeoTIFF.
-    Solo se llama si gdal_translate está disponible.
-    """
-    exe = ensure_gdal_translate()
-    args = [
-        exe,
-        "-of",
-        "GTiff",
-        src_jp2.as_posix(),
-        dst_tif.as_posix(),
-    ]
-    subprocess.check_call(args)
-
-
-def batch_convert_extracted(extract_root: Path, out_dir: Path):
-    """
-    Para todos los JP2 en extract_root:
-      1) Usar GDAL (gdal_translate) para convertir a GeoTIFF (.tif)
-      2) Si hay TCI, generar PNG rápido
-      3) Si existen B02/B03/B04, generar RGB_truecolor.png
-
-    GeoTIFF -> out_dir / "tiff"
-    PNG     -> out_dir / "png"
-    """
-    jp2s = list(extract_root.rglob("*.jp2"))
-    if not jp2s:
-        print("No hay archivos JP2 para convertir.")
-        return 0
-
-    tiff_dir = out_dir / "tiff"
-    png_dir = out_dir / "png"
-    tiff_dir.mkdir(parents=True, exist_ok=True)
-    png_dir.mkdir(parents=True, exist_ok=True)
-
-    # Comprobamos GDAL aquí (lanzará error claro si no está instalado)
-    ensure_gdal_translate()
-
-    n = 0
-    b02 = b03 = b04 = None
-
-    for jp2 in jp2s:
-        # 1) JP2 -> GeoTIFF (GDAL)
-        dst_tif = tiff_dir / (jp2.stem + ".tif")
+    for retry in range(3):
         try:
-            gdal_jp2_to_tiff(jp2, dst_tif)
-            print(f"GeoTIFF generado: {dst_tif}")
-            n += 1
+            # Obtención de token fresco
+            token_r = requests.post(TOKEN_URL, data={
+                "client_id": "cdse-public", "username": user, "password": password, "grant_type": "password"
+            }, timeout=30)
+            token_r.raise_for_status()
+            token = token_r.json()["access_token"]
+
+            print(f"⬇️ Descargando {ident} (Intento {retry+1})...")
+            with requests.get(f"{ZIPPER_BASE}({pid})/$value", 
+                             headers={"Authorization": f"Bearer {token}"}, 
+                             stream=True, timeout=600) as r:
+                r.raise_for_status()
+                with open(zip_path, "wb") as f:
+                    for chunk in r.iter_content(chunk_size=1024*1024):
+                        f.write(chunk)
+            
+            process_and_extract(zip_path, ident, out_dir, item)
+            if zip_path.exists(): zip_path.unlink() # Limpieza de ZIP
+            return f"✅ {ident}: OK"
+        
         except Exception as e:
-            print(f"⚠️ Error convirtiendo a GeoTIFF {jp2.name}: {e}")
+            print(f"  ❌ Error en {ident}: {e}")
+            if retry == 2: return f"FAILED: {ident}"
+            time.sleep(10)
 
-        # 2) TCI -> PNG
-        up = jp2.name.upper()
-        if "TCI" in up:
-            png = png_dir / (jp2.stem + ".png")
-            try:
-                jp2_to_png(jp2.as_posix(), png.as_posix())
-            except Exception as e:
-                print(f"⚠️ Error generando PNG para {jp2.name}: {e}")
+def run(top=None):
+    """
+    Función principal llamada por el orquestador (main.py).
+    Si se pasa 'top', ignora el valor de config.py.
+    """
+    # Prioridad: 1. Argumento de función | 2. config.py | 3. Valor fijo
+    limit = top if top is not None else CONFIG_TOP
+    
+    print(f"\n🛰️ NeoLumina Downloader")
+    print(f"   -> Objetivo: {limit} imágenes")
+    print(f"   -> Periodo: {DATE_FROM} a {DATE_TO}")
 
-        # 3) registrar B02/B03/B04
-        if "B02" in up:
-            b02 = jp2
-        if "B03" in up:
-            b03 = jp2
-        if "B04" in up:
-            b04 = jp2
+    if not CDSE_USER or not CDSE_PASS:
+        print("   ❌ Error: Credenciales CDSE_USER/CDSE_PASS no encontradas."); return
 
-    # 4) Si tenemos B02/B03/B04, componer RGB
-    if b02 and b03 and b04:
-        rgb_png = png_dir / "RGB_truecolor.png"
-        try:
-            jp2_to_rgb_png(b02, b03, b04, rgb_png)
-        except Exception as e:
-            print(f"⚠️ Error generando RGB_truecolor.png: {e}")
-    else:
-        print("⚠️ No se pudieron encontrar B02/B03/B04 para generar RGB.")
+    dest = Path(OUTDIR) / "satelital" / "copernicus"
+    dest.mkdir(parents=True, exist_ok=True)
 
-    return n
+    # Construcción de la Query OData
+    query = (f"Collection/Name eq 'SENTINEL-2' and ContentDate/Start ge {DATE_FROM}T00:00:00.000Z "
+             f"and ContentDate/Start le {DATE_TO}T23:59:59.999Z and OData.CSC.Intersects(area=geography'SRID=4326;{AOI_WKT}') "
+             f"and Attributes/OData.CSC.DoubleAttribute/any(att:att/Name eq 'cloudCover' and att/Value lt 15.0) "
+             f"and Attributes/OData.CSC.StringAttribute/any(att:att/Name eq 'productType' and att/Value eq 'S2MSI2A')")
 
+    try:
+        r = requests.get(CAT_BASE, params={"$filter": query, "$top": limit, "$orderby": "ContentDate/Start desc"})
+        r.raise_for_status()
+        products = r.json().get("value", [])
+        print(f"   -> Encontrados {len(products)} productos para procesar.")
+    except Exception as e:
+        print(f"   ❌ Error consultando el catálogo: {e}"); return
 
-# -------------------------------
-# Worker por producto
-# -------------------------------
-def worker(item, args):
-    identifier = item.get("Name", "").split(".")[0]
-    pid = item.get("Id")
-
-    session = get_fresh_session()
-
-    out_zip = download_product_zip(
-        session=session,
-        product_id=pid,
-        identifier=identifier,
-        out_dir=args.out_dir,
-        overwrite=args.overwrite,
-    )
-
-    print(f"[{identifier}] ZIP guardado en: {out_zip}")
-
-    extracted = extract_selected_from_zip(
-        zip_path=out_zip,
-        mode=args.asset,
-        bands=args.bands,
-        out_dir=args.out_dir,
-        collection=args.collection,
-    )
-
-    if not extracted:
-        return (identifier, "sin_extract")
-
-    if args.convert:
-        extract_root = Path(args.out_dir) / identifier / "extracted"
-        batch_convert_extracted(extract_root, Path(args.out_dir))
-
-    return (identifier, "ok")
-
-
-# -------------------------------
-# CLI args
-# -------------------------------
-def parse_args():
-    ap = argparse.ArgumentParser(description="Descargador NeoLumina Copernicus (ES)")
-
-    ap.add_argument("--collection", type=str, default="SENTINEL-2")
-
-    ap.add_argument("--aoi", type=str, choices=["config", "custom"], default="config")
-    ap.add_argument("--wkt", type=str, default=None)
-
-    ap.add_argument("--top", type=int, default=20)
-    ap.add_argument("--max-pages", type=int, default=5)
-    ap.add_argument("--orderby", type=str, default="ContentDate/Start desc")
-    ap.add_argument(
-        "--select",
-        type=str,
-        default="Id,Name,ContentDate,ContentType,ContentLength,OriginDate,GeoFootprint",
-    )
-
-    ap.add_argument("--download", action="store_true")
-    ap.add_argument("--asset", type=str, default="tci")
-    ap.add_argument(
-        "--bands",
-        type=lambda s: [x.strip() for x in s.split(",")] if s else None,
-    )
-    ap.add_argument("--convert", action="store_true")
-
-    ap.add_argument("--workers", type=int, default=1)
-    ap.add_argument("--overwrite", action="store_true")
-
-    ap.add_argument(
-        "--out-dir",
-        type=str,
-        default=os.path.join(OUTDIR, "satelital", "copernicus"),
-    )
-
-    return ap.parse_args()
-
-
-# -------------------------------
-# Núcleo reutilizable
-# -------------------------------
-def _internal_main(args):
-    DOWNLOAD_ROOT = Path(args.out_dir)
-    DOWNLOAD_ROOT.mkdir(parents=True, exist_ok=True)
-
-    if args.aoi == "config":
-        wkt = AOI_WKT
-    else:
-        wkt = args.wkt
-
-    start_iso = DATE_FROM
-    today_iso = DATE_TO
-
-    print("\n========= Consulta Copernicus =========")
-    print("Colección:", args.collection)
-    print("AOI:", str(wkt)[:50], "...")
-    print("Rango:", start_iso, "→", today_iso)
-    print("Directorio salida:", DOWNLOAD_ROOT.as_posix())
-    print("=======================================\n")
-
-    js = fetch_all(
-        collection=args.collection,
-        start_iso=start_iso,
-        end_iso=today_iso,
-        wkt=wkt,
-        top=args.top,
-        max_pages=args.max_pages,
-        orderby=args.orderby,
-        include_count=True,
-        only_l2a=True,
-        tile=None,
-        select=args.select,
-    )
-
-    df = to_flat_df(js)
-    print(df.head())
-
-    if not args.download:
-        print("\nConsulta realizada. Usa --download para descargar las imágenes.")
-        return df
-
-    products = js.get("value", [])
-    if not products:
-        print("No se encontraron productos para descargar.")
-        return df
-
-    print("\n========= Iniciando descargas =========")
-    results = []
-
-    with ThreadPoolExecutor(max_workers=args.workers) as ex:
-        futures = [ex.submit(worker, item, args) for item in products]
-        for f in as_completed(futures):
-            results.append(f.result())
-
-    pd.DataFrame(results, columns=["identifier", "status"]).to_csv(
-        DOWNLOAD_ROOT / "download_summary.csv",
-        index=False,
-    )
-
-    print("\nDescarga completada. Resumen guardado en:", DOWNLOAD_ROOT)
-    return df
-
-
-# -------------------------------
-# main (para ejecución por terminal)
-# -------------------------------
-def main():
-    args = parse_args()
-
-    # Si no se especifica out_dir, usar la ruta estándar de OUTDIR
-    if not args.out_dir:
-        DOWNLOAD_ROOT = Path(OUTDIR) / "satelital" / "copernicus"
-        DOWNLOAD_ROOT.mkdir(parents=True, exist_ok=True)
-        args.out_dir = DOWNLOAD_ROOT.as_posix()
-
-    return _internal_main(args)
-
-
-# -------------------------------
-# run(...) (para usar desde otros módulos / main.py)
-# -------------------------------
-def run(
-    collection: str = "SENTINEL-2",
-    aoi: str = "config",
-    wkt: str | None = None,
-    top: int = 20,
-    max_pages: int = 5,
-    orderby: str = "ContentDate/Start desc",
-    select: str = "Id,Name,ContentDate,ContentType,ContentLength,OriginDate,GeoFootprint",
-    download: bool = False,
-    asset: str = "tci",
-    bands: list[str] | None = None,
-    convert: bool = False,
-    workers: int = 1,
-    overwrite: bool = False,
-    out_dir: str | None = None,
-):
-    class Obj:
-        """Contenedor simple para simular argparse.Namespace"""
-        pass
-
-    args = Obj()
-    args.collection = collection
-    args.aoi = aoi
-    args.wkt = wkt
-    args.top = top
-    args.max_pages = max_pages
-    args.orderby = orderby
-    args.select = select
-    args.download = download
-    args.asset = asset
-    args.bands = bands
-    args.convert = convert
-    args.workers = workers
-    args.overwrite = overwrite
-
-    if out_dir is None:
-        args.out_dir = os.path.join(OUTDIR, "satelital", "copernicus")
-    else:
-        args.out_dir = out_dir
-
-    return _internal_main(args)
-
+    # Ejecución paralela controlada (2 workers para evitar baneos de IP)
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(worker, p, dest, CDSE_USER, CDSE_PASS) for p in products]
+        for f in as_completed(futures): 
+            print(f"   {f.result()}")
 
 if __name__ == "__main__":
-    main()
+    # Test local si se ejecuta este archivo solo
+    run(top=2)
