@@ -13,18 +13,36 @@ from dotenv import load_dotenv
 import numpy as np
 import rasterio
 from PIL import Image
+# ===============================
+# 1. ENTORNO Y CONFIGURACIÓN (REFORZADA)
+# ===============================
 
-# Importamos la configuración oficial de tu proyecto
+# Forzamos la carga del .env al principio de todo
+load_dotenv()
+
 try:
+    # Intentamos traer los valores de tu config.py
     from extraction.config import AOI_WKT, DATE_FROM, DATE_TO, OUTDIR, CDSE_USER, CDSE_PASS, TOP as CONFIG_TOP
 except ImportError:
-    # Fallback por si se ejecuta fuera del paquete
+    # Si falla la importación, valores por defecto
     AOI_WKT = "POLYGON((-4.2 40.2, -4.2 40.8, -3.2 40.8, -3.2 40.2, -4.2 40.2))"
     DATE_FROM, DATE_TO = "2024-06-01", "2024-08-31"
     OUTDIR = "data"
-    CDSE_USER = os.getenv("CDSE_USER")
-    CDSE_PASS = os.getenv("CDSE_PASS")
     CONFIG_TOP = 5
+    CDSE_USER = None
+    CDSE_PASS = None
+
+# SEGUNDA OPORTUNIDAD: Si las variables están vacías, las buscamos directamente en el sistema (Docker)
+if not CDSE_USER:
+    CDSE_USER = os.getenv("CDSE_USER")
+if not CDSE_PASS:
+    CDSE_PASS = os.getenv("CDSE_PASS")
+
+# ÚLTIMO RECURSO: Intentar con nombres alternativos que a veces se usan
+if not CDSE_USER:
+    CDSE_USER = os.getenv("COPERNICUS_USER")
+if not CDSE_PASS:
+    CDSE_PASS = os.getenv("COPERNICUS_PASSWORD")
 
 # URLs de Copernicus Data Space Ecosystem
 CAT_BASE = "https://catalogue.dataspace.copernicus.eu/odata/v1/Products"
