@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GeoLumica — Mapa (debug)</title>
+
+  <!-- Leaflet CDN -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body { font-family: system-ui, -apple-system, Segoe UI, sans-serif; background: #0b1220; color: #e5e7eb; }
+    #bar {
+      position: fixed; left: 0; top: 0; right: 0;
+      z-index: 9999;
+      padding: 10px 12px;
+      background: rgba(15,23,42,0.95);
+      border-bottom: 1px solid #1f2937;
+      font-size: 13px;
+    }
+    #map {
+      position: absolute;
+      top: 44px; left: 0; right: 0; bottom: 0;
+      background: #020617;
+    }
+    .ok { color: #22c55e; }
+    .warn { color: #f59e0b; }
+    .bad { color: #ef4444; }
+    code { color: #22d3ee; }
+  </style>
+</head>
+<body>
+  <div id="bar">Estado: <span id="status" class="warn">cargando...</span></div>
+  <div id="map"></div>
+
+  <script>
+    const statusEl = document.getElementById("status");
+    function setStatus(text, cls) {
+      statusEl.textContent = text;
+      statusEl.className = cls;
+    }
+
+    // 1) Leaflet cargó?
+    if (typeof L === "undefined") {
+      setStatus("ERROR: Leaflet no cargó (CDN bloqueado o sin internet).", "bad");
+      throw new Error("Leaflet no está disponible (L undefined)");
+    }
+
+    // 2) Crear mapa
+    setStatus("Leaflet OK. Cargando mapa base…", "ok");
+    const map = L.map("map").setView([40.4168, -3.7038], 6);
+
+    // 3) Tiles OSM (requieren internet)
+    const tiles = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap contributors",
+    }).addTo(map);
+
+    tiles.on("loading", () => setStatus("Mapa base: cargando tiles…", "warn"));
+    tiles.on("load", () => setStatus("Mapa base OK. Intentando cargar municipios_es.geojson…", "ok"));
+    tiles.on("tileerror", () => setStatus("ERROR: No cargan tiles (sin internet / firewall / DNS).", "bad"));
+
+    // 4) Cargar GeoJSON local (opcional)
+    async function loadMunicipios() {
+      try {
+        const res = await fetch("./municipios_es.geojson");
+        if (!res.ok) {
+          setStatus("AVISO: No encuentro ./municipios_es.geojson (ponlo en la misma carpeta).", "warn");
+          return;
+        }
+        const geojson = await res.json();
+
+        const layer = L.geoJSON(geojson, {
+          style: () => ({ weight: 1, opacity: 0.7, fillOpacity: 0.08 }),
+          onEachFeature: (feature, lyr) => {
+            const p = feature.properties || {};
+            const name = p.LAU_NAME || p.name || p.NAME || "Municipio";
+            lyr.bindPopup(`<b>${name}</b>`);
+          }
+        }).addTo(map);
+
+        const b = layer.getBounds();
+        if (b && b.isValid()) map.fitBounds(b, { padding: [10, 10] });
+
+        setStatus("OK: Municipios cargados ✅", "ok");
+      } catch (e) {
+        console.error(e);
+        setStatus("ERROR cargando GeoJSON. Mira consola (F12).", "bad");
+      }
+    }
+
+    loadMunicipios();
+  </script>
+</body>
+</html>
