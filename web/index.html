@@ -1,0 +1,27 @@
+﻿<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Mapa - GeoLumica</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; }
+    header { padding: 10px 14px; background:#111; color:#fff; }
+    .box { padding: 14px; }
+    code { background:#f5f5f5; padding:2px 6px; border-radius:6px; }
+  </style>
+</head>
+<body>
+  <header>GeoLumica (demo docker)</header>
+  <div class="box">
+    <p> Si ves esto, Nginx (web) está OK.</p>
+    <p>Prueba API:</p>
+    <ul>
+      <li><a href="/api/health" target="_blank">/api/health</a></li>
+      <li><a href="/api/datasets" target="_blank">/api/datasets</a></li>
+      <li><a href="/api/geojson/municipios" target="_blank">/api/geojson/municipios</a></li>
+    </ul>
+    <p>Luego aquí metemos Leaflet + panel flotante + botones capas.</p>
+  </div>
+</body>
+</html>
