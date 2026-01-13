@@ -29,14 +29,6 @@ Flujo del proyecto:
 5. storage.py y main.py guardan todos los CSV en la carpeta correspondiente.
 6. Los CSV se usarán más adelante para análisis, ML y visualización.
 
-Proyecto_Open_Data_I/         <-- Raíz del Proyecto
-├── Dockerfile.limpieza       <-- Aquí se define el entorno
-├── Dockerfile.descarga       <-- Aquí se define la extracción
-├── requirements.txt          <-- Librerías unificadas (Pandas, etc.)
-├── data/                     <-- Almacén de datos (Volumen)
-└── Proyecto/                 <-- Tu código fuente
-    ├── etl/
-    └── extraction/
 
 Notas:
 
