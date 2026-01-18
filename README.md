@@ -1,41 +1,32 @@
-# Proyecto_Open_Data_I
+# 🌌 GeoLumica: Integración de Open Data e Inteligencia Satelital
 
-NeoLumina - Proyecto Big Data I
-===============================
+**GeoLumica** es un proyecto diseñado para analizar la correlación entre la infraestructura de transporte, la densidad poblacional y la actividad económica, utilizando como indicador clave la luminosidad nocturna. 
 
-Estructura del proyecto:
+He desarrollado este sistema como un pipeline de datos automatizado que integra fuentes diversas (Copernicus, Google Earth Engine, INE y OpenStreetMap) en un modelo de datos relacional para facilitar su análisis avanzado.
 
-neo_lumina/
-├─ main.py            -> Orquestador principal. Llama a todos los módulos y genera CSV temáticos.
-├─ config.py          -> Variables de configuración (AOI, fechas, credenciales, rutas de salida).
-├─ catalog.py         -> Consulta el catálogo Copernicus OData y convierte los resultados en DataFrame.
-├─ Demografia.py      -> Descarga y procesa datos de población por provincias.
-├─ osm.py             -> Descarga estaciones ferroviarias usando Overpass API.
-├─ viirs.py           -> Genera plantilla CSV para night-lights VIIRS (NOAA/EOG).
-├─ storage.py         -> Funciones auxiliares para guardar CSV en carpetas temáticas.
-├─ utils.py           -> Funciones de utilidad general para el proyecto (opcional).
-└─ outputs/
-   └─ data/
-      ├─ satelital/       -> CSV de productos satelitales (Sentinel-1, Sentinel-2)
-      ├─ transporte/      -> CSV de estaciones ferroviarias
-      └─ luz_nocturna/    -> CSV plantilla para VIIRS DNB
+---
 
-Flujo del proyecto:
+## ⚙️ Configuración Previa (Crítico)
 
-1. main.py ejecuta todos los módulos.
-2. catalog.py consulta metadatos Sentinel y devuelve DataFrames.
-3. osm.py descarga estaciones de tren dentro del AOI.
-4. viirs.py genera plantilla para night-lights.
-5. storage.py y main.py guardan todos los CSV en la carpeta correspondiente.
-6. Los CSV se usarán más adelante para análisis, ML y visualización.
+Para que el proyecto funcione correctamente, he identificado los siguientes puntos que debes configurar en tu entorno local:
 
+### 1. Credenciales y APIs
+* **Copernicus (CDSE):** Es necesario estar registrado en el [Copernicus Data Space](https://dataspace.copernicus.eu/). Debes añadir tus credenciales en el archivo `.env`.
+* **Google Earth Engine (GEE):** 1. Requiere una cuenta con acceso a [GEE](https://earthengine.google.com/).
+    2. Debes ejecutar `earthengine authenticate` en tu terminal local para generar el token de acceso.
+    3. **Cambio de Proyecto:** He definido el nombre del proyecto en `config.py`. Debes cambiar el `project_name` por el ID de tu proyecto activo en Google Cloud Console.
 
-Notas:
+### 2. Base de Datos (Estructura de Datos)
+He diseñado el sistema para que sea flexible según la necesidad de cómputo:
+* **SQLite (Por defecto):** El pipeline genera un archivo `.db` automáticamente tras la etapa de limpieza.
+* **MySQL (Producción/Copo de Nieve):** Si deseas el esquema de estrella completo, he dejado comentadas las secciones de `mysql_server` y `carga_mysql` en el `docker-compose.yml`. Solo tienes que activarlas para habilitar las relaciones de integridad.
 
-docker build -t proyecto_big_data .
+---
 
-docker run --rm `-v "$env:USERPROFILE.config\earthengine:/root/.config/earthengine" `
+## 🚀 Ejecución con Docker
 
-docker build -f Dockerfile.limpieza -t pipeline-limpieza .
+He automatizado el flujo de trabajo en etapas secuenciales para garantizar la limpieza de los datos.
 
-docker run --name ejecutor-limpieza -v "${PWD}/data:/app/data" pipeline-limpieza
+```bash
+# Construir y levantar el pipeline completo
+docker-compose up --build
