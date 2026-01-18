@@ -1,11 +1,10 @@
 FROM python:3.11-slim
+
 WORKDIR /app
 
-RUN pip install --no-cache-dir pandas sqlalchemy
+RUN pip install --no-cache-dir pandas sqlalchemy pymysql cryptography
 
-# En lugar de COPY data/, copiamos TODO el contenido de la raíz
-# Esto fuerza a Docker a llevarse la carpeta data sí o sí
+# Copiamos todo el proyecto
 COPY . .
 
-# Luego ajustamos el CMD para que encuentre el script donde quedó
 CMD ["python", "Proyecto/main_dbconnection.py"]
