@@ -2,20 +2,20 @@ version: '3.8'
 
 services:
   # 1. ETAPA DE DESCARGA
+  # Se encarga de obtener los datos brutos de las fuentes originales.
   descarga:
     build:
       context: .
       dockerfile: Dockerfile
-    # 🔹 ESTA ES LA CLAVE: Inyecta las variables de tu .env al contenedor
     env_file:
       - .env
     volumes:
       - .:/app
     environment:
-      # Ayuda a que los logs (como la barra de descarga) se vean al instante
       - PYTHONUNBUFFERED=1
 
   # 2. ETAPA DE LIMPIEZA
+  # Procesa los CSV brutos para normalizar nombres, eliminar nulos y preparar la unión.
   limpieza:
     build:
       context: .
@@ -25,7 +25,9 @@ services:
         condition: service_completed_successfully
     volumes:
       - .:/app
-  # 3. ETAPA DE BASE DE DATOS
+
+  # 3. ETAPA DE BASE DE DATOS (SQLite)
+  # Genera el archivo .db local para un análisis rápido y ligero.
   database:
     build:
       context: .
@@ -35,3 +37,43 @@ services:
         condition: service_completed_successfully
     volumes:
       - .:/app
+
+# ==========================================================================================
+# LAS SIGUIENTES ETAPAS SON COMENTARIOS DE CONFIGURACIÓN PARA EL USO DE MYSQL (STAR SCHEMA)
+# ==========================================================================================
+# Si se desea desplegar en un entorno de producción con MySQL, descomentar los bloques de abajo.
+# Esta configuración levanta un servidor relacional y ejecuta el script de copo de nieve.
+
+#  mysql_server:
+#    image: mysql:8.0
+#    container_name: mysql_big_data
+#    environment:
+#      MYSQL_ROOT_PASSWORD: '1234'
+#      MYSQL_DATABASE: 'proyecto_big_data'
+#    ports:
+#      - "3306:3306"
+#    healthcheck:
+#      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p1234"]
+#      interval: 5s
+#      timeout: 5s
+#      retries: 5
+
+#  carga_mysql:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+#    container_name: python_mysql_etl
+#    depends_on:
+#      mysql_server:
+#        condition: service_healthy
+#      limpieza:
+#        condition: service_completed_successfully
+#    volumes:
+#      - .:/app
+#    environment:
+#      - DB_HOST=mysql_server
+#      - DB_USER=root
+#      - DB_PASS=1234
+#      - DB_NAME=proyecto_big_data
+#      - PYTHONUNBUFFERED=1
+#    command: ["python", "Proyecto/main_dbconnection.py"]

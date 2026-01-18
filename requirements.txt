@@ -25,3 +25,4 @@ geemap
 pyjstat
 
 sqlalchemy
+pymysql
