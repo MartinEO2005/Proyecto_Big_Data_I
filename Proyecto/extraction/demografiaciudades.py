@@ -7,15 +7,18 @@ from pathlib import Path
 INE_API_URL = "https://servicios.ine.es/wstempus/js/ES/DATOS_TABLA/29005"
 
 
-# Carpeta de salida (igual que en los otros módulos)
-OUTDIR = Path(__file__).resolve().parent.parent / "neo_lumina_output"
-OUTDIR.mkdir(parents=True, exist_ok=True)
+try:
+    from extraction.config import OUTDIR as CONFIG_OUTDIR
+except Exception:
+    CONFIG_OUTDIR = "data"
+
+OUTDIR = Path(CONFIG_OUTDIR)
 OUTPUT_FILE = OUTDIR / "demografia_poblacion_municipios.csv"
 
 
 def fetch_population_by_municipality(years: int | None = 1) -> pd.DataFrame:
     """
-    Descarga la población por municipio de España desde la API del INE (Padrón municipal continuo).
+    Descarga la población por municipio de España desde la API del INE 
     :param years: número de últimos años (por ejemplo 5) o None para todos
     :return: DataFrame con columnas: cod_prov, cod_muni, municipio, year, population
     """
@@ -29,7 +32,7 @@ def fetch_population_by_municipality(years: int | None = 1) -> pd.DataFrame:
         r.raise_for_status()
         data = r.json()
     except requests.exceptions.RequestException as e:
-        print("❌ Error al consultar API del INE:", e)
+        print(" Error al consultar API del INE:", e)
         return pd.DataFrame()
 
     if not data:
@@ -62,13 +65,14 @@ def fetch_population_by_municipality(years: int | None = 1) -> pd.DataFrame:
 def save_population_data(df: pd.DataFrame):
     """Guarda los datos en un archivo CSV"""
     if df.empty:
-        print("⚠️ No hay datos para guardar.")
+        print(" No hay datos para guardar.")
         return
+    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)  
     df.to_csv(OUTPUT_FILE, index=False, encoding="utf-8")
-    print(f"💾 Datos guardados en: {OUTPUT_FILE}")
+    print(f"Datos guardados en: {OUTPUT_FILE}")
 
 
 if __name__ == "__main__":
-    df = fetch_population_by_municipality(None)  # Cambia a None para todos los años
+    df = fetch_population_by_municipality(None)  
     save_population_data(df)
     print(df.head())
