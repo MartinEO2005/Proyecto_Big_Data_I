@@ -8,6 +8,7 @@ THEME_DIRS = {
     "transporte": "transporte",
     "luz_nocturna": "luz_nocturna",
     "demografia": "demografia",
+    "movilidad": "movilidad"
 }
 
 def ensure_theme_dirs(base_outdir):

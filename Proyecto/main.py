@@ -24,6 +24,7 @@ from extraction  import consumo_renta_media_pib
 from extraction  import migracion_downloader
 from extraction import empresas_transporte_downloader
 from extraction.neo_lumina_copernicus_downloader import run as downloader_run
+from extraction import conectividad_downloader 
 
 # ROOT unificado para todos los outputs de datos
 BASE_DIR = "data"
@@ -52,6 +53,31 @@ def run_all(num_images=None):
     ensure_outdir(LUZ_DIR)
     ensure_outdir(PROV_DIR)
     ensure_outdir(MUN_DIR)
+
+# --- Serie Histórica de Conectividad y Movilidad (2010-2025) ---
+    try:
+        print("\n🚗 -> Generando serie histórica de conectividad (2010-2025)...")
+        
+        # Reutilizamos tu lógica para encontrar el municipios_es.geojson
+        munis_candidates = [
+            os.path.join(BASE_DIR, "municipios_es.geojson"),
+            "municipios_es.geojson",
+            os.path.join(MUN_DIR, "municipios_es.geojson")
+        ]
+        munis_path = next((p for p in munis_candidates if os.path.exists(p)), None)
+
+        if munis_path:
+            # Llamamos a la función del nuevo módulo
+            path_movilidad = conectividad_downloader.fetch_conectividad_historica_and_save(
+                geojson_path=munis_path, 
+                base_outdir=BASE_DIR
+            )
+            print(f"  ✅ Datos de conectividad guardados en: {path_movilidad}")
+        else:
+            print("  ⚠️ No se encontró municipios_es.geojson, saltando módulo de conectividad.")
+
+    except Exception as e:
+        print(f"  ❌ Error al ejecutar conectividad_downloader: {type(e)} {e}")
 
 # --- 3. SECCIÓN COPERNICUS: DESCARGA REAL (IMÁGENES) ---
     try:
