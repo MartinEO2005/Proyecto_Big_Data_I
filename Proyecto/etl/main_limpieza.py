@@ -66,7 +66,7 @@ def main():
     print("="*60)
 
     archivos_finales = [
-        "data/clean/consumo_electricoProv_final_limpio.csv",
+        "data/clean/consumo_electrico_final_limpio.csv",
         "data/clean/migracion_municipios_final_limpio.csv",
         "data/clean/rentamedia_municipios_final_limpio.csv",
         "data/clean/empresas_transporte_final_limpio.csv",
