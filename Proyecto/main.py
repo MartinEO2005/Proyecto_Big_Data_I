@@ -58,7 +58,6 @@ def run_all(num_images=None):
     try:
         print("\n🚗 -> Generando serie histórica de conectividad (2010-2025)...")
         
-        # Reutilizamos tu lógica para encontrar el municipios_es.geojson
         munis_candidates = [
             os.path.join(BASE_DIR, "municipios_es.geojson"),
             "municipios_es.geojson",
@@ -67,7 +66,6 @@ def run_all(num_images=None):
         munis_path = next((p for p in munis_candidates if os.path.exists(p)), None)
 
         if munis_path:
-            # Llamamos a la función del nuevo módulo
             path_movilidad = conectividad_downloader.fetch_conectividad_historica_and_save(
                 geojson_path=munis_path, 
                 base_outdir=BASE_DIR
