@@ -6,20 +6,21 @@ import importlib
 from pathlib import Path
 import pandas as pd
 import geopandas as gpd
+from tqdm import tqdm
+import time
+import ee
 
 from extraction.config import OUTDIR, COLLECTION_S2, COLLECTION_S1, DATE_FROM, DATE_TO, MAX_CLOUD, TOP, AOI_WKT, VIIRS_URL_TEMPLATE
 from extraction.catalog import build_filter, query_catalog, items_to_df
 from extraction.storage import save_df_to_theme
 from extraction.neo_lumina_copernicus_downloader import run as downloader_run
-from tqdm import tqdm
-import time
-import ee
+
 from extraction import osm_muni_metrics as osm_metrics 
 from extraction import viirs
 from extraction import demografiaProvincias
 from extraction import demografiaciudades
 from extraction import viirs_provincias_gaul
-from extraction  import consumo_electrico_gas  
+from extraction import consumo_electrico
 from extraction  import consumo_renta_media_pib
 from extraction  import migracion_downloader
 from extraction import empresas_transporte_downloader
@@ -53,6 +54,19 @@ def run_all(num_images=None):
     ensure_outdir(LUZ_DIR)
     ensure_outdir(PROV_DIR)
     ensure_outdir(MUN_DIR)
+
+# --- Consumo Energía (INE - Viviendas por Intensidad de Uso) ---
+    try:
+        print("\n⚡ -> Descargando intensidad de consumo eléctrico...")
+        # Accedemos al archivo . función
+        path_energia = consumo_electrico.fetch_viviendas_uso_ine(base_outdir=BASE_DIR)
+        
+        if path_energia:
+            print(f"  ✅ He guardado los datos en: {path_energia}")
+        else:
+            print("  ⚠️ No he podido obtener los datos.")
+    except Exception as e:
+        print(f"  ❌ Error en el módulo de energía: {e}")
 
 # --- Serie Histórica de Conectividad y Movilidad (2010-2025) ---
     try:
@@ -153,16 +167,6 @@ def run_all(num_images=None):
     except Exception as e:
         print("  ❌ Error al ejecutar renta_municipios:", type(e), e)
 
-    # --- Consumo Energía (CNMC) ---
-    try:
-        print("\n⚡ -> Descargando consumo energético provincial (CNMC)...")
-        path_energia = consumo_electrico_gas.fetch_energy_consumption_and_save(base_outdir=BASE_DIR)
-        if path_energia:
-            print("  ✅ Datos de energía guardados en:", path_energia)
-        else:
-            print("  ⚠️ No se pudieron obtener datos de energía.")
-    except Exception as e:
-        print("  ❌ Error al ejecutar energia_cnmc:", type(e), e)
 
      # --- Demografía provincias ---
     # --- EXTRACCIÓN DE DATOS DEMOGRÁFICOS ---

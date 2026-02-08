@@ -3,31 +3,69 @@ import numpy as np
 
 # 1) CONSUMO ENERGÍA
 
-df1_consumo = pd.read_csv(r"data/energia/consumo_provincias_cnmc.csv")
+import pandas as pd
+import numpy as np
+import os
 
-df_totales = df1_consumo.groupby(['periodo', 'provincia'])['Consumo (MWh)'].transform('sum')
-df1_consumo['Total'] = df_totales
+# 1) CONSUMO ENERGÍA - [REESTRUCTURADO Y ORDENADO POR JERARQUÍA]
+try:
+    df_raw = pd.read_csv(
+        r"data/energia/consumo_electrico.csv", 
+        sep=';', 
+        encoding='utf-8', 
+        on_bad_lines='skip'
+    )
+    
+    df_raw['Consumo eléctrico'] = df_raw['Consumo eléctrico'].str.strip()
+    df_raw['Codigo'] = df_raw['Codigo'].astype(str)
 
-print("✅ Columna 'Total' agregada correctamente:")
-print(df1_consumo.head(10))
+    # A) PIVOTAR: Pasamos las métricas a columnas
+    df_pivot = df_raw.pivot_table(
+        index=['Codigo', 'Nombre'], 
+        columns='Consumo eléctrico', 
+        values='Total', 
+        aggfunc='first'
+    ).reset_index()
 
-num_nulos = df1_consumo['Total'].isna().sum()
-num_ceros = (df1_consumo['Total'] == 0).sum()
+    # B) SEPARAR CAPAS
+    df_prov = df_pivot[df_pivot['Codigo'].str.len() <= 2].copy()
+    df_mun = df_pivot[df_pivot['Codigo'].str.len() > 2].copy()
 
-print("\n📊 Análisis de integridad en 'Total':")
-print(f"   - Valores Nulos (NaN): {num_nulos}")
-print(f"   - Valores Cero (0.0):  {num_ceros}")
+    # C) PREPARAR PROVINCIAS
+    columnas_consumo = [c for c in df_prov.columns if c not in ['Codigo', 'Nombre']]
+    rename_dict = {col: f"prov_{col.replace(' ', '_').lower()}" for col in columnas_consumo}
+    rename_dict['Nombre'] = 'nombre_provincia'
+    df_prov = df_prov.rename(columns=rename_dict)
 
-if num_nulos > 0 or num_ceros > 0:
-    filas_problema = df1_consumo[(df1_consumo['Total'].isna()) | (df1_consumo['Total'] == 0)]
-    print("\n⚠️ Provincias afectadas:")
-    print(filas_problema[['periodo', 'provincia', 'Total']].drop_duplicates())
+    # D) VINCULACIÓN
+    df_mun['id_prov_join'] = df_mun['Codigo'].apply(lambda x: x[:-3])
 
-# 🧹 ELIMINAR FILAS CON NaN EN 'Total'
-df1_consumo = df1_consumo.dropna(subset=['Total'])
+    # E) MERGE FINAL
+    df1_consumo = pd.merge(
+        df_mun, 
+        df_prov, 
+        left_on='id_prov_join', 
+        right_on='Codigo', 
+        suffixes=('', '_prov_eliminar')
+    )
 
-print(f"\n🧽 Filas eliminadas por NaN en 'Total': {num_nulos}")
-print(f"📌 Nuevo tamaño df1_consumo: {df1_consumo.shape}")
+    # F) LIMPIEZA Y ORDENAMIENTO CRUCIAL
+    df1_consumo = df1_consumo.drop(columns=['id_prov_join', 'Codigo_prov_eliminar'])
+    
+    # Aquí es donde fuerzo el orden que me pides: Provincia -> Municipio
+    df1_consumo = df1_consumo.sort_values(by=['nombre_provincia', 'Nombre'])
+
+    # Reordenar columnas para que la lectura sea lógica
+    cols_geo = ['nombre_provincia', 'Nombre', 'Codigo']
+    otras_cols = [c for c in df1_consumo.columns if c not in cols_geo]
+    df1_consumo = df1_consumo[cols_geo + otras_cols]
+
+    print(f"✅ Energía lista y ordenada por provincia/municipio.")
+    print(df1_consumo[['nombre_provincia', 'Nombre']].head(10))
+
+except Exception as e:
+    print(f"❌ Error en reestructuración de energía: {e}")
+    df1_consumo = pd.DataFrame()
 
 
 # 2) MIGRACIÓN MUNICIPIOS
@@ -124,7 +162,7 @@ output_folder = "data/clean"
 os.makedirs(output_folder, exist_ok=True)
 
 dfs_to_export = {
-    "consumo_electricoProv_final": df1_consumo,
+    "consumo_electrico_final": df1_consumo,
     "migracion_municipios_final": df2_migracion,
     "rentamedia_municipios_final": df3_renta_municipios,
     "empresas_transporte_final": df4_empresasTrans

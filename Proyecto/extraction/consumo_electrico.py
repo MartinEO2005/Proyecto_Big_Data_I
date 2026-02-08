@@ -24,7 +24,7 @@ def fetch_viviendas_uso_ine(base_outdir="data"):
     url_csv = "https://www.ine.es/jaxi/files/tpx/es/csv_bdsc/59531.csv"
     out_dir = os.path.join(base_outdir, "energia")
     os.makedirs(out_dir, exist_ok=True)
-    out_path = os.path.join(out_dir, "viviendas_intensidad_uso.csv")
+    out_path = os.path.join(out_dir, "consumo_electrico.csv")
 
     print(f" -> Iniciando filtrado estricto. Objetivo: 3.237 ubicaciones en formato filas...")
 
