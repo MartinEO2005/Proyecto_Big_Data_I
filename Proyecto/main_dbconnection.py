@@ -3,12 +3,12 @@ from sqlalchemy import create_engine, text
 import unicodedata
 import os
 
-# --- CONFIGURACIÓN MYSQL ---
-DB_USER = 'root'
-DB_PASS = '1234'
-DB_HOST = 'localhost' 
-DB_PORT = '3306'
-DB_NAME = 'proyecto_big_data'
+# os.getenv busca la variable; si no existe, usa el segundo valor como respaldo
+DB_USER = os.getenv('DB_USER', 'root')
+DB_PASS = os.getenv('DB_PASS', '1234')
+DB_HOST = os.getenv('DB_HOST', 'mysql_server') 
+DB_PORT = os.getenv('DB_PORT', '3306')
+DB_NAME = os.getenv('DB_NAME', 'proyecto_big_data')
 
 def limpiar_texto(texto):
     if not isinstance(texto, str): return texto

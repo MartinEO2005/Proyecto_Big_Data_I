@@ -2,78 +2,67 @@ version: '3.8'
 
 services:
   # 1. ETAPA DE DESCARGA
-  # Se encarga de obtener los datos brutos de las fuentes originales.
   descarga:
     build:
       context: .
-      dockerfile: Dockerfile
-    env_file:
-      - .env
+      dockerfile: docker/downloader/Dockerfile
+    container_name: etl_descarga
+    env_file: .env
     volumes:
       - .:/app
     environment:
       - PYTHONUNBUFFERED=1
 
   # 2. ETAPA DE LIMPIEZA
-  # Procesa los CSV brutos para normalizar nombres, eliminar nulos y preparar la unión.
   limpieza:
     build:
       context: .
-      dockerfile: Dockerfile.limpieza
+      dockerfile: docker/cleaning/Dockerfile.limpieza
+    container_name: etl_limpieza
     depends_on:
       descarga:
         condition: service_completed_successfully
     volumes:
       - .:/app
 
-  # 3. ETAPA DE BASE DE DATOS (SQLite)
-  # Genera el archivo .db local para un análisis rápido y ligero.
-  database:
+  # 3. SERVIDOR DE BASE DE DATOS (MySQL)
+  mysql_server:
+    image: mysql:8.0
+    container_name: mysql_server
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASS}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_ROOT_HOST: "%"  # Permite conexiones desde otros contenedores
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      # Usamos mysqladmin para asegurar que el servidor esté listo para recibir consultas
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASS}"]
+      interval: 3s
+      timeout: 5s
+      retries: 15  # Aumenté los reintentos para cubrir el tiempo de inicialización de MySQL
+
+  # 4. ETAPA DE CARGA A MYSQL
+  carga_mysql:
     build:
       context: .
-      dockerfile: Dockerfile.db
+      dockerfile: docker/db_loader/Dockerfile.db
+    container_name: etl_carga_db
+    env_file: .env
     depends_on:
+      mysql_server:
+        condition: service_healthy
       limpieza:
         condition: service_completed_successfully
     volumes:
       - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    # Sobrescribo el comando si es necesario para asegurar que use el host correcto
+    command: ["python", "Proyecto/main_dbconnection.py"]
 
-# ==========================================================================================
-# LAS SIGUIENTES ETAPAS SON COMENTARIOS DE CONFIGURACIÓN PARA EL USO DE MYSQL (STAR SCHEMA)
-# ==========================================================================================
-# Si se desea desplegar en un entorno de producción con MySQL, descomentar los bloques de abajo.
-# Esta configuración levanta un servidor relacional y ejecuta el script de copo de nieve.
-
-#  mysql_server:
-#    image: mysql:8.0
-#    container_name: mysql_big_data
-#    environment:
-#      MYSQL_ROOT_PASSWORD: '1234'
-#      MYSQL_DATABASE: 'proyecto_big_data'
-#    ports:
-#      - "3306:3306"
-#    healthcheck:
-#      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p1234"]
-#      interval: 5s
-#      timeout: 5s
-#      retries: 5
-
-#  carga_mysql:
-#    build:
-#      context: .
-#      dockerfile: Dockerfile
-#    container_name: python_mysql_etl
-#    depends_on:
-#      mysql_server:
-#        condition: service_healthy
-#      limpieza:
-#        condition: service_completed_successfully
-#    volumes:
-#      - .:/app
-#    environment:
-#      - DB_HOST=mysql_server
-#      - DB_USER=root
-#      - DB_PASS=1234
-#      - DB_NAME=proyecto_big_data
-#      - PYTHONUNBUFFERED=1
-#    command: ["python", "Proyecto/main_dbconnection.py"]
+volumes:
+  mysql_data:
