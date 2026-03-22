@@ -70,3 +70,6 @@ def fetch_renta_municipios_and_save(base_outdir="data"):
     os.makedirs(f"{base_outdir}/renta", exist_ok=True)
     df.to_csv(out_path, index=False, encoding="utf-8")
     return out_path
+if __name__ == "__main__":
+    ruta = fetch_renta_municipios_and_save(base_outdir="data")
+    print(f"✅ CSV guardado en: {ruta}")

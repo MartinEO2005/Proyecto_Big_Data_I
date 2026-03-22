@@ -1,0 +1,15 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.log
+.env
+data
+mysql_data
+venv
+.venv
+.idea
+.vscode
+.ipynb_checkpoints

@@ -1,20 +1,28 @@
-FROM python:3.12-slim
+FROM spark:3.5.1-python3
+
+USER root
+
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      build-essential gcc g++ gdal-bin libgdal-dev libproj-dev libgeos-dev && \
+    apt-get install -y --no-install-recommends \
+    python3-pip build-essential gcc g++ \
+    gdal-bin libgdal-dev libproj-dev libgeos-dev && \
     rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 COPY constraints.txt .
-RUN pip install --no-cache-dir -r requirements.txt -c constraints.txt
+
+RUN python3 -m pip install --upgrade pip setuptools wheel && \
+    python3 -m pip install --no-cache-dir -r requirements.txt -c constraints.txt
 
 COPY Proyecto/ /app/Proyecto/
-# ESTA ES LA LÍNEA QUE HARÁ QUE EL BUILD NO TARDE 0 SEGUNDOS:
+COPY Spark2/ /app/Spark2/
 COPY municipios_es.geojson /app/municipios_es.geojson
 
-RUN mkdir -p /app/data
-CMD ["python", "Proyecto/etl/main_limpieza.py"]
+RUN mkdir -p /app/data/clean
+
+CMD ["python3", "/app/Proyecto/etl/main_limpieza.py"]

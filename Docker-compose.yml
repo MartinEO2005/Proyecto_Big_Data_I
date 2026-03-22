@@ -1,7 +1,4 @@
-version: '3.8'
-
 services:
-  # 1. ETAPA DE DESCARGA
   descarga:
     build:
       context: .
@@ -10,22 +7,26 @@ services:
     env_file: .env
     volumes:
       - .:/app
+      - ${USERPROFILE}/.config/earthengine:/root/.config/earthengine
     environment:
       - PYTHONUNBUFFERED=1
 
-  # 2. ETAPA DE LIMPIEZA
   limpieza:
     build:
       context: .
       dockerfile: docker/cleaning/Dockerfile.limpieza
     container_name: etl_limpieza
+    env_file: .env
     depends_on:
       descarga:
         condition: service_completed_successfully
     volumes:
       - .:/app
+      - ${USERPROFILE}/.config/earthengine:/root/.config/earthengine
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: ["python3", "/app/Proyecto/etl/main_limpieza.py"]
 
-  # 3. SERVIDOR DE BASE DE DATOS (MySQL)
   mysql_server:
     image: mysql:8.0
     container_name: mysql_server
@@ -33,19 +34,17 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASS}
       MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_ROOT_HOST: "%"  # Permite conexiones desde otros contenedores
+      MYSQL_ROOT_HOST: "%"
     ports:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      # Usamos mysqladmin para asegurar que el servidor esté listo para recibir consultas
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASS}"]
       interval: 3s
       timeout: 5s
-      retries: 15  # Aumenté los reintentos para cubrir el tiempo de inicialización de MySQL
+      retries: 15
 
-  # 4. ETAPA DE CARGA A MYSQL
   carga_mysql:
     build:
       context: .
@@ -61,7 +60,6 @@ services:
       - .:/app
     environment:
       - PYTHONUNBUFFERED=1
-    # Sobrescribo el comando si es necesario para asegurar que use el host correcto
     command: ["python", "Proyecto/main_dbconnection.py"]
 
 volumes:

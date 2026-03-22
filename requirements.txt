@@ -19,10 +19,9 @@ google-api-python-client
 
 matplotlib
 pillow
-
 scipy
-geemap
-pyjstat
 
 sqlalchemy
 pymysql
+
+pyspark
