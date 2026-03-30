@@ -3,7 +3,7 @@ from sqlalchemy import create_engine, text
 import unicodedata
 import os
 
-# os.getenv busca la variable; si no existe, usa el segundo valor como respaldo
+
 DB_USER = os.getenv('DB_USER', 'root')
 DB_PASS = os.getenv('DB_PASS', '1234')
 DB_HOST = os.getenv('DB_HOST', 'mysql_server') 

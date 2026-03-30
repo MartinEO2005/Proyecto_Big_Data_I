@@ -5,52 +5,68 @@ import pandas as pd
 import geopandas as gpd
 import os
 import time
+from datetime import datetime
 from tqdm import tqdm
 from extraction.storage import save_df_to_theme
 import warnings
 
 warnings.filterwarnings("ignore")
 
-
-# --- 🔹 Inicialización de Earth Engine ---
+# --- 🔹 Configuración y Autenticación ---
 def init_ee(project="bubbly-reducer-477312-d0"):
-    """Inicialización profesional con Service Account y Scopes definidos."""
-    import os
-    import ee
-    from google.oauth2 import service_account
-    
+    """Inicialización profesional con Service Account o credenciales locales."""
     json_path = 'google_credentials.json'
-    # Definimos el permiso específico para Earth Engine
     EE_SCOPES = ['https://www.googleapis.com/auth/earthengine', 'https://www.googleapis.com/auth/cloud-platform']
     
     try:
         if os.path.exists(json_path):
-            # Cargamos las credenciales añadiendo los SCOPES
+            from google.oauth2 import service_account
             credentials = service_account.Credentials.from_service_account_file(
                 json_path, scopes=EE_SCOPES
             )
             ee.Initialize(credentials=credentials, project=project)
-            print(f"✅ Earth Engine conectado con Service Account: {credentials.service_account_email}")
+            print(f"✅ Earth Engine conectado con Service Account.")
         else:
-            # Fallback para ejecución local fuera de Docker
             ee.Initialize(project=project)
             print("✅ Earth Engine inicializado con credenciales locales.")
     except Exception as e:
         print(f"❌ Error crítico de autenticación: {e}")
         raise SystemExit(1)
 
-# --- 🔹 Obtener imagen VIIRS mensual ---
+# --- 🔹 Lógica de Actualización Incremental ---
+def get_last_downloaded_date(base_outdir):
+    """
+    Busca el archivo final para determinar desde qué fecha retomar la descarga.
+    Si no existe, devuelve el inicio de la serie histórica (Abril 2012).
+    """
+    final_path = os.path.join(base_outdir, "luz_nocturna", "viirs_luz_nocturna.csv")
+    
+    if os.path.exists(final_path):
+        try:
+            df = pd.read_csv(final_path)
+            if not df.empty and 'date' in df.columns:
+                last_date = pd.to_datetime(df['date']).max()
+                # Retornamos el primer día del mes siguiente
+                next_date = last_date + pd.DateOffset(months=1)
+                return next_date.year, next_date.month
+        except Exception as e:
+            print(f"⚠️ No se pudo leer el historial ({e}). Iniciando desde 2012.")
+    
+    return 2012, 4  # Inicio oficial de VIIRS Monthly
+
+# --- 🔹 Procesamiento de Imágenes ---
 def viirs_mes(fecha_iso):
-    """Devuelve la imagen VIIRS mensual (avg_rad) para la fecha dada."""
-    return (
+    """Devuelve la imagen VIIRS mensual para la fecha dada si existe."""
+    collection = (
         ee.ImageCollection("NOAA/VIIRS/DNB/MONTHLY_V1/VCMCFG")
         .filterDate(fecha_iso, ee.Date(fecha_iso).advance(1, "month"))
         .select("avg_rad")
-        .first()
     )
+    
+    # Verificamos si hay imágenes disponibles para ese mes
+    count = collection.size().getInfo()
+    return collection.first() if count > 0 else None
 
-
-# --- 🔹 Estadísticas zonales ---
 def zonal_stats(img, municipios, fecha_iso):
     """Calcula estadísticas zonales sobre los municipios para una fecha."""
     reducer = (
@@ -69,114 +85,114 @@ def zonal_stats(img, municipios, fecha_iso):
 
     return stats
 
-
-# --- 🔹 Procesar un bloque de años ---
-def descargar_historico(municipios, anio_ini, anio_fin, bloque_id=0, outdir="salida_viirs"):
-    """Procesa imágenes VIIRS mensuales dentro de un bloque temporal."""
+# --- 🔹 Gestión de Descarga por Bloques ---
+def descargar_rango_temporal(municipios, start_year, start_month, end_year, end_month, bloque_id, outdir):
+    """Bucle de descarga mensual para un grupo de municipios."""
     os.makedirs(outdir, exist_ok=True)
-    meses = pd.date_range(f"{anio_ini}-01-01", f"{anio_fin+1}-01-01", freq="MS", inclusive="left")
+    
+    start_date = f"{start_year}-{start_month:02d}-01"
+    end_date = f"{end_year}-{end_month:02d}-01"
+    
+    meses = pd.date_range(start_date, end_date, freq="MS")
     dfs = []
 
-    print(f"\n🚀 Procesando bloque {bloque_id} ({anio_ini}-{anio_fin}) con {municipios.size().getInfo()} municipios")
-
-    for fecha in tqdm(meses, desc=f"Bloque {bloque_id} ({anio_ini}-{anio_fin})"):
-        img = viirs_mes(str(fecha.date()))
+    for fecha in tqdm(meses, desc=f"Bloque {bloque_id} ({start_year}-{end_year})", leave=False):
+        fecha_str = str(fecha.date())
+        img = viirs_mes(fecha_str)
+        
         if img is None:
+            # Esto ocurrirá si pides un mes que aún no se ha procesado (ej. marzo 2026)
             continue
 
-        stats = zonal_stats(img, municipios, str(fecha.date()))
         try:
+            stats = zonal_stats(img, municipios, fecha_str)
             df_mes = geemap.ee_to_df(stats)
-            dfs.append(df_mes)
+            if not df_mes.empty:
+                dfs.append(df_mes)
         except Exception as e:
             print(f"⚠️ Error en {fecha.strftime('%Y-%m')}: {e}")
 
     if dfs:
-        df = pd.concat(dfs, ignore_index=True)
+        df_bloque = pd.concat(dfs, ignore_index=True)
         out_path = os.path.join(outdir, f"viirs_bloque_{bloque_id}.csv")
-        df.to_csv(out_path, index=False)
-        print(f"✅ Guardado {out_path} ({len(df)} filas)")
-        return df
-
-    print(f"⚠️ No se generaron datos para el bloque {bloque_id}")
+        df_bloque.to_csv(out_path, index=False)
+        return df_bloque
     return None
 
-
-# --- 🔹 Descargar todos los bloques ---
-def descargar_historico_por_bloques(geojson_path, anio_ini, anio_fin, outdir="salida_viirs", block_size=800):
-    """Divide los municipios en bloques y descarga VIIRS por cada uno."""
-    os.makedirs(outdir, exist_ok=True)
-    gdf = gpd.read_file(geojson_path)
-    n_blocks = (len(gdf) // block_size) + 1
-    print(f"📦 Total municipios: {len(gdf)} → {n_blocks} bloques de ~{block_size}")
-
-    for i in range(n_blocks):
-        sub = gdf.iloc[i * block_size:(i + 1) * block_size]
-        if sub.empty:
-            continue
-        sub_path = os.path.join(outdir, f"tmp_municipios_{i}.geojson")
-        sub.to_file(sub_path, driver="GeoJSON")
-
-        print(f"\n🚀 Procesando bloque {i+1}/{n_blocks} con {len(sub)} municipios")
-        municipios = geemap.geojson_to_ee(sub_path)
-        descargar_historico(municipios, anio_ini, anio_fin, bloque_id=i, outdir=outdir)
-        time.sleep(60)  # evitar rate limit entre bloques
-
-
-# --- 🔹 Combinar CSVs ---
-def combinar_csvs(outdir="salida_viirs", final_name="viirs_municipios_final.csv"):
-    """Combina todos los CSVs generados en un archivo final."""
-    files = [f for f in os.listdir(outdir) if f.startswith("viirs_bloque_") and f.endswith(".csv")]
-    if not files:
-        print("⚠️ No hay CSVs para combinar.")
-        return None
-
-    dfs = [pd.read_csv(os.path.join(outdir, f)) for f in files]
-    df_final = pd.concat(dfs, ignore_index=True)
-    out_path = os.path.join(outdir, final_name)
-    df_final.to_csv(out_path, index=False)
-    print(f"✅ Archivo final combinado: {out_path} ({len(df_final)} filas)")
-    return df_final
-
-
-# --- 🔹 Función principal (para main.py) ---
-def fetch_viirs_and_save(geojson_path="municipios_es.geojson", anio_ini=2018, anio_fin=2022, base_outdir="outputs/data"):
-    """Ejecuta el flujo completo de VIIRS y guarda el resultado final."""
-    print("-> Inicializando Earth Engine para VIIRS...")
+# --- 🔹 Orquestador Principal ---
+def fetch_viirs_and_save(geojson_path="municipios_es.geojson", base_outdir="outputs/data"):
+    """
+    Punto de entrada para el pipeline de GeoLúmica.
+    Gestiona autenticación, incrementalidad y guardado final.
+    """
+    print("\n🌙 --- Módulo VIIRS (Nighttime Lights) ---")
     init_ee()
 
+    # 1. Determinar rango temporal
+    y_start, m_start = get_last_downloaded_date(base_outdir)
+    now = datetime.now()
+    y_end, m_end = now.year, now.month
+
+    if y_start > y_end or (y_start == y_end and m_start > m_end):
+        print("✅ Los datos ya están actualizados hasta el mes actual.")
+        return os.path.join(base_outdir, "luz_nocturna", "viirs_luz_nocturna.csv")
+
+    print(f"📅 Rango de actualización: {y_start}-{m_start:02d} hasta {y_end}-{m_end:02d}")
+
+    # 2. Preparar directorios y datos geográficos
     tmp_outdir = os.path.join(base_outdir, "luz_nocturna/tmp")
     os.makedirs(tmp_outdir, exist_ok=True)
+    
+    gdf = gpd.read_file(geojson_path)
+    block_size = 1000
+    n_blocks = (len(gdf) // block_size) + 1
+    
+    all_data = []
 
-    start_time = time.time()
-    print("\n🌙 Iniciando descarga de datos VIIRS (NOAA)...")
+    # 3. Procesar por bloques de municipios para evitar Timeouts de GEE
+    for i in range(n_blocks):
+        sub = gdf.iloc[i * block_size : (i + 1) * block_size]
+        if sub.empty: continue
+        
+        sub_path = os.path.join(tmp_outdir, f"tmp_muni_{i}.geojson")
+        sub.to_file(sub_path, driver="GeoJSON")
+        
+        print(f"📦 Procesando bloque {i+1}/{n_blocks} ({len(sub)} municipios)")
+        municipios_ee = geemap.geojson_to_ee(sub_path)
+        
+        df_b = descargar_rango_temporal(municipios_ee, y_start, m_start, y_end, m_end, i, tmp_outdir)
+        if df_b is not None:
+            all_data.append(df_b)
+        
+        # Pausa de cortesía para la API
+        time.sleep(5)
 
-    descargar_historico_por_bloques(
-        geojson_path=geojson_path,
-        anio_ini=anio_ini,
-        anio_fin=anio_fin,
-        outdir=tmp_outdir,
-        block_size=1000,
+    # 4. Consolidar y Guardar
+    if not all_data:
+        print("⚠️ No se encontraron nuevos datos en Earth Engine.")
+        return None
+
+    df_new = pd.concat(all_data, ignore_index=True)
+    
+    # Si ya existía el archivo, lo unimos con lo nuevo
+    final_path = os.path.join(base_outdir, "luz_nocturna", "viirs_luz_nocturna.csv")
+    if os.path.exists(final_path):
+        df_old = pd.read_csv(final_path)
+        df_final = pd.concat([df_old, df_new], ignore_index=True).drop_duplicates(subset=['LAU_ID', 'date'])
+    else:
+        df_final = df_new
+
+    # Guardado definitivo
+    path = save_df_to_theme(
+        df_final,
+        theme="luz_nocturna",
+        filename="viirs_luz_nocturna.csv",
+        base_outdir=base_outdir
     )
-
-    df_final = combinar_csvs(tmp_outdir, final_name="viirs_luz_nocturna.csv")
-
-    elapsed = time.time() - start_time
-    print(f"\n⏱️ Tiempo total de descarga VIIRS: {elapsed/60:.2f} minutos")
-
-    if df_final is not None and not df_final.empty:
-        path = save_df_to_theme(
-            df_final,
-            theme="luz_nocturna",
-            filename="viirs_luz_nocturna.csv",
-            base_outdir=base_outdir,
-        )
-        print("💾 Datos VIIRS guardados en:", path)
-        return path
-
-    print("⚠️ No se generó el DataFrame final VIIRS.")
-    return None
-
+    
+    print(f"💾 Proceso finalizado. Datos guardados en: {path}")
+    return path
 
 if __name__ == "__main__":
-    fetch_viirs_and_save()
+    # Prueba individual
+    fetch_viirs_and_save(geojson_path="municipios_es.geojson")
