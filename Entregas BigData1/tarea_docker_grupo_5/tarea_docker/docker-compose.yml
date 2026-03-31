@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+  db:
+    build:
+      context: ./db
+    container_name: proyecto_db
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${MARIADB_DATABASE}
+      MARIADB_USER: ${MARIADB_USER}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+    ports:
+      - "3323:3323"          #  host:container;
+      # o simplemente borrar 'ports' si no quieres exponerlo a la máquina host
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "-u", "${MARIADB_USER}", "-p${MARIADB_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  etl:
+    build:
+      context: ./etl
+    container_name: proyecto_etl
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - ./etl/.env
+    command: ["python", "mainScript.py"]
+
+volumes:
+  mariadb_data:

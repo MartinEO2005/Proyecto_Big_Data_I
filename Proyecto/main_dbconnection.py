@@ -6,7 +6,8 @@ import os
 
 DB_USER = os.getenv('DB_USER', 'root')
 DB_PASS = os.getenv('DB_PASS', '1234')
-DB_HOST = os.getenv('DB_HOST', 'mysql_server') 
+#DB_HOST = os.getenv('DB_HOST', 'mysql_server') para docker.
+DB_HOST = os.getenv('DB_HOST', '127.0.0.1')
 DB_PORT = os.getenv('DB_PORT', '3306')
 DB_NAME = os.getenv('DB_NAME', 'proyecto_big_data')
 
@@ -72,6 +73,36 @@ def add_keys_and_indexes(engine, table_names):
                         print(f"   ✅ {table} -> Conectada a Provincia (Plan B)")
                     except Exception as e:
                         print(f"   ❌ {table} no se pudo vincular: {e}")
+
+
+            # 4. CREACIÓN DE LA VISTA MAESTRA PARA ML (GeoLúmica Master)
+        print("📊 Creando Vista Maestra para modelos de Machine Learning...")
+        master_view_query = """
+        CREATE OR REPLACE VIEW view_geolumica_master AS
+        SELECT 
+            g.muni_display,
+            YEAR(v.date) AS anio,
+            AVG(v.mean) AS intensidad_luz_media,
+            d.Total AS poblacion,                  -- Mapeado de 'Total' en el CSV
+            r.pib AS pib_per_capita,               -- Mapeado de 'pib' en el CSV
+            c.Indice_Conectividad AS conectividad, -- Mapeado de 'Indice_Conectividad'
+            m.`cantidad (personas)` AS migracion   -- Mapeado de 'cantidad (personas)'
+        FROM dim_geografia g
+        INNER JOIN fact_viirs v ON g.muni_key = v.muni_id_join
+        LEFT JOIN fact_demografia d ON g.muni_key = d.muni_id_join AND YEAR(v.date) = d.year
+        LEFT JOIN fact_pib r ON g.muni_key = r.muni_id_join AND YEAR(v.date) = r.anio
+        LEFT JOIN fact_migraciones m ON g.muni_key = m.muni_id_join AND YEAR(v.date) = m.anio
+        LEFT JOIN fact_conectividad c ON g.muni_key = c.muni_id_join AND YEAR(v.date) = c.Anio
+        GROUP BY 
+            g.muni_display, 
+            YEAR(v.date), 
+            d.Total, 
+            r.pib, 
+            c.Indice_Conectividad, 
+            m.`cantidad (personas)`;
+        """
+        conn.execute(text(master_view_query))
+        print("✅ Vista 'view_geolumica_master' lista para entrenar.")
 
 def prepare_and_load():
     print("🧨 Reseteando Base de Datos para nueva carga limpia...")
