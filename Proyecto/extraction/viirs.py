@@ -194,5 +194,4 @@ def fetch_viirs_and_save(geojson_path="municipios_es.geojson", base_outdir="outp
     return path
 
 if __name__ == "__main__":
-    # Prueba individual
-    fetch_viirs_and_save(geojson_path="municipios_es.geojson")
+    fetch_viirs_and_save()

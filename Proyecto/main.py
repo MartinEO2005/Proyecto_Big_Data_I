@@ -63,33 +63,7 @@ def run_all(num_images=None):
     # 0. Inicialización Central de Servicios
     init_ee_orchestrator()
 
-    # --- 1. LUZ NOCTURNA (VIIRS) [Actualizado con lógica incremental] ---
-    print("\n--- 🌙 SECCIÓN: LUZ NOCTURNA (VIIRS) ---")
-    
-    for i in range(REINTENTOS):
-        try:
-            print(f"-> Procesando VIIRS por municipios (Intento {i+1})...")
-            viirs.fetch_viirs_and_save(
-                geojson_path="municipios_es.geojson",
-                base_outdir=BASE_DIR  # El módulo internamente gestiona la subcarpeta luz_nocturna
-            )
-            break
-        except Exception as e:
-            print(f"  ⚠️ Error VIIRS municipios: {e}")
-            if i < REINTENTOS - 1: time.sleep(5)
-
-    for i in range(REINTENTOS):
-        try:
-            print(f"-> Procesando VIIRS por provincias (EE) (Intento {i+1})...")
-            csv_path_prov = viirs_provincias_gaul.main(outdir=PROV_DIR, project=DEFAULT_PROJECT)
-            if csv_path_prov:
-                print(f"  ✅ VIIRS provincias listo en: {csv_path_prov}")
-            break
-        except Exception as e:
-            print(f"  ⚠️ Error VIIRS provincias: {e}")
-            if i < REINTENTOS - 1: time.sleep(5)
-
-
+   
     # --- 2. ECONOMÍA Y CONSUMO (INE) ---
     print("\n--- ⚡ SECCIÓN: ECONOMÍA Y CONSUMO ---")
     
@@ -184,6 +158,33 @@ def run_all(num_images=None):
         except Exception as e:
             print(f"  ⚠️ Error OSM: {e}")
             if i < REINTENTOS - 1: time.sleep(15)
+
+     # --- 1. LUZ NOCTURNA (VIIRS) [Actualizado con lógica incremental] ---
+    print("\n--- 🌙 SECCIÓN: LUZ NOCTURNA (VIIRS) ---")
+    
+    for i in range(REINTENTOS):
+        try:
+            print(f"-> Procesando VIIRS por municipios (Intento {i+1})...")
+            viirs.fetch_viirs_and_save(
+                geojson_path="municipios_es.geojson",
+                base_outdir=BASE_DIR  # El módulo internamente gestiona la subcarpeta luz_nocturna
+            )
+            break
+        except Exception as e:
+            print(f"  ⚠️ Error VIIRS municipios: {e}")
+            if i < REINTENTOS - 1: time.sleep(5)
+
+    for i in range(REINTENTOS):
+        try:
+            print(f"-> Procesando VIIRS por provincias (EE) (Intento {i+1})...")
+            csv_path_prov = viirs_provincias_gaul.main(outdir=PROV_DIR, project=DEFAULT_PROJECT)
+            if csv_path_prov:
+                print(f"  ✅ VIIRS provincias listo en: {csv_path_prov}")
+            break
+        except Exception as e:
+            print(f"  ⚠️ Error VIIRS provincias: {e}")
+            if i < REINTENTOS - 1: time.sleep(5)
+
 
 
     # --- 5. SATELITAL (COPERNICUS) ---
