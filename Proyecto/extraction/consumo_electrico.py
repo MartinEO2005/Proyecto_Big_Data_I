@@ -2,11 +2,16 @@ import os
 import requests
 import pandas as pd
 import io
+import re
 
 def fetch_viviendas_uso_ine(base_outdir="data"):
-    # Diccionario exacto Código: Nombre para las 52 provincias/ciudades autónomas
-    # Si el código es de 2 dígitos y el nombre NO es este, se elimina (adiós CCAA).
-    provincias_ine = {
+    url_csv = "https://www.ine.es/jaxi/files/tpx/es/csv_bdsc/59531.csv"
+    out_dir = os.path.join(base_outdir, "energia")
+    os.makedirs(out_dir, exist_ok=True)
+    out_path = os.path.join(out_dir, "consumo_electrico.csv")
+
+    # Diccionario de validación para asegurar que no bajamos CCAA o Totales
+    provincias_dict = {
         "01": "Araba/Álava", "02": "Albacete", "03": "Alicante/Alacant", "04": "Almería",
         "05": "Ávila", "06": "Badajoz", "07": "Balears, Illes", "08": "Barcelona",
         "09": "Burgos", "10": "Cáceres", "11": "Cádiz", "12": "Castellón/Castelló",
@@ -21,65 +26,74 @@ def fetch_viviendas_uso_ine(base_outdir="data"):
         "48": "Bizkaia", "49": "Zamora", "50": "Zaragoza", "51": "Ceuta", "52": "Melilla"
     }
 
-    url_csv = "https://www.ine.es/jaxi/files/tpx/es/csv_bdsc/59531.csv"
-    out_dir = os.path.join(base_outdir, "energia")
-    os.makedirs(out_dir, exist_ok=True)
-    out_path = os.path.join(out_dir, "consumo_electrico.csv")
+    print(f" -> Iniciando filtrado estricto. Objetivo: 3.237 ubicaciones (Prov + Mun)...")
 
-    print(f" -> Iniciando filtrado estricto. Objetivo: 3.237 ubicaciones en formato filas...")
+    r = requests.get(url_csv, headers={'User-Agent': 'Mozilla/5.0'})
+    r.raise_for_status()
+    
+    contenido = r.content.decode('utf-8-sig', errors='ignore')
+    df = pd.read_csv(io.StringIO(contenido), sep=';')
+    df.columns = [c.strip() for c in df.columns]
 
-    try:
-        r = requests.get(url_csv, headers={'User-Agent': 'Mozilla/5.0'})
-        contenido = r.content.decode('utf-8-sig', errors='ignore')
-        df = pd.read_csv(io.StringIO(contenido), sep=';')
+    rows_list = []
+
+    # Iteramos directamente para evitar problemas de "name not defined" en apply
+    for _, row in df.iterrows():
+        muni_val = str(row.get('Municipios', '')).strip()
+        prov_val = str(row.get('Provincias', '')).strip()
         
-        df.columns = [c.strip() for c in df.columns]
-        col_entidad = "Comunidades Autónomas, Provincias y Municipios"
+        target = ""
+        # 1. Identificar si es Municipio (prioridad) o Provincia
+        if muni_val and muni_val != 'nan' and re.match(r'^\d{5}', muni_val):
+            target = muni_val
+        elif prov_val and prov_val != 'nan' and re.match(r'^\d{2}\s', prov_val):
+            target = prov_val
+        
+        if not target:
+            continue
 
-        # 1. Separar Código y Nombre
-        split = df[col_entidad].str.extract(r'^(\d+)\s+(.*)$')
-        df['Codigo'] = split[0]
-        df['Nombre'] = split[1]
-
-        # 2. FILTRO DE EXCLUSIÓN DE CCAA Y TOTAL NACIONAL
-        def validar_ubicacion(row):
-            cod = str(row['Codigo'])
-            nom = str(row['Nombre']).strip()
+        # 2. Extraer Código y Nombre
+        match = re.search(r'^(\d+)\s+(.*)$', target)
+        if match:
+            cod, nom = match.group(1), match.group(2).strip()
             
-            if len(cod) == 2:
-                # Solo permitimos si el código y el nombre coinciden con la provincia real
-                return provincias_ine.get(cod) == nom
-            if len(cod) == 5:
-                # Municipios se quedan todos (son los 3.185)
-                return True
-            return False
+            # 3. Validación estricta para GeoLúmica
+            es_valido = False
+            if len(cod) == 5: # Es municipio
+                es_valido = True
+            elif len(cod) == 2: # Es provincia
+                if provincias_dict.get(cod) == nom:
+                    es_valido = True
+            
+            if es_valido:
+                # Limpieza de dato numérico
+                total_raw = str(row.get('Total', '0'))
+                total_clean = total_raw.replace('.', '').replace(',', '.')
+                
+                rows_list.append({
+                    'Codigo': cod,
+                    'Nombre': nom,
+                    'Consumo eléctrico': row.get('Consumo eléctrico', ''),
+                    'Total': total_clean
+                })
 
-        df_final = df[df.apply(validar_ubicacion, axis=1)].copy()
+    if not rows_list:
+        raise ValueError("No se pudieron extraer datos. Revisa el formato del CSV del INE.")
 
-        # 3. Limpieza de formato numérico
-        df_final['Total'] = df_final['Total'].astype(str).str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
+    df_final = pd.DataFrame(rows_list)
+    # Eliminar duplicados técnicos por el cruce de tablas del INE
+    df_final = df_final.drop_duplicates(subset=['Codigo', 'Consumo eléctrico'])
 
-        # 4. Organización final (Formato por FILAS como pediste)
-        # Reordenamos columnas para que sea legible
-        columnas = ['Codigo', 'Nombre', 'Consumo eléctrico', 'Total']
-        df_export = df_final[columnas]
-
-        df_export.to_csv(out_path, index=False, encoding='utf-8-sig', sep=';')
-        
-        # Conteo de validación
-        ubicaciones_unicas = df_export[['Codigo', 'Nombre']].drop_duplicates()
-        n_prov = len(ubicaciones_unicas[ubicaciones_unicas['Codigo'].str.len() == 2])
-        n_muni = len(ubicaciones_unicas[ubicaciones_unicas['Codigo'].str.len() == 5])
-
-        print(f"  ¡Filtrado completado con éxito!")
-        print(f" 📊 Ubicaciones únicas: {len(ubicaciones_unicas)} ({n_prov} Provincias + {n_muni} Municipios)")
-        print(f" 📂 Total filas en el CSV: {len(df_export)}")
-        
-        return out_path
-
-    except Exception as e:
-        print(f" ❌ Error: {e}")
-        return None
+    df_final.to_csv(out_path, index=False, encoding='utf-8-sig', sep=';')
+    
+    # Logs de control
+    c_prov = len(df_final[df_final['Codigo'].str.len() == 2]['Codigo'].unique())
+    c_muni = len(df_final[df_final['Codigo'].str.len() == 5]['Codigo'].unique())
+    
+    print(f"  ✅ ¡Filtrado completado!")
+    print(f"  📊 GeoLúmica Data: {c_prov} Provincias y {c_muni} Municipios guardados.")
+    
+    return out_path
 
 if __name__ == "__main__":
     fetch_viviendas_uso_ine()
