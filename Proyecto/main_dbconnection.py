@@ -59,7 +59,8 @@ def prepare_and_load():
         "consumo_viviendas": "data/clean/consumo_electrico_final_limpio.csv",
         "osm": "data/clean/muni_station_osm_limpio.csv",
         "pib": "data/clean/rentamedia_municipios_final_limpio.csv",
-        "viirs": "data/clean/viirsFinal_limpio.csv"
+        "viirs": "data/clean/viirsFinal_limpio.csv",
+        "empresas_transporte": "data/clean/empresas_transporte_final_limpio.csv" 
     }
 
     created_tables = []
