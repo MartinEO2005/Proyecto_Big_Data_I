@@ -1,162 +1,122 @@
 import pandas as pd
-import re, json, unicodedata, difflib, os
+import os
 import numpy as np
 
+# IMPORTAMOS NUESTRA VERDAD ABSOLUTA
+from geo_utils import get_maestro_municipios, limpiar_texto
 
 MUNI_RAW = "data/demografia/demografia_poblacion_municipios.csv"
-if os.path.exists("/app/municipios_es.geojson"):
-    GEOJSON = "/app/municipios_es.geojson"
-else:
-    # Ruta relativa para cuando trabajas en Windows
-    # Asumiendo que el script está en Proyecto/etl/ y el geojson en la raíz
-    GEOJSON = "municipios_es.geojson"
+GEOJSON = "municipios_es.geojson"
 PROV_CSV = "data/demografia/demografia_poblacion_provincias.csv"
-MIGRACIONES_CSV = "data/migracion/migracion_interior_municipios.csv" 
 OUTPUT = "data/clean/demografia_municipios_final.csv"
 
-def normalize(s):
-    if pd.isna(s): return ""
-    t = str(s).lower().strip()
-    t = unicodedata.normalize('NFKD', t)
-    t = "".join(c for c in t if not unicodedata.combining(c))
-    t = t.replace("ñ", "n")
-    t = re.sub(r"[^a-z0-9\s]", " ", t)
-    t = re.sub(r"\s{2,}", " ", t).strip()
-    return t
-
-def clean_municipio_string(text):
-    if pd.isna(text): return pd.Series([pd.NA, 'Total'])
-    t = str(text).strip()
-    cat = 'Total'
-    if re.search(r'\b(Hombres?)\b', t, re.IGNORECASE): cat = 'Hombres'
-    elif re.search(r'\b(Mujeres?)\b', t, re.IGNORECASE): cat = 'Mujeres'
-    
-    patterns = [r'\.?\s*Total\.\s*Total habitantes\.\s*Personas\.?$', r'\.?\s*Total habitantes\.\s*Personas\.?$', r'\.?\s*Personas\.?$', r'\.?\s*Total\s*$']
-    clean_name = t
-    for pat in patterns:
-        clean_name = re.sub(pat, '', clean_name, flags=re.IGNORECASE)
-    clean_name = re.sub(r'\.?\s*(Hombres?|Mujeres?|Total)\s*$', '', clean_name, flags=re.IGNORECASE)
-    return pd.Series([clean_name.strip(' .'), cat])
-
-# 1) Cargar y Limpiar Municipios
-
-print("1) Cargando municipios...")
-df = pd.read_csv(MUNI_RAW, dtype=str)
-df['population'] = pd.to_numeric(df['population'], errors='coerce')
-df['year'] = pd.to_numeric(df['year'], errors='coerce').astype('Int64')
-df = df.dropna(subset=['population'])
-
-df[['municipio_clean', 'categoria']] = df['municipio'].apply(clean_municipio_string)
-df['municipio_norm'] = df['municipio_clean'].apply(normalize)
-
-df_pivot = df.pivot_table(
-    index=['municipio_clean', 'municipio_norm', 'year'],
-    columns='categoria', values='population', aggfunc='sum'
-).reset_index().fillna(0)
-
-# 2) Construir Diccionarios de Referencia (Mapping)
-
-print("2) Construyendo diccionarios de referencia...")
-
-# A) Desde Migraciones (Prioridad 1)
-master_mapping = {}
-if os.path.exists(MIGRACIONES_CSV):
-    df_migra = pd.read_csv(MIGRACIONES_CSV, dtype=str)
-    df_migra['nom_norm'] = df_migra['nombre_municipio'].apply(normalize)
-    master_mapping = df_migra.drop_duplicates('nom_norm').set_index('nom_norm')['codigo_provincia'].to_dict()
-    print(f"   - Referencia Migraciones: {len(master_mapping)} municipios.")
-
-# B) Desde GeoJSON (Prioridad 2)
-with open(GEOJSON, encoding="utf-8") as f:
-    gj = json.load(f)
-geo_props = []
-for feat in gj.get("features", []):
-    p = feat.get("properties", {})
-    lid = str(p.get("LAU_ID", ""))
-    if len(lid) >= 2:
-        geo_props.append({'n': normalize(p.get("LAU_NAME", "")), 'c': lid[:2]})
-mapping_geojson = pd.DataFrame(geo_props).drop_duplicates('n').set_index('n')['c'].to_dict()
-
-
-
-CORRECCIONES_MANUALES = {
-    "oza dos rios": "15", # A Coruña
-    "cesuras": "15",      # A Coruña
-    "cotobade": "36",     # Pontevedra (se fusionó en Cerdedo-Cotobade)
-    "atez atetz": "31",   # Navarra
-    "novetle novele": "46" # Valencia
+INE_PROV_MAP = {
+    "01": "Álava", "02": "Albacete", "03": "Alicante", "04": "Almería", "05": "Ávila",
+    "06": "Badajoz", "07": "Islas Baleares", "08": "Barcelona", "09": "Burgos", "10": "Cáceres",
+    "11": "Cádiz", "12": "Castellón", "13": "Ciudad Real", "14": "Córdoba", "15": "A Coruña",
+    "16": "Cuenca", "17": "Girona", "18": "Granada", "19": "Guadalajara", "20": "Gipuzkoa",
+    "21": "Huelva", "22": "Huesca", "23": "Jaén", "24": "León", "25": "Lleida",
+    "26": "La Rioja", "27": "Lugo", "28": "Madrid", "29": "Málaga", "30": "Murcia",
+    "31": "Navarra", "32": "Ourense", "33": "Asturias", "34": "Palencia", "35": "Las Palmas",
+    "36": "Pontevedra", "37": "Salamanca", "38": "Santa Cruz de Tenerife", "39": "Cantabria",
+    "40": "Segovia", "41": "Sevilla", "42": "Soria", "43": "Tarragona", "44": "Teruel",
+    "45": "Toledo", "46": "Valencia", "47": "Valladolid", "48": "Bizkaia", "49": "Zamora",
+    "50": "Zaragoza", "51": "Ceuta", "52": "Melilla"
 }
 
+def main():
+    print("Iniciando limpieza de Demografía...")
+    
+    # 1. Cargamos el maestro geográfico
+    print("   - Cargando GeoJSON maestro...")
+    df_maestro = get_maestro_municipios(GEOJSON)
+    mapa_ids = dict(zip(df_maestro['union_key'], df_maestro['muni_key']))
+    
+    # 🚨 LA GRAN SOLUCIÓN: Mapa de rescate para adivinar la provincia 🚨
+    mapa_rescate_prov = dict(zip(df_maestro['muni_display'].apply(limpiar_texto), df_maestro['prov_key']))
 
-# 3) Asignar Provincias (Triple Fallback + Parche Manual)
-print("3) Asignando provincias...")
-# Paso 1: Migraciones
-df_pivot['region_code'] = df_pivot['municipio_norm'].map(master_mapping)
+    # 2. Carga y separación de géneros
+    print("   - Procesando datos a nivel municipal (Extrayendo Total/Hombres/Mujeres)...")
+    df_m = pd.read_csv(MUNI_RAW, dtype=str)
 
-# Paso 2: GeoJSON
-mask = df_pivot['region_code'].isna()
-df_pivot.loc[mask, 'region_code'] = df_pivot.loc[mask, 'municipio_norm'].map(mapping_geojson)
+    # Separamos "Ababuj. Total. Personas" en columnas útiles
+    split_data = df_m['municipio'].str.split('.', n=2, expand=True)
+    df_m['muni_real'] = split_data[0].str.strip()
+    df_m['categoria'] = split_data[1].str.strip() 
 
-# Paso 3: PARCHE MANUAL (Para Oza, Cesuras, etc.)
-mask = df_pivot['region_code'].isna()
-df_pivot.loc[mask, 'region_code'] = df_pivot.loc[mask, 'municipio_norm'].map(CORRECCIONES_MANUALES)
+    # 🚨 APLICAMOS EL RESCATE DE PROVINCIA 🚨
+    df_m['muni_clean'] = df_m['muni_real'].apply(limpiar_texto)
+    df_m['region_code'] = df_m['muni_clean'].map(mapa_rescate_prov)
 
-# Paso 4: Fuzzy Match (Para el resto)
-mask = df_pivot['region_code'].isna()
-missing_names = df_pivot.loc[mask, 'municipio_norm'].unique()
-if len(missing_names) > 0:
-    all_refs = {**mapping_geojson, **master_mapping}
-    choices = list(all_refs.keys())
-    fuzzy_map = {}
-    for name in missing_names:
-        if not name: continue
-        m = difflib.get_close_matches(name, choices, n=1, cutoff=0.75) # Bajamos un poco el cutoff
-        if m: fuzzy_map[name] = all_refs[m[0]]
-    df_pivot.loc[mask, 'region_code'] = df_pivot.loc[mask, 'municipio_norm'].map(fuzzy_map)
+    # Aseguramos el formato
+    df_m['region_code'] = df_m['region_code'].astype(str).str.zfill(2)
+    df_m['year'] = pd.to_numeric(df_m['year'], errors='coerce')
+    df_m['population'] = pd.to_numeric(df_m['population'], errors='coerce')
 
-# Limpiar códigos (Asegurar 2 dígitos)
-df_pivot['region_code'] = df_pivot['region_code'].astype(str).str.replace(r'\.0$', '', regex=True).str.zfill(2)
-df_pivot.loc[df_pivot['region_code'].isin(['nan', 'None', '']), 'region_code'] = pd.NA
+    # Eliminamos las filas donde no logramos rescatar el código (no nos interesan si no están en OSM)
+    df_m = df_m.dropna(subset=['year'])
+    df_m = df_m[df_m['region_code'] != 'nan']
+    
+    # Pivoteamos para crear las columnas: Total, Hombres, Mujeres
+    df_pivot = df_m.pivot_table(
+        index=['region_code', 'muni_real', 'year'], 
+        columns='categoria',
+        values='population', 
+        aggfunc='sum'
+    ).reset_index()
+    
+    df_pivot = df_pivot.rename(columns={'muni_real': 'municipio'})
 
+    print("   - Procesando datos a nivel provincial...")
+    df_p = pd.read_csv(PROV_CSV, dtype=str)
+    
+    if 'cod_prov' in df_p.columns:
+        df_p = df_p.rename(columns={'cod_prov': 'region_code'})
+        
+    df_p['region_code'] = df_p['region_code'].str.zfill(2)
+    df_p['year'] = pd.to_numeric(df_p['year'], errors='coerce')
+    df_p['population'] = pd.to_numeric(df_p['population'], errors='coerce')
+    df_p = df_p.dropna(subset=['region_code', 'year'])
 
-# 4) Merge Provincial con Reutilización de Datos (Lógica de Relleno)
-print("4) Uniendo con población provincial (Lógica de relleno temporal)...")
+    # Unimos municipios con sus totales provinciales
+    df_final = pd.merge(
+        df_pivot, 
+        df_p[['region_code', 'year', 'population']], 
+        on=['region_code', 'year'], 
+        how='left'
+    )
+    
+    df_final = df_final.rename(columns={'population': 'provincia_population'})
+    df_final['region_name'] = df_final['region_code'].map(INE_PROV_MAP)
 
-df_p = pd.read_csv(PROV_CSV, dtype=str)
-df_p['region_code'] = df_p['region_code'].str.zfill(2)
-df_p['year'] = pd.to_numeric(df_p['year'], errors='coerce')
-df_p['population'] = pd.to_numeric(df_p['population'], errors='coerce')
-df_p = df_p.dropna(subset=['region_code', 'year'])
+    df_final = df_final.sort_values(['region_code', 'year'])
 
-prov_names = df_p.drop_duplicates('region_code').set_index('region_code')['region_name'].to_dict()
+    print("   - Rellenando huecos de población provincial...")
+    df_final['provincia_population'] = df_final.groupby('region_code')['provincia_population'].ffill().bfill()
+    
+    # Aseguramos que existan las columnas incluso si el INE no mandó alguna
+    for col in ['Total', 'Hombres', 'Mujeres']:
+        if col not in df_final.columns:
+            df_final[col] = np.nan
 
-df_final = pd.merge(
-    df_pivot, 
-    df_p[['region_code', 'year', 'population']], 
-    on=['region_code', 'year'], 
-    how='left'
-)
+    # Volvemos a tu orden estricto original
+    columnas_orden = ['region_code', 'region_name', 'year', 'provincia_population', 'municipio', 'Total', 'Hombres', 'Mujeres']
+    df_final = df_final[columnas_orden]
 
-df_final['region_name'] = df_final['region_code'].map(prov_names)
+    # 3. EL CRUCE DEFINITIVO
+    print("   - Mapeando LAU_ID oficiales...")
+    df_final['muni_clean'] = df_final['municipio'].apply(limpiar_texto)
+    df_final['union_key'] = df_final['region_code'] + "_" + df_final['muni_clean']
+    
+    # Inyectamos el ID oficial de GeoJSON
+    df_final['muni_id_join'] = df_final['union_key'].map(mapa_ids)
+    
+    # 4. Limpiamos y guardamos
+    columnas_basura = ['muni_clean', 'union_key']
+    df_final = df_final.drop(columns=[c for c in columnas_basura if c in df_final.columns])
+    
+    df_final.to_csv(OUTPUT, index=False)
+    print(f"✅ Demografía exportada con éxito: {OUTPUT} ({len(df_final)} filas)")
 
-df_final = df_final.sort_values(['region_code', 'year'])
-
-print("   - Rellenando huecos de población provincial...")
-# Agrupamos por provincia y rellenamos la población hacia arriba y hacia abajo
-# Esto hace que si tenemos datos de 2021, se copien a 1996 y a 2024
-df_final['population'] = df_final.groupby('region_code')['population'].ffill().bfill()
-
-df_final = df_final.rename(columns={
-    'municipio_clean': 'municipio', 
-    'population': 'provincia_population'
-})
-
-print("5) Guardando resultado final...")
-cols_finales = [
-    'region_code', 'region_name', 'year', 'provincia_population', 
-    'municipio', 'Total', 'Hombres', 'Mujeres'
-]
-
-df_export = df_final[[c for c in cols_finales if c in df_final.columns]]
-df_export.to_csv(OUTPUT, index=False, encoding='utf-8-sig')
-print(f"✅ ¡Hecho! Población provincial recuperada para todos los años.")
+if __name__ == "__main__":
+    main()

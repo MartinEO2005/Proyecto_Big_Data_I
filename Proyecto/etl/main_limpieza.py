@@ -51,7 +51,7 @@ def main():
     # PASO 4: Transporte (OSM)
     print("\n[4/5] Ejecutando Limpieza de Transporte (OSM)...")
     limpiezaosm.main(
-        "data/transporte/muni_station_metrics_reduced.csv",
+        "data/transporte/muni_station_metrics.csv",
         "data/clean/muni_station_osm_limpio.csv"
     )
 
