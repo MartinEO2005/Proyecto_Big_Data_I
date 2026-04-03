@@ -12,51 +12,64 @@ export default function NavBar({ currentView, setView }) {
       alignItems: 'center', 
       height: '75px' 
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} onClick={() => setView('home')}>
+      {/* EL LOGO: Cambiamos <div> por <button> y añadimos la clase */}
+      <button 
+        className="nav-logo-btn"
+        onClick={() => setView('home')}
+        aria-label="Ir a la página de inicio"
+        style={{ display: 'flex', alignItems: 'center' }}
+      >
         <img src={logo} alt="GeoLúmica Logo" style={{ height: '60px', objectFit: 'contain' }} />
-      </div>
+      </button>
+
       <div style={{ display: 'flex', gap: '35px', alignItems: 'center', fontWeight: '600', fontSize: '1rem' }}>
         
-        <span 
+        {/* ENLACES: Cambiamos <span> por <button> y añadimos la clase */}
+        <button 
+          className="nav-btn"
           onClick={() => setView('home')}
-          style={{ cursor: 'pointer', color: currentView === 'home' ? '#efa748' : '#161311', borderBottom: currentView === 'home' ? '2px solid #efa748' : 'none', paddingBottom: '4px', transition: 'color 0.2s' }} 
-          onMouseOver={(e) => e.target.style.color = '#efa748'} 
-          onMouseOut={(e) => e.target.style.color = currentView === 'home' ? '#efa748' : '#161311'}
+          style={{ color: currentView === 'home' ? '#efa748' : '#161311', borderBottom: currentView === 'home' ? '2px solid #efa748' : 'none', paddingBottom: '4px', transition: 'color 0.2s' }} 
+          onMouseOver={(e) => e.currentTarget.style.color = '#efa748'} 
+          onMouseOut={(e) => e.currentTarget.style.color = currentView === 'home' ? '#efa748' : '#161311'}
         >
           Inicio
-        </span>
+        </button>
 
-        <span 
+        <button 
+          className="nav-btn"
           onClick={() => setView('about')}
-          style={{ cursor: 'pointer', color: currentView === 'about' ? '#efa748' : '#161311', borderBottom: currentView === 'about' ? '2px solid #efa748' : 'none', paddingBottom: '4px', transition: 'color 0.2s' }} 
-          onMouseOver={(e) => e.target.style.color = '#efa748'} 
-          onMouseOut={(e) => e.target.style.color = currentView === 'about' ? '#efa748' : '#161311'}
+          style={{ color: currentView === 'about' ? '#efa748' : '#161311', borderBottom: currentView === 'about' ? '2px solid #efa748' : 'none', paddingBottom: '4px', transition: 'color 0.2s' }} 
+          onMouseOver={(e) => e.currentTarget.style.color = '#efa748'} 
+          onMouseOut={(e) => e.currentTarget.style.color = currentView === 'about' ? '#efa748' : '#161311'}
         >
           Sobre Nosotros
-        </span>
+        </button>
 
-        <span 
+        <button 
+          className="nav-btn"
           onClick={() => setView('dashboard')}
-          style={{ cursor: 'pointer', color: currentView === 'dashboard' ? '#efa748' : '#161311', borderBottom: currentView === 'dashboard' ? '2px solid #efa748' : 'none', paddingBottom: '4px', transition: 'color 0.2s' }} 
-          onMouseOver={(e) => e.target.style.color = '#efa748'} 
-          onMouseOut={(e) => e.target.style.color = currentView === 'dashboard' ? '#efa748' : '#161311'}
+          style={{ color: currentView === 'dashboard' ? '#efa748' : '#161311', borderBottom: currentView === 'dashboard' ? '2px solid #efa748' : 'none', paddingBottom: '4px', transition: 'color 0.2s' }} 
+          onMouseOver={(e) => e.currentTarget.style.color = '#efa748'} 
+          onMouseOut={(e) => e.currentTarget.style.color = currentView === 'dashboard' ? '#efa748' : '#161311'}
         >
           Dashboard
-        </span>
+        </button>
 
-        <span 
+        <button 
+          className="nav-btn"
           onClick={() => setView('profile')}
-          style={{ cursor: 'pointer', color: currentView === 'profile' ? '#efa748' : '#161311', borderBottom: currentView === 'profile' ? '2px solid #efa748' : 'none', paddingBottom: '4px', transition: 'color 0.2s' }} 
-          onMouseOver={(e) => e.target.style.color = '#efa748'} 
-          onMouseOut={(e) => e.target.style.color = currentView === 'profile' ? '#efa748' : '#161311'}
+          style={{ color: currentView === 'profile' ? '#efa748' : '#161311', borderBottom: currentView === 'profile' ? '2px solid #efa748' : 'none', paddingBottom: '4px', transition: 'color 0.2s' }} 
+          onMouseOver={(e) => e.currentTarget.style.color = '#efa748'} 
+          onMouseOut={(e) => e.currentTarget.style.color = currentView === 'profile' ? '#efa748' : '#161311'}
         >
           Mi Perfil
-        </span>
+        </button>
 
         {currentView === 'dashboard' && (
           <input 
             type="text" 
             placeholder="Buscar LAU_ID o Municipio..." 
+            aria-label="Buscador de municipios"
             style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #ccc', width: '220px', marginLeft: '15px', fontFamily: 'inherit', fontSize: '0.9rem' }}
           />
         )}

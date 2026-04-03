@@ -1,0 +1,108 @@
+/* --- CLASES DE ACCESIBILIDAD (Añadidas dinámicamente por el panel) --- */
+
+/* Alto Contraste */
+body.high-contrast {
+  background-color: #000000 !important;
+  color: #ffff00 !important; /* Amarillo sobre negro es el estándar óptimo */
+}
+body.high-contrast * {
+  background-color: #000000 !important;
+  color: #ffff00 !important;
+  border-color: #ffff00 !important;
+  box-shadow: none !important;
+}
+body.high-contrast img {
+  filter: contrast(120%) grayscale(100%);
+}
+
+/* Fuente para Dislexia */
+body.dyslexia-mode * {
+  /* Se usa Comic Sans MS como fallback universal porque mejora la legibilidad para dislexia */
+  font-family: "OpenDyslexic", "Comic Sans MS", sans-serif !important;
+  letter-spacing: 1px !important;
+  line-height: 1.8 !important;
+}
+
+/* Pausar Animaciones */
+body.pause-animations * {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* --- ESTILOS DEL PANEL DE ACCESIBILIDAD --- */
+
+/* Botones generales del panel */
+.access-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 15px;
+  margin-bottom: 10px;
+  background-color: #ffffff;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #161311;
+  font-family: inherit; /* Esto arregla que la fuente sea distinta */
+  transition: all 0.2s ease;
+  box-sizing: border-box; /* Esto arregla que no se desborde (overflow) */
+}
+
+.access-btn:hover {
+  background-color: #f5f5f5;
+}
+
+/* Estado activo (naranja) */
+.access-btn.active {
+  background-color: #fff5e6;
+  border: 2px solid #efa748;
+}
+
+/* Botoncitos pequeños de A- y A+ */
+.font-control-btn {
+  background: #eee;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-weight: bold;
+  font-family: inherit;
+  color: #161311;
+  transition: background 0.2s;
+}
+
+.font-control-btn:hover {
+  background: #ddd;
+}
+
+/* LA MAGIA DEL TAB (FOCUS): Esto crea el borde naranja al navegar con teclado */
+.access-btn:focus-visible,
+.font-control-btn:focus-visible,
+.access-fab:focus-visible,
+.access-close:focus-visible {
+  outline: 3px solid #efa748;
+  outline-offset: 2px;
+}
+
+/* --- ESTILOS DE LA BARRA DE NAVEGACIÓN ACCESIBLE --- */
+.nav-btn, .nav-logo-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  cursor: pointer;
+  color: inherit;
+}
+
+/* Añadimos el anillo naranja al hacer foco con el teclado */
+.nav-btn:focus-visible,
+.nav-logo-btn:focus-visible {
+  outline: 3px solid #efa748;
+  outline-offset: 6px;
+  border-radius: 4px;
+}
