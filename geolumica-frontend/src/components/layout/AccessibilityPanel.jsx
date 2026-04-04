@@ -3,10 +3,10 @@ import {
   Accessibility, X, Volume2, Contrast, 
   Type, PauseCircle, Globe 
 } from 'lucide-react';
-import { useTranslation } from 'react-i18next'; // <-- 1. IMPORTAMOS EL HOOK DE IDIOMAS
+import { useTranslation } from 'react-i18next';
 
 export default function AccessibilityPanel() {
-  const { t, i18n } = useTranslation(); // <-- 2. ACTIVAMOS LA TRADUCCIÓN
+  const { t, i18n } = useTranslation();
 
   const [isOpen, setIsOpen] = useState(false);
   const [fontSize, setFontSize] = useState(100);
@@ -14,6 +14,9 @@ export default function AccessibilityPanel() {
   const [highContrast, setHighContrast] = useState(false);
   const [dyslexiaMode, setDyslexiaMode] = useState(false);
   const [animationsPaused, setAnimationsPaused] = useState(false);
+  
+  // 1. NUEVO ESTADO PARA EL MODO LECTOR DE PANTALLA
+  const [screenReader, setScreenReader] = useState(false);
 
   useEffect(() => {
     document.documentElement.style.fontSize = `${fontSize}%`;
@@ -31,12 +34,56 @@ export default function AccessibilityPanel() {
     animationsPaused ? document.body.classList.add('pause-animations') : document.body.classList.remove('pause-animations');
   }, [animationsPaused]);
 
+  // 2. EL MOTOR DE VOZ (LA MAGIA DE LA OPCIÓN B)
+  useEffect(() => {
+    // Si se apaga, callamos al robot inmediatamente
+    if (!screenReader) {
+      window.speechSynthesis.cancel();
+      return;
+    }
+
+    // Función que hace hablar al navegador
+    const speak = (text) => {
+      if (!text || text.trim() === '') return;
+      
+      window.speechSynthesis.cancel(); // Para que no se pisen las voces
+      const utterance = new SpeechSynthesisUtterance(text);
+      
+      // Ajustamos el acento del robot según el idioma actual de tu web
+      utterance.lang = i18n.language === 'es' ? 'es-ES' : 'en-US';
+      utterance.rate = 1.0; // Velocidad normal (puedes subirlo a 1.2 si lo ves lento)
+      
+      window.speechSynthesis.speak(utterance);
+    };
+
+    // El "Vigilante": detecta dónde pones el ratón o el foco del teclado
+    const handleEvent = (e) => {
+      const target = e.target;
+      
+      // Solo queremos que lea si es un botón, un texto importante, una imagen o un campo de texto
+      if (target.tagName.match(/^(BUTTON|A|H1|H2|H3|P|SPAN|IMG|INPUT)$/)) {
+        // Prioridad de lectura: 1. aria-label (lo más accesible), 2. alt (imágenes), 3. texto visible, 4. placeholder (inputs)
+        let textToRead = target.getAttribute('aria-label') || target.alt || target.innerText || target.placeholder;
+        speak(textToRead);
+      }
+    };
+
+    // Usamos captura (true) para que funcione en toda la web
+    document.body.addEventListener('focus', handleEvent, true); 
+    document.body.addEventListener('mouseenter', handleEvent, true);
+
+    // Limpiamos los eventos si el componente se desmonta o se desactiva
+    return () => {
+      document.body.removeEventListener('focus', handleEvent, true);
+      document.body.removeEventListener('mouseenter', handleEvent, true);
+      window.speechSynthesis.cancel();
+    };
+  }, [screenReader, i18n.language]); // Se actualiza si cambias de idioma mientras está activo
+
   const handleIncreaseFont = () => setFontSize(prev => Math.min(prev + 10, 150));
   const handleDecreaseFont = () => setFontSize(prev => Math.max(prev - 10, 80));
 
-  // --- 3. LA FUNCIÓN QUE CAMBIA EL IDIOMA REALMENTE ---
   const toggleLanguage = () => {
-    // Si el idioma actual es español, pasamos a inglés, y viceversa
     const nextLang = i18n.language === 'es' ? 'en' : 'es';
     i18n.changeLanguage(nextLang);
   };
@@ -103,9 +150,15 @@ export default function AccessibilityPanel() {
             </button>
           </div>
 
-          <button className="access-btn" aria-label="Activar lector de pantalla">
+          {/* 3. AÑADIMOS EL ONCLICK AL BOTÓN DEL LECTOR Y SU CLASE ACTIVE */}
+          <button 
+            className={`access-btn ${screenReader ? 'active' : ''}`} 
+            onClick={() => setScreenReader(!screenReader)}
+            aria-pressed={screenReader}
+            aria-label={t('accessibility.screenReader')}
+          >
             <span>{t('accessibility.screenReader')}</span>
-            <Volume2 size={20} color="#161311" />
+            <Volume2 size={20} color={screenReader ? "#efa748" : "#161311"} />
           </button>
 
           <button 
@@ -146,13 +199,11 @@ export default function AccessibilityPanel() {
 
           <div style={{ margin: '15px 0', borderBottom: '1px solid #eee' }}></div>
 
-          {/* --- 4. EL BOTÓN MÁGICO CON SU ONCLICK --- */}
           <button 
             className="access-btn" 
             onClick={toggleLanguage}
             aria-label="Cambiar idioma"
           >
-            {/* Mostramos el texto del JSON + el código del idioma actual (ES o EN) */}
             <span>{t('accessibility.language')} ({i18n.language.toUpperCase()})</span>
             <Globe size={20} color="#161311" />
           </button>
