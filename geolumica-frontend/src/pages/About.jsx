@@ -9,90 +9,133 @@ import logoIne from '../assets/logo-ine.png';
 import espanaNoche from '../assets/espana-noche2.jpg'; 
 import logoUem from '../assets/logo-uem.png'; 
 
-// --- COMPONENTE 1: MÁGICO PARA ANIMAR NÚMEROS ---
+// --- COMPONENTE 1: TOTALMENTE BLINDADO (Fugas de memoria corregidas) ---
 const AnimatedNumber = ({ target, duration = 2000, decimals = 0, useComma = false }) => {
   const [count, setCount] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
-  const domRef = useRef();
+  const domRef = useRef(null);
 
   useEffect(() => {
+    let isMounted = true; // Controla si el componente sigue en pantalla
+    const currentRef = domRef.current;
+    
     const observer = new IntersectionObserver(entries => {
       if (entries[0].isIntersecting) {
-        setIsVisible(true);
-        observer.unobserve(domRef.current); 
+        if (isMounted) setIsVisible(true);
+        if (currentRef) observer.unobserve(currentRef); 
       }
     });
-    if (domRef.current) observer.observe(domRef.current);
-    return () => observer.disconnect();
+    
+    if (currentRef) observer.observe(currentRef);
+    
+    return () => {
+      isMounted = false;
+      if (currentRef) observer.unobserve(currentRef);
+      observer.disconnect();
+    };
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
     if (!isVisible) return;
 
     if (document.body.classList.contains('pause-animations')) {
-      setCount(target);
+      if (isMounted) setCount(target);
       return;
     }
 
     let startTime = null;
+    let animationFrameId; // Guardamos el ID para poder cancelar la animación
+
     const step = (timestamp) => {
+      if (!isMounted) return; // Si ya no está en pantalla, abortamos
       if (!startTime) startTime = timestamp;
+      
       const progress = Math.min((timestamp - startTime) / duration, 1);
       const easeOut = 1 - Math.pow(1 - progress, 3); 
+      
       setCount(easeOut * target);
 
       if (progress < 1) {
-        window.requestAnimationFrame(step);
+        animationFrameId = window.requestAnimationFrame(step);
       } else {
         setCount(target);
       }
     };
-    window.requestAnimationFrame(step);
+    
+    animationFrameId = window.requestAnimationFrame(step);
+
+    // FUNCIÓN DE LIMPIEZA: Se ejecuta si pasas de largo haciendo scroll rápido
+    return () => {
+      isMounted = false;
+      window.cancelAnimationFrame(animationFrameId);
+    };
   }, [target, duration, isVisible]);
 
-  const value = count.toFixed(decimals);
+  const safeValue = isNaN(count) ? 0 : count;
+  const value = safeValue.toFixed(decimals);
+  
   return <span ref={domRef}>{useComma ? Number(value).toLocaleString('en-US') : value}</span>;
 };
 
-// --- COMPONENTE 2: MÁQUINA DE ESCRIBIR (TYPEWRITER) ---
-const TypewriterText = ({ text, delay = 0 }) => {
+// --- COMPONENTE 2: TOTALMENTE BLINDADO (Fugas de memoria corregidas) ---
+const TypewriterText = ({ text = "", delay = 0 }) => {
   const [displayText, setDisplayText] = useState('');
   const [isVisible, setIsVisible] = useState(false);
-  const domRef = useRef();
+  const domRef = useRef(null);
 
   useEffect(() => {
+    let isMounted = true;
+    const currentRef = domRef.current;
+    
     const observer = new IntersectionObserver(entries => {
       if (entries[0].isIntersecting) {
-        setIsVisible(true);
-        observer.unobserve(domRef.current);
+        if (isMounted) setIsVisible(true);
+        if (currentRef) observer.unobserve(currentRef);
       }
     });
-    if (domRef.current) observer.observe(domRef.current);
-    return () => observer.disconnect();
+    
+    if (currentRef) observer.observe(currentRef);
+    
+    return () => {
+      isMounted = false;
+      if (currentRef) observer.unobserve(currentRef);
+      observer.disconnect();
+    };
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
     if (!isVisible) return;
     
-    // RESPETAMOS LA ACCESIBILIDAD: Si está pausado, pintamos todo de golpe
+    const safeText = String(text || '');
+    
     if (document.body.classList.contains('pause-animations')) {
-      setDisplayText(text);
+      if (isMounted) setDisplayText(safeText);
       return;
     }
 
     let timer;
+    let timeout;
+
     const startTyping = () => {
       let i = 0;
       timer = setInterval(() => {
-        setDisplayText(text.substring(0, i + 1));
+        if (!isMounted) {
+          clearInterval(timer);
+          return;
+        }
+        setDisplayText(safeText.substring(0, i + 1));
         i++;
-        if (i >= text.length) clearInterval(timer);
-      }, 60); // Velocidad de tecleo (60ms)
+        if (i >= safeText.length) clearInterval(timer);
+      }, 60); 
     };
 
-    const timeout = setTimeout(startTyping, delay);
+    timeout = setTimeout(startTyping, delay);
 
+    // FUNCIÓN DE LIMPIEZA: Destruye los temporizadores si haces scroll rápido
     return () => {
+      isMounted = false;
       clearTimeout(timeout);
       clearInterval(timer);
     };
@@ -100,10 +143,8 @@ const TypewriterText = ({ text, delay = 0 }) => {
 
   return (
     <span ref={domRef} style={{ position: 'relative', display: 'inline-block' }}>
-      {/* El texto invisible mantiene el tamaño del contenedor para que la web no "salte" */}
       <span style={{ visibility: 'hidden' }}>{text}</span>
-      {/* El texto visible se va escribiendo por encima */}
-      <span style={{ position: 'absolute', top: 0, left: 0, whiteSpace: 'nowrap', overflow: 'hidden', borderRight: displayText.length < text.length ? '3px solid #efa748' : 'none' }}>
+      <span style={{ position: 'absolute', top: 0, left: 0, whiteSpace: 'nowrap', overflow: 'hidden', borderRight: displayText.length < (text ? text.length : 0) ? '3px solid #efa748' : 'none' }}>
         {displayText}
       </span>
     </span>
@@ -117,7 +158,6 @@ export default function About({ currentView, setView }) {
   return (
     <div style={{ backgroundColor: '#fcfcfc', minHeight: '100vh', color: '#161311', fontFamily: '"Segoe UI", Roboto, Helvetica, Arial, sans-serif' }}>
       
-      {/* --- INYECCIÓN DE CSS PARA EL MAPA --- */}
       <style>
         {`
           @keyframes pan-satellite {
@@ -126,7 +166,7 @@ export default function About({ currentView, setView }) {
           }
           .panning-bg {
             background-image: url(${espanaNoche});
-            background-size: 140%; /* Hacemos la imagen más grande para poder "navegar" por ella */
+            background-size: 140%; 
             animation: pan-satellite 45s alternate infinite ease-in-out;
           }
         `}
@@ -159,7 +199,6 @@ export default function About({ currentView, setView }) {
           </div>
         </section>
 
-        {/* --- MAPA CON PANNING INFINITO --- */}
         <section tabIndex="0" aria-label="Imagen animada de la Península Ibérica de noche desde un satélite" className="panning-bg" style={{ width: '100%', height: '55vh', position: 'relative', overflow: 'hidden', margin: '20px 0 80px 0', borderTop: '2px solid #161311', borderBottom: '2px solid #161311' }}>
         </section>
 
@@ -195,13 +234,14 @@ export default function About({ currentView, setView }) {
               </div>
               <div tabIndex="0" aria-label={`4 ${t('about.dataPillars')}`}>
                 <p style={{ fontSize: '3.5rem', fontWeight: '900', color: '#161311', lineHeight: '1' }}>
-                  <AnimatedNumber target={4} duration={1500} />
+                    <span style={{ fontSize: '2.5rem', color: '#161311' }}>+</span>
+                  <AnimatedNumber target={5} duration={1500} />
                 </p>
                 <p style={{ fontSize: '0.85rem', color: '#888', textTransform: 'uppercase', letterSpacing: '1px', marginTop: '10px' }}>{t('about.dataPillars')}</p>
               </div>
               <div tabIndex="0" aria-label={`99.9 por ciento de ${t('about.dataCoverage')}`}>
                 <p style={{ fontSize: '3.5rem', fontWeight: '900', color: '#161311', lineHeight: '1' }}>
-                  <AnimatedNumber target={99.9} duration={2000} decimals={1} />
+                  <AnimatedNumber target={99.9} duration={2500} decimals={1} />
                   <span style={{ fontSize: '2rem', color: '#efa748' }}>%</span>
                 </p>
                 <p style={{ fontSize: '0.85rem', color: '#888', textTransform: 'uppercase', letterSpacing: '1px', marginTop: '10px' }}>{t('about.dataCoverage')}</p>
@@ -243,7 +283,7 @@ export default function About({ currentView, setView }) {
               <div style={{ backgroundColor: '#f5f5f5', border: '3px solid #ededec', height: '120px', width: '120px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0 auto 20px auto', overflow: 'hidden' }}>
                 <User size={48} color="#ccc" />
               </div>
-              <h4 style={{ fontWeight: '700', fontSize: '1.2rem', color: '#161311', marginBottom: '8px' }}>
+              <h4 style={{ fontWeight: '600', fontSize: '1.2rem', color: '#161311', marginBottom: '8px' }}>
                 <TypewriterText text="Martín Eduardo" delay={100} /><br/>
                 <TypewriterText text="Otero Di Lorenzo" delay={1000} />
               </h4>
