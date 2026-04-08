@@ -20,8 +20,10 @@ RUN python3 -m pip install --upgrade pip setuptools wheel && \
     python3 -m pip install --no-cache-dir -r requirements.txt -c constraints.txt
 
 COPY Proyecto/ /app/Proyecto/
-COPY Spark2/ /app/Spark2/
+COPY Proyecto/etl/Spark2/ /app/Spark2/
+COPY data/ /app/data/
 COPY municipios_es.geojson /app/municipios_es.geojson
+COPY docker/cleaning/log4j2.properties /opt/spark/conf/log4j2.properties
 
 RUN mkdir -p /app/data/clean
 

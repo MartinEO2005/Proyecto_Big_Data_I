@@ -8,13 +8,13 @@ import json
 import unicodedata
 import difflib
 import os
-import sys
+from utils_spark import save_output
 
 
-MUNI_RAW = "/app/data/demografia_poblacion_municipios.csv"
+MUNI_RAW = "hdfs://namenode:9000/data/raw/demografia/demografia_poblacion_municipios.csv"
 PROV_CSV = "/app/data/demografia/demografia_poblacion_provincias.csv"
-MIGRACIONES_CSV = "/app/data/migracion/migracion_interior_municipios.csv"
-OUTPUT = "/app/data/clean/demografia_municipios_final.csv"
+MIGRACIONES_CSV = "hdfs://namenode:9000/data/raw/migracion/migracion_interior_municipios.csv"
+OUTPUT = "hdfs://namenode:9000/data/clean/demografia_municipios_final"
 
 if os.path.exists("/app/municipios_es.geojson"):
     GEOJSON = "/app/municipios_es.geojson"
@@ -29,27 +29,6 @@ CORRECCIONES_MANUALES = {
     "atez atetz": "31",
     "novetle novele": "46"
 }
-
-
-def move_part_file_to_final(tmp_dir, final_file):
-    part_files = [f for f in os.listdir(tmp_dir) if f.startswith("part-") and f.endswith(".csv")]
-    if not part_files:
-        raise FileNotFoundError(f"No se encontró ningún part-*.csv en {tmp_dir}")
-
-    src = os.path.join(tmp_dir, part_files[0])
-
-    os.makedirs(os.path.dirname(final_file) or ".", exist_ok=True)
-
-    if os.path.exists(final_file):
-        os.remove(final_file)
-
-    os.replace(src, final_file)
-
-    for f in os.listdir(tmp_dir):
-        fp = os.path.join(tmp_dir, f)
-        if os.path.isfile(fp):
-            os.remove(fp)
-    os.rmdir(tmp_dir)
 
 
 def normalize_py(s):
@@ -95,18 +74,9 @@ def clean_municipio_string_py(text):
 
 def main():
     spark = SparkSession.builder.appName("limpiezaDemografia_spark").getOrCreate()
+    spark.sparkContext.setLogLevel("ERROR")
 
-    if not os.path.exists(MUNI_RAW):
-        print(f"❌ No existe {MUNI_RAW}")
-        spark.stop()
-        sys.exit(1)
-
-    if not os.path.exists(PROV_CSV):
-        print(f"❌ No existe {PROV_CSV}")
-        spark.stop()
-        sys.exit(1)
-
-    print("1) Cargando municipios...")
+    print("📥 Cargando municipios de demografía...")
 
     df = (
         spark.read
@@ -114,6 +84,8 @@ def main():
         .option("inferSchema", True)
         .csv(MUNI_RAW)
     )
+
+    print("🧹 Aplicando transformaciones iniciales...")
 
     df = df.withColumn("population", F.col("population").cast("double"))
     df = df.withColumn("year", F.col("year").cast("int"))
@@ -126,7 +98,6 @@ def main():
     df = df.withColumn("municipio_clean", F.col("cleaned.municipio_clean"))
     df = df.withColumn("categoria", F.col("cleaned.categoria"))
     df = df.drop("cleaned")
-
     df = df.withColumn("municipio_norm", normalize_udf(F.col("municipio_clean")))
 
     df_pivot = (
@@ -136,18 +107,23 @@ def main():
         .fillna(0)
     )
 
-    print("2) Construyendo diccionarios de referencia...")
+    print("📚 Construyendo diccionarios de referencia...")
 
-    master_mapping = {}
-    if os.path.exists(MIGRACIONES_CSV):
-        df_migra = pd.read_csv(MIGRACIONES_CSV, dtype=str)
-        df_migra["nom_norm"] = df_migra["nombre_municipio"].apply(normalize_py)
-        master_mapping = (
-            df_migra.drop_duplicates("nom_norm")
-            .set_index("nom_norm")["codigo_provincia"]
-            .to_dict()
-        )
-        print(f"   - Referencia Migraciones: {len(master_mapping)} municipios.")
+    df_migra_spark = (
+        spark.read
+        .option("header", True)
+        .option("inferSchema", True)
+        .csv(MIGRACIONES_CSV)
+    )
+
+    df_migra = df_migra_spark.toPandas()
+    df_migra["nom_norm"] = df_migra["nombre_municipio"].apply(normalize_py)
+    master_mapping = (
+        df_migra.drop_duplicates("nom_norm")
+        .set_index("nom_norm")["codigo_provincia"]
+        .to_dict()
+    )
+    print(f"ℹ️ Referencia Migraciones: {len(master_mapping)} municipios.")
 
     with open(GEOJSON, encoding="utf-8") as f:
         gj = json.load(f)
@@ -169,7 +145,7 @@ def main():
         .to_dict()
     )
 
-    print("3) Asignando provincias...")
+    print("🗺️ Asignando provincias...")
 
     pdf = df_pivot.toPandas()
 
@@ -201,9 +177,10 @@ def main():
     pdf["region_code"] = pdf["region_code"].astype(str).str.replace(r"\.0$", "", regex=True).str.zfill(2)
     pdf.loc[pdf["region_code"].isin(["nan", "None", ""]), "region_code"] = pd.NA
 
+    pdf = pdf.fillna("").astype(str)
     df_pivot_spark = spark.createDataFrame(pdf)
 
-    print("4) Uniendo con población provincial (Lógica de relleno temporal)...")
+    print("🔗 Uniendo con población provincial...")
 
     df_p = pd.read_csv(PROV_CSV, dtype=str)
     df_p["region_code"] = df_p["region_code"].str.zfill(2)
@@ -212,7 +189,6 @@ def main():
     df_p = df_p.dropna(subset=["region_code", "year"])
 
     prov_names = df_p.drop_duplicates("region_code").set_index("region_code")["region_name"].to_dict()
-
     df_p_spark = spark.createDataFrame(df_p[["region_code", "year", "population"]])
 
     df_final = df_pivot_spark.join(
@@ -231,7 +207,6 @@ def main():
     df_final = df_final.withColumn("population_filled", F.last("population_ffill", ignorenulls=True).over(w2))
     df_final = df_final.drop("population", "population_ffill")
     df_final = df_final.withColumnRenamed("population_filled", "provincia_population")
-
     df_final = df_final.withColumnRenamed("municipio_clean", "municipio")
 
     cols_finales = [
@@ -241,22 +216,12 @@ def main():
 
     df_export = df_final.select(*[c for c in cols_finales if c in df_final.columns])
 
-    print("5) Guardando resultado final...")
+    print("💾 Guardando resultado...")
+    save_output(df_export, OUTPUT)
 
-    tmp_output = OUTPUT + "_tmp"
-
-    (
-        df_export.coalesce(1)
-        .write
-        .mode("overwrite")
-        .option("header", True)
-        .csv(tmp_output)
-    )
-
-    move_part_file_to_final(tmp_output, OUTPUT)
-
-    print("✅ ¡Hecho! Población provincial recuperada para todos los años.")
-    print(f"📁 CSV final generado en: {OUTPUT}")
+    print(f"📊 Filas finales: {df_export.count()}")
+    print("🧾 Columnas finales:")
+    print(df_export.columns)
 
     spark.stop()
 

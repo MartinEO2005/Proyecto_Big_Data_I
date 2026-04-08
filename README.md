@@ -30,3 +30,23 @@ He automatizado el flujo de trabajo en etapas secuenciales para garantizar la li
 ```bash
 # Construir y levantar el pipeline completo
 docker-compose up --build
+
+
+ ## 🔥 Ejecución del pipeline con Spark + HDFS
+
+Además del flujo ETL general, el proyecto incorpora una capa de procesamiento distribuido con **Apache Spark** y almacenamiento en **HDFS**.
+
+### ¿Qué hace esta parte?
+- Los datos fuente se cargan en **HDFS** dentro de `/data/raw`
+- Los scripts de limpieza Spark leen desde **HDFS**
+- Los resultados finales se guardan en **HDFS** dentro de `/data/clean`
+
+### Servicios implicados
+- **namenode**: gestiona el sistema de archivos HDFS
+- **datanode**: almacena físicamente los datos en HDFS
+- **hdfs_init**: carga automáticamente los datasets necesarios en HDFS
+- **limpieza**: ejecuta los scripts Spark del proyecto
+
+### Arranque de HDFS
+```bash
+docker compose up -d namenode datanode

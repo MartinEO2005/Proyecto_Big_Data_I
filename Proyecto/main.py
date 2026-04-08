@@ -18,7 +18,7 @@ from extraction.neo_lumina_copernicus_downloader import run as downloader_run
 from extraction import osm_muni_metrics as osm_metrics 
 from extraction import viirs
 from extraction import demografiaProvincias
-from extraction import demografiaciudades
+from Proyecto.etl import demografiaciudades
 from extraction import viirs_provincias_gaul
 from extraction import consumo_electrico
 from extraction  import consumo_renta_media_pib
