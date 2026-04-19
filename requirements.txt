@@ -26,3 +26,10 @@ pyjstat
 
 sqlalchemy
 pymysql
+
+pyspark
+# --- Iteracción con el Data Lake (HDFS) ---
+hdfs
+pyarrow
+# --- Entorno de desarrollo ---
+findspark
