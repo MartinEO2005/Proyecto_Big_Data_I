@@ -72,16 +72,17 @@ def main():
     print("=" * 60)
 
     scripts_spark = [
+        ("/app/Proyecto/etl/Spark2/limpieza_socioeconomico_spark.py", "Bloque socioeconómico"),
         ("/app/Proyecto/etl/Spark2/limpiezaDemografia_spark.py", "Demografía"),
         ("/app/Proyecto/etl/Spark2/limpieza_conectividad_spark.py", "Conectividad"),
         ("/app/Proyecto/etl/Spark2/limpieza_empresas_transporte_spark.py", "Empresas transporte"),
-        ("/app/Proyecto/etl/Spark2/limpieza_socioeconomico_spark.py", "Bloque socioeconómico"),
         ("/app/Proyecto/etl/Spark2/limpiezaosm_spark.py", "OSM"),
         ("/app/Proyecto/etl/Spark2/limpieza_viirs_spark.py", "VIIRS provincias"),
         ("/app/Proyecto/etl/Spark2/limpieza_viirs_municipios_spark.py", "VIIRS municipios"),
     ]
 
-    for script, nombre in scripts_spark:
+    for i, (script, nombre) in enumerate(scripts_spark, start=1):
+        print(f"\n[{i}/{len(scripts_spark)}] Procesando {nombre}...")
         ejecutar_spark(script, nombre)
 
     print("\n" + "=" * 60)
