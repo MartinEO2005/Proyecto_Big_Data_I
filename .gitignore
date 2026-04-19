@@ -4,3 +4,4 @@ __pycache__/
 # ignore all user-generated data output
 google_credentials.json
 .env
+.venv/
