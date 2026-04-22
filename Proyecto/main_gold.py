@@ -9,6 +9,34 @@ import logging
 import os
 from datetime import datetime
 from pyspark.sql import SparkSession, Window, functions as F
+from pyspark.sql.types import StringType
+
+# Mapeo prov_id (2 dígitos) → Comunidad Autónoma
+_PROV_TO_REGION = {
+    "01": "País Vasco",       "20": "País Vasco",       "48": "País Vasco",
+    "02": "Castilla-La Mancha", "13": "Castilla-La Mancha", "16": "Castilla-La Mancha",
+    "19": "Castilla-La Mancha", "45": "Castilla-La Mancha",
+    "03": "Comunitat Valenciana", "12": "Comunitat Valenciana", "46": "Comunitat Valenciana",
+    "04": "Andalucía", "11": "Andalucía", "14": "Andalucía", "18": "Andalucía",
+    "21": "Andalucía", "23": "Andalucía", "29": "Andalucía", "41": "Andalucía",
+    "05": "Castilla y León", "09": "Castilla y León", "24": "Castilla y León",
+    "34": "Castilla y León", "37": "Castilla y León", "40": "Castilla y León",
+    "42": "Castilla y León", "47": "Castilla y León", "49": "Castilla y León",
+    "06": "Extremadura", "10": "Extremadura",
+    "07": "Illes Balears",
+    "08": "Cataluña", "17": "Cataluña", "25": "Cataluña", "43": "Cataluña",
+    "15": "Galicia", "27": "Galicia", "32": "Galicia", "36": "Galicia",
+    "22": "Aragón", "44": "Aragón", "50": "Aragón",
+    "26": "La Rioja",
+    "28": "Comunidad de Madrid",
+    "30": "Región de Murcia",
+    "31": "Comunidad Foral de Navarra",
+    "33": "Principado de Asturias",
+    "35": "Canarias", "38": "Canarias",
+    "39": "Cantabria",
+    "51": "Ciudad Autónoma de Ceuta",
+    "52": "Ciudad Autónoma de Melilla",
+}
 
 logger = logging.getLogger(__name__)
 
@@ -77,11 +105,6 @@ def read_silver_components(spark, dim_base_path, fact_base_path):
     }
 
 
-def normalize_demo(fact_demografia):
-    """fact_demografia ya viene en formato largo (muni_id, year, poblacion_total)."""
-    return fact_demografia
-
-
 def build_gold_dataframe(spark, components):
     """Construye el dataframe maestro desnormalizado."""
 
@@ -91,7 +114,7 @@ def build_gold_dataframe(spark, components):
     dim_prov   = components["dim_provincia"]
     dim_fecha  = components["dim_fecha"]
 
-    fact_demo        = normalize_demo(components["fact_demografia"])
+    fact_demo        = components["fact_demografia"]
     fact_energia     = components["fact_energia"]       # muni_id, year, consumo_kwh_total
     fact_renta       = components["fact_renta"]         # muni_id, year, renta_neta_media_euros
     fact_migracion   = components["fact_migracion"]     # muni_id, year, valor
@@ -114,12 +137,12 @@ def build_gold_dataframe(spark, components):
     base = dim_muni.crossJoin(dim_fecha).select(
         "muni_id", "muni_name", "prov_id",
         "latitude", "longitude", "area_km2",
-        "year", "quarter"
+        "year"
     )
 
     # 2. Añadir info de provincia
     base = base.join(
-        dim_prov.select("prov_id", "prov_name", "region_name"),
+        dim_prov.select("prov_id", "prov_name"),
         on="prov_id", how="left"
     )
 
@@ -228,6 +251,15 @@ def build_gold_dataframe(spark, components):
          .otherwise(F.lit(None))
     )
 
+    # Comunidad Autónoma (region_name) derivada del prov_id
+    mapping_expr = F.create_map(
+        *[x for kv in _PROV_TO_REGION.items() for x in (F.lit(kv[0]), F.lit(kv[1]))]
+    )
+    gold = gold.withColumn("region_name", mapping_expr[F.col("prov_id")])
+
+    # quarter: columna nula — datos anuales, no hay granularidad trimestral
+    gold = gold.withColumn("quarter", F.lit(None).cast(StringType()))
+
     # Score de riesgo de despoblación
     gold = gold.withColumn(
         "riesgo_despoblacion_score",
@@ -254,6 +286,7 @@ def select_final_columns(df):
     desired = [
         # Identificadores
         "muni_id", "muni_name", "prov_id", "prov_name", "region_name",
+        # Temporal
         "year", "quarter",
         # Geografía
         "latitude", "longitude", "area_km2",

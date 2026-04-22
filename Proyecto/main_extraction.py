@@ -2,15 +2,12 @@
 # main.py
 
 import os
-import pandas as pd
-import geopandas as gpd
 import time
 import ee
-from datetime import datetime
 
 # Importaciones de configuración y utilidades
 from extraction.config import (
-    OUTDIR, COLLECTION_S2, COLLECTION_S1, DATE_FROM, DATE_TO, 
+    COLLECTION_S2, DATE_FROM, DATE_TO,
     MAX_CLOUD, TOP, AOI_WKT
 )
 from extraction.catalog import build_filter, query_catalog, items_to_df
@@ -32,11 +29,13 @@ from extraction import (
 )
 
 # --- 🔹 Configuración de Rutas y Proyecto ---
-BASE_DIR = "data"
-LUZ_DIR = os.path.join(BASE_DIR, "luz_nocturna")
-PROV_DIR = os.path.join(LUZ_DIR, "provincias")
-MUN_DIR  = os.path.join(LUZ_DIR, "municipios")
+_ROOT     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+BASE_DIR  = os.path.join(_ROOT, "data", "raw")
+LUZ_DIR   = os.path.join(BASE_DIR, "luz_nocturna")
+PROV_DIR  = os.path.join(LUZ_DIR, "provincias")
+MUN_DIR   = os.path.join(LUZ_DIR, "municipios")
 TRANS_DIR = os.path.join(BASE_DIR, "transporte")
+MUNIS_GEOJSON = os.path.join(_ROOT, "municipios_es.geojson")
 DEFAULT_PROJECT = "bubbly-reducer-477312-d0"
 REINTENTOS = 3  # <-- Parámetro de reintentos
 
@@ -47,13 +46,27 @@ def ensure_dirs():
 
 def init_ee_orchestrator(project=DEFAULT_PROJECT):
     """Inicializa Earth Engine una sola vez para todo el flujo."""
-    try:
-        ee.Initialize(project=project)
-        print(f"✅ Earth Engine inicializado (Proyecto: {project})")
-    except Exception:
-        print("🔑 Requiere autenticación manual de Earth Engine...")
-        ee.Authenticate()
-        ee.Initialize(project=project)
+    _script_dir = os.path.dirname(os.path.abspath(__file__))
+    json_path = os.path.join(_script_dir, "google_credentials.json")
+    EE_SCOPES = [
+        "https://www.googleapis.com/auth/earthengine",
+        "https://www.googleapis.com/auth/cloud-platform",
+    ]
+    if os.path.exists(json_path):
+        from google.oauth2 import service_account
+        credentials = service_account.Credentials.from_service_account_file(
+            json_path, scopes=EE_SCOPES
+        )
+        ee.Initialize(credentials=credentials, project=project)
+        print(f"✅ Earth Engine inicializado con Service Account (Proyecto: {project})")
+    else:
+        try:
+            ee.Initialize(project=project)
+            print(f"✅ Earth Engine inicializado (Proyecto: {project})")
+        except Exception:
+            print("🔑 Requiere autenticación manual de Earth Engine...")
+            ee.Authenticate()
+            ee.Initialize(project=project)
 
 def run_all(num_images=None):
     print(f"🚀 Iniciando Orquestador GeoLúmica | Salida: {BASE_DIR}")
@@ -79,7 +92,7 @@ def run_all(num_images=None):
     for i in range(REINTENTOS):
         try:
             print(f"-> Descargando empresas de transporte (INE t=4721) (Intento {i+1})...")
-            path_emp = empresas_transporte_downloader.procesar()
+            path_emp = empresas_transporte_downloader.procesar(base_outdir=BASE_DIR)
             break
         except Exception as e:
             print(f"  ⚠️ Error empresas transporte: {e}")
@@ -135,10 +148,9 @@ def run_all(num_images=None):
     
     for i in range(REINTENTOS):
         try:
-            munis_path = "municipios_es.geojson"
-            if os.path.exists(munis_path):
+            if os.path.exists(MUNIS_GEOJSON):
                 print(f"-> Generando serie histórica de conectividad (2010-2025) (Intento {i+1})...")
-                conectividad_downloader.fetch_conectividad_historica_and_save(munis_path, base_outdir=BASE_DIR)
+                conectividad_downloader.fetch_conectividad_historica_and_save(MUNIS_GEOJSON, base_outdir=BASE_DIR)
             break
         except Exception as e:
             print(f"  ⚠️ Error conectividad: {e}")
@@ -146,12 +158,12 @@ def run_all(num_images=None):
 
     for i in range(REINTENTOS):
         try:
-            munis_path = "municipios_es.geojson"
             print(f"-> Consultando Overpass para estaciones OSM (puede tardar) (Intento {i+1})...")
-            gdf_munis = osm_metrics.read_munis(munis_path)
+            gdf_munis = osm_metrics.read_munis(MUNIS_GEOJSON)
             df_st = osm_metrics.fetch_all_stations(gdf_munis, max_tile_area_deg2=getattr(osm_metrics, "MAX_TILE_AREA_DEG2", 1.0))
             gdf_st = osm_metrics.df_to_gdf(df_st)
-            out_prefix = os.path.join(TRANS_DIR, "muni_station_metrics")
+            os.makedirs(TRANS_DIR, exist_ok=True)
+            out_prefix = os.path.join(TRANS_DIR, "muni_station_metrics_reduced")
             osm_metrics.compute_metrics_and_export(gdf_st, gdf_munis, out_prefix=out_prefix)
             print("  ✅ Métricas OSM exportadas.")
             break
@@ -159,15 +171,15 @@ def run_all(num_images=None):
             print(f"  ⚠️ Error OSM: {e}")
             if i < REINTENTOS - 1: time.sleep(15)
 
-     # --- 1. LUZ NOCTURNA (VIIRS) [Actualizado con lógica incremental] ---
+    # --- 1. LUZ NOCTURNA (VIIRS) ---
     print("\n--- 🌙 SECCIÓN: LUZ NOCTURNA (VIIRS) ---")
     
     for i in range(REINTENTOS):
         try:
             print(f"-> Procesando VIIRS por municipios (Intento {i+1})...")
             viirs.fetch_viirs_and_save(
-                geojson_path="municipios_es.geojson",
-                base_outdir=BASE_DIR  # El módulo internamente gestiona la subcarpeta luz_nocturna
+                geojson_path=MUNIS_GEOJSON,
+                base_outdir=BASE_DIR
             )
             break
         except Exception as e:

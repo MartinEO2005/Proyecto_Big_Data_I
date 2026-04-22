@@ -48,17 +48,24 @@ def fetch_population_by_municipality(years: int | None = 1) -> pd.DataFrame:
 
     rows = []
     for entry in data:
-        municipio = entry.get("Nombre", "Desconocido")
-        cod_prov = entry.get("CODPROV", "")
-        cod_muni = entry.get("CODMUNI", "")
+        nombre = entry.get("Nombre", "")
+        # Solo filas de población total (evita duplicados por sexo/nacionalidad)
+        if "Total. Total habitantes. Personas." not in nombre:
+            continue
+
+        # La API no incluye código LAU en este endpoint.
+        # Extraemos el nombre limpio del municipio (antes del primer punto)
+        # Ejemplo: "Ababuj. Total. Total habitantes. Personas. " → "Ababuj"
+        municipio = nombre.split(".")[0].strip()
+        if not municipio:
+            continue
+
         for dato in entry.get("Data", []):
             year = dato.get("Anyo")
             poblacion = dato.get("Valor")
             if poblacion is None:
                 continue
             rows.append({
-                "cod_prov": cod_prov,
-                "cod_muni": cod_muni,
                 "municipio": municipio,
                 "year": year,
                 "population": poblacion

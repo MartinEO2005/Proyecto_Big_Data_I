@@ -62,7 +62,7 @@ def create_fact_satelital(spark, raw_path, output_path):
                  .when(F.col("Name").contains("MSIL2A"), F.lit("L2A"))
                  .otherwise(F.lit("UNKNOWN")))
             .withColumn("date",
-                F.to_date(F.col("`ContentDate.Start`"), "yyyy-MM-dd'T'HH:mm:ss").cast(StringType()))
+                F.to_date(F.substring(F.col("`ContentDate.Start`"), 1, 19), "yyyy-MM-dd'T'HH:mm:ss").cast(StringType()))
             .withColumn("size_mb",
                 (F.col("ContentLength").cast(DoubleType()) / 1_048_576).cast(DoubleType()))
             .withColumn("online",

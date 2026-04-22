@@ -84,7 +84,7 @@ def fetch_viviendas_uso_ine(base_outdir="data"):
     # Eliminar duplicados técnicos por el cruce de tablas del INE
     df_final = df_final.drop_duplicates(subset=['Codigo', 'Consumo eléctrico'])
 
-    df_final.to_csv(out_path, index=False, encoding='utf-8-sig', sep=';')
+    df_final.to_csv(out_path, index=False, encoding='utf-8-sig')
     
     # Logs de control
     c_prov = len(df_final[df_final['Codigo'].str.len() == 2]['Codigo'].unique())

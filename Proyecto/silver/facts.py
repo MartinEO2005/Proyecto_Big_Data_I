@@ -3,9 +3,11 @@ Generación de fact tables para Silver layer - Versión simplificada.
 Evita UDFs complejas que causen crash en workers distribuidos.
 """
 
+import glob
 import logging
 import os as _os
-from pyspark.sql import SparkSession, functions as F, Window
+from functools import reduce
+from pyspark.sql import DataFrame, functions as F
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DoubleType
 
 logger = logging.getLogger(__name__)
@@ -20,61 +22,73 @@ def _local(path):
 # ==================== FACT_DEMOGRAFIA ====================
 
 def create_fact_demografia(spark, raw_path, dim_muni_path, output_path):
-    """Genera fact_demografia desde el CSV limpio.
+    """Genera fact_demografia desde el CSV del INE.
 
-    El CSV limpio tiene: region_code, region_name, year, provincia_population,
-    municipio, Total, Hombres, Mujeres.
-    Se hace JOIN con dim_municipio para obtener muni_id.
+    El CSV tiene: municipio (nombre limpio), year, population
+    Se hace JOIN con dim_municipio por nombre normalizado para obtener muni_id.
     Salida: muni_id, year, poblacion_total
     """
     logger.info("Generando fact_demografia...")
 
     try:
-        # Intentar CSV limpio primero, luego raw como fallback
-        clean_csv = _os.path.join(raw_path, "..", "clean", "demografia_municipios_final.csv")
-        raw_csv   = _os.path.join(raw_path, "demografia", "demografia_poblacion_municipios.csv")
+        raw_csv = _os.path.join(raw_path, "demografia", "demografia_poblacion_municipios.csv")
+        if not _os.path.exists(raw_csv):
+            logger.warning(f"fact_demografia: CSV no encontrado en {raw_csv}")
+            return spark.createDataFrame([], StructType([
+                StructField("muni_id", StringType(), True),
+                StructField("year", IntegerType(), True),
+                StructField("poblacion_total", DoubleType(), True),
+            ]))
 
-        if _os.path.exists(clean_csv):
-            logger.info(f"Leyendo demographics clean CSV: {clean_csv}")
-            demo = spark.read.csv(_local(clean_csv), header=True)
-            # Columnas: region_code, region_name, year, provincia_population, municipio, Total, Hombres, Mujeres
-            demo_prep = demo.select(
-                F.col("region_code").alias("prov_id"),
-                F.col("municipio").alias("muni_name"),
-                F.col("year").cast(IntegerType()).alias("year"),
-                F.col("Total").cast(DoubleType()).alias("poblacion_total")
-            ).filter(F.col("prov_id").isNotNull() & F.col("muni_name").isNotNull())
+        demo = spark.read.csv(_local(raw_csv), header=True)
+        cols = demo.columns
+        logger.info(f"fact_demografia cols: {cols}")
 
-            # JOIN con dim_municipio para obtener muni_id
-            dim_muni = spark.read.parquet(dim_muni_path) \
-                .select("muni_id", "muni_name", "prov_id")
+        year_col = next((c for c in ["year", "anio", "Anio"] if c in cols), None)
+        val_col  = next((c for c in ["population", "Total", "poblacion"] if c in cols), None)
+        name_col = next((c for c in ["municipio", "muni_name", "nombre"] if c in cols), None)
+        id_col   = next((c for c in ["cod_muni", "muni_id", "LAU_ID"] if c in cols), None)
 
-            demo_clean = demo_prep.join(
-                dim_muni,
-                on=["prov_id", "muni_name"],
-                how="left"
-            ).select("muni_id", "year", "poblacion_total") \
-             .filter(F.col("muni_id").isNotNull())
+        if not all([year_col, val_col]):
+            logger.warning(f"fact_demografia: columnas year/val no encontradas. Cols: {cols}")
+            return spark.createDataFrame([], StructType([
+                StructField("muni_id", StringType(), True),
+                StructField("year", IntegerType(), True),
+                StructField("poblacion_total", DoubleType(), True),
+            ]))
 
-        else:
-            logger.warning(f"Clean CSV no encontrado en {clean_csv}, usando raw")
-            demo = spark.read.csv(_local(raw_csv), header=True)
-            cols = demo.columns
-            # Raw CSV: cod_prov, cod_muni, municipio, year, population
-            id_col   = next((c for c in ["cod_muni", "muni_id", "LAU_ID"] if c in cols), None)
-            year_col = next((c for c in ["year", "anio", "Anio"] if c in cols), None)
-            val_col  = next((c for c in ["population", "Total", "poblacion"] if c in cols), None)
-
-            if not all([id_col, year_col, val_col]):
-                logger.warning(f"Columnas raw no encontradas: {cols}")
-                demo.write.mode("overwrite").parquet(output_path)
-                return demo
-
+        # Caso 1: tenemos cod_muni directamente
+        if id_col:
             demo_clean = demo.select(
-                F.col(id_col).alias("muni_id"),
+                F.lpad(F.col(id_col).cast("string"), 5, "0").alias("muni_id"),
                 F.col(year_col).cast(IntegerType()).alias("year"),
                 F.col(val_col).cast(DoubleType()).alias("poblacion_total")
             ).filter(F.col("muni_id").isNotNull())
+
+        # Caso 2: solo nombre → JOIN con dim_municipio por nombre normalizado
+        elif name_col:
+            dim_muni = spark.read.parquet(dim_muni_path)
+            demo_norm = demo.withColumn(
+                "_muni_norm", F.lower(F.trim(F.col(name_col)))
+            )
+            dim_norm = dim_muni.withColumn(
+                "_muni_norm", F.lower(F.trim(F.col("muni_name")))
+            ).select("muni_id", "_muni_norm")
+            demo_clean = demo_norm.join(dim_norm, on="_muni_norm", how="inner") \
+                .select(
+                    "muni_id",
+                    F.col(year_col).cast(IntegerType()).alias("year"),
+                    F.col(val_col).cast(DoubleType()).alias("poblacion_total")
+                ).filter(F.col("muni_id").isNotNull()) \
+                .groupBy("muni_id", "year") \
+                .agg(F.max("poblacion_total").alias("poblacion_total"))
+        else:
+            logger.warning("fact_demografia: sin cod_muni ni dim_municipio disponible")
+            return spark.createDataFrame([], StructType([
+                StructField("muni_id", StringType(), True),
+                StructField("year", IntegerType(), True),
+                StructField("poblacion_total", DoubleType(), True),
+            ]))
 
         demo_clean.write.mode("overwrite").parquet(output_path)
         count = demo_clean.count()
@@ -101,34 +115,41 @@ def create_fact_energia(spark, raw_path, dim_muni_path, output_path):
     logger.info("Generando fact_energia...")
 
     try:
-        clean_csv = _os.path.join(raw_path, "..", "clean", "consumo_electrico_final_limpio.csv")
-
-        if _os.path.exists(clean_csv):
-            logger.info(f"Leyendo energia clean CSV: {clean_csv}")
-            df = spark.read.csv(_local(clean_csv), header=True)
-            cols = df.columns
-            logger.info(f"fact_energia cols: {cols}")
-
-            # Código INE sin cero inicial → zero-pad a 5 dígitos
-            id_col  = next((c for c in ["Codigo", "codigo", "muni_id"] if c in cols), None)
-            val_col = next((c for c in ["Mediana consumo anual", "consumo_kwh_total", "consumo"] if c in cols), None)
-
-            if not id_col or not val_col:
-                logger.warning(f"fact_energia: columnas clave no encontradas. Cols: {cols}")
-                df.write.mode("overwrite").parquet(output_path)
-                return df
-
-            energia_clean = df.select(
-                F.lpad(F.col(id_col).cast("int").cast("string"), 5, "0").alias("muni_id"),
-                F.col(val_col).cast(DoubleType()).alias("consumo_kwh_total")
-            ).filter(F.col("muni_id").isNotNull())
-
-        else:
-            logger.warning(f"Clean CSV de energía no encontrado en {clean_csv}, parquet vacío")
-            energia_clean = spark.createDataFrame([], StructType([
+        raw_csv = _os.path.join(raw_path, "energia", "consumo_electrico.csv")
+        if not _os.path.exists(raw_csv):
+            logger.warning(f"fact_energia: CSV no encontrado en {raw_csv}")
+            return spark.createDataFrame([], StructType([
                 StructField("muni_id", StringType(), True),
                 StructField("consumo_kwh_total", DoubleType(), True),
             ]))
+
+        df = spark.read.csv(_local(raw_csv), header=True)
+        cols = df.columns
+        logger.info(f"fact_energia cols: {cols}")
+
+        id_col   = next((c for c in ["Codigo", "codigo", "muni_id", "LAU_ID"] if c in cols), None)
+        cat_col  = next((c for c in ["Consumo eléctrico", "categoria", "tipo"] if c in cols), None)
+        val_col  = next((c for c in ["Total", "consumo_kwh_total", "consumo", "valor"] if c in cols), None)
+
+        if not id_col or not val_col:
+            logger.warning(f"fact_energia: columnas clave no encontradas. Cols: {cols}")
+            df.write.mode("overwrite").parquet(output_path)
+            return df
+
+        # Filtrar solo "Mediana consumo anual" → 1 fila por municipio (evita fan-out en Gold)
+        # Además filtrar solo códigos de 5 dígitos (municipios, no provincias)
+        df_filtered = df
+        if cat_col:
+            df_filtered = df_filtered.filter(F.col(cat_col) == "Mediana consumo anual")
+
+        # Filtrar códigos provinciales (< 4 dígitos) ANTES del lpad
+        energia_clean = df_filtered.filter(
+            F.col(id_col).isNotNull() &
+            (F.length(F.trim(F.col(id_col).cast("string"))) >= 4)
+        ).select(
+            F.lpad(F.col(id_col).cast("string"), 5, "0").alias("muni_id"),
+            F.col(val_col).cast(DoubleType()).alias("consumo_kwh_total")
+        ).filter(F.col("muni_id").isNotNull())
 
         energia_clean.write.mode("overwrite").parquet(output_path)
         logger.info(f"fact_energia: {energia_clean.count()} filas")
@@ -150,7 +171,6 @@ def create_fact_renta(spark, raw_path, dim_muni_path, dim_prov_path, output_path
     
     try:
         # Buscar el CSV de renta (puede variar el nombre)
-        import glob
         renta_files = glob.glob(f"{raw_path}/renta/*.csv")
         if not renta_files:
             logger.warning("No hay CSV de renta")
@@ -193,7 +213,6 @@ def create_fact_migracion_neta(spark, raw_path, dim_muni_path, output_path):
     logger.info("Generando fact_migracion_neta...")
     
     try:
-        import glob
         mig_files = glob.glob(f"{raw_path}/migracion/*.csv")
         if not mig_files:
             logger.warning("No hay CSV de migración")
@@ -258,7 +277,7 @@ def create_fact_conectividad(spark, raw_path, dim_muni_path, output_path):
         veh_col = next((c for c in ["Vehiculos_Oficial", "num_vehiculos", "vehiculos"] if c in cols), None)
         
         select_cols = []
-        if id_col: select_cols.append(F.col(id_col).alias("muni_id"))
+        if id_col: select_cols.append(F.lpad(F.col(id_col).cast("string"), 5, "0").alias("muni_id"))
         if year_col: select_cols.append(F.col(year_col).cast(IntegerType()).alias("year"))
         if idx_col: select_cols.append(F.col(idx_col).cast(DoubleType()).alias("indice_conectividad"))
         if veh_col: select_cols.append(F.col(veh_col).cast(IntegerType()).alias("num_vehiculos"))
@@ -300,8 +319,6 @@ def create_fact_empresas_transporte(spark, raw_path, dim_muni_path, output_path)
             return empresas
         
         # Unpivot: una fila por municipio-año
-        from functools import reduce
-        from pyspark.sql import DataFrame
         rows = []
         for year in year_cols:
             rows.append(
@@ -340,10 +357,9 @@ def create_fact_osm_logistica(spark, raw_path, dim_muni_path, output_path):
             raise ValueError(f"No se encontró columna de ID en fact_osm. Columnas: {cols}")
 
         osm_clean = osm.select(
-            F.col(id_col).alias("muni_id"),
+            F.lpad(F.col(id_col).cast("string"), 5, "0").alias("muni_id"),
             F.col("stations_count").cast(IntegerType()).alias("num_estaciones"),
             F.col("operator_count").cast(IntegerType()).alias("num_operadores"),
-            F.col("accessible_count").cast(IntegerType()).alias("estaciones_accesibles"),
             F.col("min_distance_km_to_station").cast(DoubleType()).alias("distancia_min_km"),
             F.col("mean_distance_km_to_station").cast(DoubleType()).alias("distancia_media_km"),
             F.col("stations_density_km2").cast(DoubleType()).alias("densidad_estaciones_km2"),
@@ -371,23 +387,28 @@ def create_fact_viirs(spark, raw_path, dim_muni_path, output_path):
     """
     logger.info("Generando fact_viirs...")
 
-    clean_csv = _os.path.join(raw_path, "..", "clean", "viirsFinal_limpio.csv")
-    raw_csv   = _os.path.join(raw_path, "luz_nocturna", "viirs_luz_nocturna.csv")
+    raw_csv = _os.path.join(raw_path, "luz_nocturna", "viirs_luz_nocturna.csv")
 
     try:
-        if _os.path.exists(clean_csv):
-            logger.info(f"Leyendo VIIRS clean CSV: {clean_csv}")
-            viirs = spark.read.csv(_local(clean_csv), header=True)
-            cols  = viirs.columns
-            logger.info(f"fact_viirs cols: {cols}")
+        if not _os.path.exists(raw_csv):
+            logger.warning(f"VIIRS: CSV no encontrado en {raw_csv} — se omite")
+            return spark.createDataFrame([], StructType([
+                StructField("muni_id",        StringType(),  True),
+                StructField("year",           IntegerType(), True),
+                StructField("month",          IntegerType(), True),
+                StructField("radiancia_media",DoubleType(),  True),
+            ]))
 
-            id_col   = next((c for c in ["LAU_ID", "muni_id"] if c in cols), None)
-            date_col = next((c for c in ["date"] if c in cols), None)
+        logger.info(f"Leyendo VIIRS raw CSV: {raw_csv}")
+        viirs = spark.read.csv(_local(raw_csv), header=True)
+        cols  = viirs.columns
+        logger.info(f"fact_viirs cols: {cols}")
 
-            if not id_col or not date_col:
-                raise ValueError(f"Columnas clave no encontradas: {cols}")
+        id_col   = next((c for c in ["LAU_ID", "muni_id"] if c in cols), None)
+        date_col = next((c for c in ["date"] if c in cols), None)
 
-            # date tiene formato YYYY-MM  →  extraer year y month
+        if id_col and date_col:
+            # date tiene formato YYYY-MM → extraer year y month
             viirs_clean = viirs.select(
                 F.lpad(F.col(id_col).cast("string"), 5, "0").alias("muni_id"),
                 F.substring(F.col(date_col), 1, 4).cast(IntegerType()).alias("year"),
@@ -397,24 +418,13 @@ def create_fact_viirs(spark, raw_path, dim_muni_path, output_path):
                 F.col("min").cast(DoubleType()).alias("radiancia_min"),
                 F.col("stdDev").cast(DoubleType()).alias("radiancia_stddev"),
             ).filter(F.col("muni_id").isNotNull())
-
-        elif _os.path.exists(raw_csv):
-            logger.info(f"Leyendo VIIRS raw CSV: {raw_csv}")
-            viirs = spark.read.csv(_local(raw_csv), header=True)
+        else:
             viirs_clean = viirs.select(
                 F.lpad(F.col("muni_id").cast("string"), 5, "0").alias("muni_id"),
                 F.col("year").cast(IntegerType()),
                 F.col("month").cast(IntegerType()),
                 F.col("radiancia_media").cast(DoubleType()),
             ).filter(F.col("muni_id").isNotNull())
-        else:
-            logger.warning("VIIRS: no se encontró ningún CSV — se omite")
-            return spark.createDataFrame([], StructType([
-                StructField("muni_id",        StringType(),  True),
-                StructField("year",           IntegerType(), True),
-                StructField("month",          IntegerType(), True),
-                StructField("radiancia_media",DoubleType(),  True),
-            ]))
 
         viirs_clean.write.mode("overwrite").parquet(output_path)
         logger.info(f"fact_viirs: {viirs_clean.count()} filas")

@@ -26,8 +26,7 @@ Proyecto_Big_Data_I/
     ├── main_extraction.py            ← Fase 0: Descarga de datos
     ├── main_silver.py                ← Fase 1: Raw → Silver
     ├── main_gold.py                  ← Fase 2: Silver → Gold
-    ├── validation_pre.py             ← Validación de entradas
-    ├── validation_post.py            ← Validación de salidas
+    ├── validation_post.py            ← Validación de salidas (Silver + Gold)
     └── silver/
         ├── dimensions.py             ← dim_municipio, dim_provincia, dim_fecha_anual
         ├── facts.py                  ← 8 facts (demografía, energía, renta, ...)
@@ -61,19 +60,7 @@ source ~/spark_env/bin/activate
 cd /mnt/c/Users/ferna/Documents/GitHub/Proyecto_Big_Data_I/Proyecto_Big_Data_I/Proyecto
 ```
 
-### 3. Validación PRE (opcional pero recomendado)
-
-```bash
-python validation_pre.py
-```
-
-```
-✅ GeoJSON válido: 8131 features, LAU_ID presente
-✅ Raw layer completa: 9 datasets encontrados
-✅ TODAS LAS VALIDACIONES PRE-EJECUCIÓN PASARON
-```
-
-### 4. Raw → Silver
+### 3. Raw → Silver
 
 ```bash
 python main_silver.py \
@@ -87,19 +74,19 @@ python main_silver.py \
 ✅ dim_municipio.parquet       — 8.131 registros
 ✅ dim_provincia.parquet       — 52 registros
 ✅ dim_fecha_anual.parquet     — 31 registros
-✅ fact_demografia.parquet     — 230.624 registros
+✅ fact_demografia.parquet     — 231.124 registros
 ✅ fact_energia.parquet        — 3.185 registros
 ✅ fact_renta.parquet          — 73.251 registros
 ✅ fact_migracion_neta.parquet — 32.528 registros
 ✅ fact_conectividad.parquet   — 130.096 registros
 ✅ fact_empresas_transporte.parquet — 114.632 registros
 ✅ fact_osm_logistica.parquet  — 8.131 registros
-✅ fact_viirs.parquet          — 585.432 registros
+✅ fact_viirs.parquet          — 1.366.008 registros
 ✅ fact_satelital.parquet      — catálogo Sentinel-2
 ✅ PIPELINE RAW → SILVER COMPLETADO EXITOSAMENTE
 ```
 
-### 5. Silver → Gold
+### 4. Silver → Gold
 
 ```bash
 python main_gold.py \
@@ -113,13 +100,10 @@ python main_gold.py \
 ✅ PIPELINE SILVER → GOLD COMPLETADO EXITOSAMENTE
 ```
 
-### 6. Validación POST
+### 5. Validación POST
 
 ```bash
-python validation_post.py \
-  --dim  hdfs://localhost:9000/geolumica/silver/dim \
-  --fact hdfs://localhost:9000/geolumica/silver/fact \
-  --gold hdfs://localhost:9000/geolumica/gold
+python validation_post.py
 ```
 
 ```
@@ -183,6 +167,20 @@ spark = SparkSession.builder \
 
 gold = spark.read.parquet("hdfs://localhost:9000/geolumica/gold/df_maestro.parquet")
 df = gold.toPandas()  # 252.061 filas × 38 columnas
+```
+
+---
+
+## HDFS — Navegación
+
+```bash
+# UI web
+http://localhost:9870/explorer.html#/geolumica
+
+# Consola
+~/hadoop-3.3.6/bin/hdfs dfs -ls -R /geolumica
+```
+52.061 filas × 38 columnas
 ```
 
 ---

@@ -1,0 +1,816 @@
+2026-04-22 02:01:02,735 - __main__ - INFO - ======================================================================
+2026-04-22 02:01:02,737 - __main__ - INFO - INICIANDO PIPELINE RAW → SILVER (GeoLúmica)
+2026-04-22 02:01:02,738 - __main__ - INFO - Timestamp: 2026-04-22T02:01:02.738549
+2026-04-22 02:01:02,739 - __main__ - INFO - ======================================================================
+2026-04-22 02:01:02,740 - __main__ - INFO - Validando capa Raw...
+2026-04-22 02:01:02,788 - __main__ - INFO - ✅ Raw validado correctamente (archivos requeridos presentes)
+2026-04-22 02:01:02,789 - __main__ - INFO - Path HDFS (ya creado): hdfs://localhost:9000/geolumica/silver/dim
+2026-04-22 02:01:02,791 - __main__ - INFO - Path HDFS (ya creado): hdfs://localhost:9000/geolumica/silver/fact
+2026-04-22 02:01:02,792 - __main__ - INFO - Iniciando sesión Spark...
+2026-04-22 02:01:19,666 - __main__ - INFO - Spark versión: 3.5.1
+2026-04-22 02:01:19,667 - __main__ - INFO - ----------------------------------------------------------------------
+2026-04-22 02:01:19,668 - silver.dimensions - INFO - ============================================================
+2026-04-22 02:01:19,670 - silver.dimensions - INFO - INICIANDO GENERACIÓN DE DIMENSIONES (Silver)
+2026-04-22 02:01:19,671 - silver.dimensions - INFO - ============================================================
+2026-04-22 02:01:19,672 - silver.dimensions - INFO - Generando dim_municipio desde /mnt/c/Users/ferna/Documents/GitHub/Proyecto_Big_Data_I/Proyecto_Big_Data_I/municipios_es.geojson
+2026-04-22 02:01:32,570 - silver.dimensions - INFO - dim_municipio: 8131 registros → hdfs://localhost:9000/geolumica/silver/dim/dim_municipio.parquet
+2026-04-22 02:01:32,588 - silver.dimensions - INFO - Generando dim_provincia...
+2026-04-22 02:01:34,346 - silver.dimensions - INFO - dim_provincia: 52 registros → hdfs://localhost:9000/geolumica/silver/dim/dim_provincia.parquet
+2026-04-22 02:01:34,372 - silver.dimensions - INFO - Generando dim_fecha_anual...
+2026-04-22 02:01:35,197 - silver.dimensions - INFO - dim_fecha_anual: 31 registros → hdfs://localhost:9000/geolumica/silver/dim/dim_fecha_anual.parquet
+2026-04-22 02:01:35,197 - silver.dimensions - INFO - ✅ Dimensiones generadas
+2026-04-22 02:01:35,201 - __main__ - INFO - ----------------------------------------------------------------------
+2026-04-22 02:01:35,201 - silver.facts - INFO - ============================================================
+2026-04-22 02:01:35,201 - silver.facts - INFO - INICIANDO GENERACIÓN DE FACT TABLES (Silver)
+2026-04-22 02:01:35,205 - silver.facts - INFO - ============================================================
+2026-04-22 02:01:35,205 - silver.facts - INFO - Generando fact_demografia...
+2026-04-22 02:01:37,173 - silver.facts - INFO - fact_demografia cols: ['cod_prov', 'cod_muni', 'municipio', 'year', 'population']
+2026-04-22 02:01:41,771 - silver.facts - INFO - fact_demografia: 0 filas
+2026-04-22 02:01:41,778 - silver.facts - INFO - Generando fact_energia...
+2026-04-22 02:01:42,185 - silver.facts - INFO - fact_energia cols: ['Codigo', 'Nombre', 'Consumo eléctrico', 'Total']
+2026-04-22 02:01:43,465 - silver.facts - INFO - fact_energia: 58266 filas
+2026-04-22 02:01:43,466 - silver.facts - INFO - Generando fact_renta...
+2026-04-22 02:01:43,689 - silver.facts - INFO - fact_renta cols: ['codigo_municipio', 'nombre_municipio', 'provincia', 'anio', 'valor']
+2026-04-22 02:01:44,348 - silver.facts - INFO - fact_renta: 73251 filas
+2026-04-22 02:01:44,349 - silver.facts - INFO - Generando fact_migracion_neta...
+2026-04-22 02:01:44,587 - silver.facts - INFO - fact_migracion cols: ['codigo_municipio', 'nombre_municipio', 'codigo_provincia', 'provincia', 'anio', 'sexo', 'nacionalidad', 'valor']
+2026-04-22 02:01:45,429 - silver.facts - INFO - fact_migracion_neta: 32528 filas
+2026-04-22 02:01:45,430 - silver.facts - INFO - Generando fact_conectividad...
+2026-04-22 02:01:45,665 - silver.facts - INFO - fact_conectividad cols: ['LAU_ID', 'LAU_NAME', 'Anio', 'Vehiculos_Oficial', 'Indice_Conectividad', 'Poblacion_Est']
+2026-04-22 02:01:46,769 - silver.facts - INFO - fact_conectividad: 130096 filas
+2026-04-22 02:01:46,770 - silver.facts - INFO - Generando fact_empresas_transporte...
+2026-04-22 02:01:47,338 - silver.facts - INFO - fact_empresas cols: ['codigo', 'nombre', 'tipo', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025']
+2026-04-22 02:01:54,327 - silver.facts - INFO - fact_empresas_transporte: 114632 filas
+2026-04-22 02:01:54,327 - silver.facts - INFO - Generando fact_osm_logistica...
+2026-04-22 02:01:55,437 - silver.facts - INFO - fact_osm_logistica: 8131 filas
+2026-04-22 02:01:55,456 - silver.facts - INFO - Generando fact_viirs...
+2026-04-22 02:01:55,476 - silver.facts - INFO - Leyendo VIIRS raw CSV: ../data/raw/luz_nocturna/viirs_luz_nocturna.csv
+2026-04-22 02:01:56,001 - silver.facts - INFO - fact_viirs cols: ['AREA_KM2', 'CNTR_CODE', 'GISCO_ID', 'LAU_ID', 'LAU_NAME', 'POP_2023', 'YEAR', 'date', 'max', 'mean', 'min', 'stdDev']
+2026-04-22 02:02:19,138 - silver.facts - INFO - fact_viirs: 1366008 filas
+2026-04-22 02:02:19,140 - silver.facts - INFO - ============================================================
+2026-04-22 02:02:19,145 - silver.facts - INFO - GENERACIÓN DE FACT TABLES COMPLETADA
+2026-04-22 02:02:19,146 - silver.facts - INFO - ============================================================
+2026-04-22 02:02:19,223 - silver.satelital - INFO - Generando fact_satelital...
+2026-04-22 02:02:21,138 - silver.satelital - ERROR - Error en fact_satelital: An error occurred while calling o894.parquet.
+: org.apache.spark.SparkException: Job aborted due to stage failure: Task 0 in stage 59.0 failed 1 times, most recent failure: Lost task 0.0 in stage 59.0 (TID 73) (10.255.255.254 executor driver): org.apache.spark.SparkUpgradeException: [INCONSISTENT_BEHAVIOR_CROSS_VERSION.PARSE_DATETIME_BY_NEW_PARSER] You may get a different result due to the upgrading to Spark >= 3.0:
+Fail to parse '2024-06-24T11:06:41.024000Z' in the new parser. You can set "spark.sql.legacy.timeParserPolicy" to "LEGACY" to restore the behavior before Spark 3.0, or set to "CORRECTED" and treat it as an invalid datetime string.
+	at org.apache.spark.sql.errors.ExecutionErrors.failToParseDateTimeInNewParserError(ExecutionErrors.scala:54)
+	at org.apache.spark.sql.errors.ExecutionErrors.failToParseDateTimeInNewParserError$(ExecutionErrors.scala:48)
+	at org.apache.spark.sql.errors.ExecutionErrors$.failToParseDateTimeInNewParserError(ExecutionErrors.scala:218)
+	at org.apache.spark.sql.catalyst.util.DateTimeFormatterHelper$$anonfun$checkParsedDiff$1.applyOrElse(DateTimeFormatterHelper.scala:142)
+	at org.apache.spark.sql.catalyst.util.DateTimeFormatterHelper$$anonfun$checkParsedDiff$1.applyOrElse(DateTimeFormatterHelper.scala:135)
+	at scala.runtime.AbstractPartialFunction.apply(AbstractPartialFunction.scala:38)
+	at org.apache.spark.sql.catalyst.util.Iso8601TimestampFormatter.parse(TimestampFormatter.scala:195)
+	at org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage1.sort_addToSorter_0$(Unknown Source)
+	at org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage1.processNext(Unknown Source)
+	at org.apache.spark.sql.execution.BufferedRowIterator.hasNext(BufferedRowIterator.java:43)
+	at org.apache.spark.sql.execution.WholeStageCodegenEvaluatorFactory$WholeStageCodegenPartitionEvaluator$$anon$1.hasNext(WholeStageCodegenEvaluatorFactory.scala:43)
+	at org.apache.spark.sql.execution.aggregate.SortAggregateExec.$anonfun$doExecute$1(SortAggregateExec.scala:62)
+	at org.apache.spark.sql.execution.aggregate.SortAggregateExec.$anonfun$doExecute$1$adapted(SortAggregateExec.scala:59)
+	at org.apache.spark.rdd.RDD.$anonfun$mapPartitionsWithIndexInternal$2(RDD.scala:880)
+	at org.apache.spark.rdd.RDD.$anonfun$mapPartitionsWithIndexInternal$2$adapted(RDD.scala:880)
+	at org.apache.spark.rdd.MapPartitionsRDD.compute(MapPartitionsRDD.scala:52)
+	at org.apache.spark.rdd.RDD.computeOrReadCheckpoint(RDD.scala:367)
+	at org.apache.spark.rdd.RDD.iterator(RDD.scala:331)
+	at org.apache.spark.rdd.MapPartitionsRDD.compute(MapPartitionsRDD.scala:52)
+	at org.apache.spark.rdd.RDD.computeOrReadCheckpoint(RDD.scala:367)
+	at org.apache.spark.rdd.RDD.iterator(RDD.scala:331)
+	at org.apache.spark.shuffle.ShuffleWriteProcessor.write(ShuffleWriteProcessor.scala:59)
+	at org.apache.spark.scheduler.ShuffleMapTask.runTask(ShuffleMapTask.scala:104)
+	at org.apache.spark.scheduler.ShuffleMapTask.runTask(ShuffleMapTask.scala:54)
+	at org.apache.spark.TaskContext.runTaskWithListeners(TaskContext.scala:166)
+	at org.apache.spark.scheduler.Task.run(Task.scala:141)
+	at org.apache.spark.executor.Executor$TaskRunner.$anonfun$run$4(Executor.scala:620)
+	at org.apache.spark.util.SparkErrorUtils.tryWithSafeFinally(SparkErrorUtils.scala:64)
+	at org.apache.spark.util.SparkErrorUtils.tryWithSafeFinally$(SparkErrorUtils.scala:61)
+	at org.apache.spark.util.Utils$.tryWithSafeFinally(Utils.scala:94)
+	at org.apache.spark.executor.Executor$TaskRunner.run(Executor.scala:623)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+Caused by: java.time.format.DateTimeParseException: Text '2024-06-24T11:06:41.024000Z' could not be parsed, unparsed text found at index 19
+	at java.base/java.time.format.DateTimeFormatter.parseResolved0(DateTimeFormatter.java:2055)
+	at java.base/java.time.format.DateTimeFormatter.parse(DateTimeFormatter.java:1880)
+	at org.apache.spark.sql.catalyst.util.Iso8601TimestampFormatter.parse(TimestampFormatter.scala:193)
+	... 27 more
+
+Driver stacktrace:
+	at org.apache.spark.scheduler.DAGScheduler.failJobAndIndependentStages(DAGScheduler.scala:2856)
+	at org.apache.spark.scheduler.DAGScheduler.$anonfun$abortStage$2(DAGScheduler.scala:2792)
+	at org.apache.spark.scheduler.DAGScheduler.$anonfun$abortStage$2$adapted(DAGScheduler.scala:2791)
+	at scala.collection.mutable.ResizableArray.foreach(ResizableArray.scala:62)
+	at scala.collection.mutable.ResizableArray.foreach$(ResizableArray.scala:55)
+	at scala.collection.mutable.ArrayBuffer.foreach(ArrayBuffer.scala:49)
+	at org.apache.spark.scheduler.DAGScheduler.abortStage(DAGScheduler.scala:2791)
+	at org.apache.spark.scheduler.DAGScheduler.$anonfun$handleTaskSetFailed$1(DAGScheduler.scala:1247)
+	at org.apache.spark.scheduler.DAGScheduler.$anonfun$handleTaskSetFailed$1$adapted(DAGScheduler.scala:1247)
+	at scala.Option.foreach(Option.scala:407)
+	at org.apache.spark.scheduler.DAGScheduler.handleTaskSetFailed(DAGScheduler.scala:1247)
+	at org.apache.spark.scheduler.DAGSchedulerEventProcessLoop.doOnReceive(DAGScheduler.scala:3060)
+	at org.apache.spark.scheduler.DAGSchedulerEventProcessLoop.onReceive(DAGScheduler.scala:2994)
+	at org.apache.spark.scheduler.DAGSchedulerEventProcessLoop.onReceive(DAGScheduler.scala:2983)
+	at org.apache.spark.util.EventLoop$$anon$1.run(EventLoop.scala:49)
+Caused by: org.apache.spark.SparkUpgradeException: [INCONSISTENT_BEHAVIOR_CROSS_VERSION.PARSE_DATETIME_BY_NEW_PARSER] You may get a different result due to the upgrading to Spark >= 3.0:
+Fail to parse '2024-06-24T11:06:41.024000Z' in the new parser. You can set "spark.sql.legacy.timeParserPolicy" to "LEGACY" to restore the behavior before Spark 3.0, or set to "CORRECTED" and treat it as an invalid datetime string.
+	at org.apache.spark.sql.errors.ExecutionErrors.failToParseDateTimeInNewParserError(ExecutionErrors.scala:54)
+	at org.apache.spark.sql.errors.ExecutionErrors.failToParseDateTimeInNewParserError$(ExecutionErrors.scala:48)
+	at org.apache.spark.sql.errors.ExecutionErrors$.failToParseDateTimeInNewParserError(ExecutionErrors.scala:218)
+	at org.apache.spark.sql.catalyst.util.DateTimeFormatterHelper$$anonfun$checkParsedDiff$1.applyOrElse(DateTimeFormatterHelper.scala:142)
+	at org.apache.spark.sql.catalyst.util.DateTimeFormatterHelper$$anonfun$checkParsedDiff$1.applyOrElse(DateTimeFormatterHelper.scala:135)
+	at scala.runtime.AbstractPartialFunction.apply(AbstractPartialFunction.scala:38)
+	at org.apache.spark.sql.catalyst.util.Iso8601TimestampFormatter.parse(TimestampFormatter.scala:195)
+	at org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage1.sort_addToSorter_0$(Unknown Source)
+	at org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage1.processNext(Unknown Source)
+	at org.apache.spark.sql.execution.BufferedRowIterator.hasNext(BufferedRowIterator.java:43)
+	at org.apache.spark.sql.execution.WholeStageCodegenEvaluatorFactory$WholeStageCodegenPartitionEvaluator$$anon$1.hasNext(WholeStageCodegenEvaluatorFactory.scala:43)
+	at org.apache.spark.sql.execution.aggregate.SortAggregateExec.$anonfun$doExecute$1(SortAggregateExec.scala:62)
+	at org.apache.spark.sql.execution.aggregate.SortAggregateExec.$anonfun$doExecute$1$adapted(SortAggregateExec.scala:59)
+	at org.apache.spark.rdd.RDD.$anonfun$mapPartitionsWithIndexInternal$2(RDD.scala:880)
+	at org.apache.spark.rdd.RDD.$anonfun$mapPartitionsWithIndexInternal$2$adapted(RDD.scala:880)
+	at org.apache.spark.rdd.MapPartitionsRDD.compute(MapPartitionsRDD.scala:52)
+	at org.apache.spark.rdd.RDD.computeOrReadCheckpoint(RDD.scala:367)
+	at org.apache.spark.rdd.RDD.iterator(RDD.scala:331)
+	at org.apache.spark.rdd.MapPartitionsRDD.compute(MapPartitionsRDD.scala:52)
+	at org.apache.spark.rdd.RDD.computeOrReadCheckpoint(RDD.scala:367)
+	at org.apache.spark.rdd.RDD.iterator(RDD.scala:331)
+	at org.apache.spark.shuffle.ShuffleWriteProcessor.write(ShuffleWriteProcessor.scala:59)
+	at org.apache.spark.scheduler.ShuffleMapTask.runTask(ShuffleMapTask.scala:104)
+	at org.apache.spark.scheduler.ShuffleMapTask.runTask(ShuffleMapTask.scala:54)
+	at org.apache.spark.TaskContext.runTaskWithListeners(TaskContext.scala:166)
+	at org.apache.spark.scheduler.Task.run(Task.scala:141)
+	at org.apache.spark.executor.Executor$TaskRunner.$anonfun$run$4(Executor.scala:620)
+	at org.apache.spark.util.SparkErrorUtils.tryWithSafeFinally(SparkErrorUtils.scala:64)
+	at org.apache.spark.util.SparkErrorUtils.tryWithSafeFinally$(SparkErrorUtils.scala:61)
+	at org.apache.spark.util.Utils$.tryWithSafeFinally(Utils.scala:94)
+	at org.apache.spark.executor.Executor$TaskRunner.run(Executor.scala:623)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+Caused by: java.time.format.DateTimeParseException: Text '2024-06-24T11:06:41.024000Z' could not be parsed, unparsed text found at index 19
+	at java.base/java.time.format.DateTimeFormatter.parseResolved0(DateTimeFormatter.java:2055)
+	at java.base/java.time.format.DateTimeFormatter.parse(DateTimeFormatter.java:1880)
+	at org.apache.spark.sql.catalyst.util.Iso8601TimestampFormatter.parse(TimestampFormatter.scala:193)
+	... 27 more
+
+2026-04-22 02:02:21,186 - __main__ - ERROR - ❌ ERROR EN PIPELINE: An error occurred while calling o894.parquet.
+: org.apache.spark.SparkException: Job aborted due to stage failure: Task 0 in stage 59.0 failed 1 times, most recent failure: Lost task 0.0 in stage 59.0 (TID 73) (10.255.255.254 executor driver): org.apache.spark.SparkUpgradeException: [INCONSISTENT_BEHAVIOR_CROSS_VERSION.PARSE_DATETIME_BY_NEW_PARSER] You may get a different result due to the upgrading to Spark >= 3.0:
+Fail to parse '2024-06-24T11:06:41.024000Z' in the new parser. You can set "spark.sql.legacy.timeParserPolicy" to "LEGACY" to restore the behavior before Spark 3.0, or set to "CORRECTED" and treat it as an invalid datetime string.
+	at org.apache.spark.sql.errors.ExecutionErrors.failToParseDateTimeInNewParserError(ExecutionErrors.scala:54)
+	at org.apache.spark.sql.errors.ExecutionErrors.failToParseDateTimeInNewParserError$(ExecutionErrors.scala:48)
+	at org.apache.spark.sql.errors.ExecutionErrors$.failToParseDateTimeInNewParserError(ExecutionErrors.scala:218)
+	at org.apache.spark.sql.catalyst.util.DateTimeFormatterHelper$$anonfun$checkParsedDiff$1.applyOrElse(DateTimeFormatterHelper.scala:142)
+	at org.apache.spark.sql.catalyst.util.DateTimeFormatterHelper$$anonfun$checkParsedDiff$1.applyOrElse(DateTimeFormatterHelper.scala:135)
+	at scala.runtime.AbstractPartialFunction.apply(AbstractPartialFunction.scala:38)
+	at org.apache.spark.sql.catalyst.util.Iso8601TimestampFormatter.parse(TimestampFormatter.scala:195)
+	at org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage1.sort_addToSorter_0$(Unknown Source)
+	at org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage1.processNext(Unknown Source)
+	at org.apache.spark.sql.execution.BufferedRowIterator.hasNext(BufferedRowIterator.java:43)
+	at org.apache.spark.sql.execution.WholeStageCodegenEvaluatorFactory$WholeStageCodegenPartitionEvaluator$$anon$1.hasNext(WholeStageCodegenEvaluatorFactory.scala:43)
+	at org.apache.spark.sql.execution.aggregate.SortAggregateExec.$anonfun$doExecute$1(SortAggregateExec.scala:62)
+	at org.apache.spark.sql.execution.aggregate.SortAggregateExec.$anonfun$doExecute$1$adapted(SortAggregateExec.scala:59)
+	at org.apache.spark.rdd.RDD.$anonfun$mapPartitionsWithIndexInternal$2(RDD.scala:880)
+	at org.apache.spark.rdd.RDD.$anonfun$mapPartitionsWithIndexInternal$2$adapted(RDD.scala:880)
+	at org.apache.spark.rdd.MapPartitionsRDD.compute(MapPartitionsRDD.scala:52)
+	at org.apache.spark.rdd.RDD.computeOrReadCheckpoint(RDD.scala:367)
+	at org.apache.spark.rdd.RDD.iterator(RDD.scala:331)
+	at org.apache.spark.rdd.MapPartitionsRDD.compute(MapPartitionsRDD.scala:52)
+	at org.apache.spark.rdd.RDD.computeOrReadCheckpoint(RDD.scala:367)
+	at org.apache.spark.rdd.RDD.iterator(RDD.scala:331)
+	at org.apache.spark.shuffle.ShuffleWriteProcessor.write(ShuffleWriteProcessor.scala:59)
+	at org.apache.spark.scheduler.ShuffleMapTask.runTask(ShuffleMapTask.scala:104)
+	at org.apache.spark.scheduler.ShuffleMapTask.runTask(ShuffleMapTask.scala:54)
+	at org.apache.spark.TaskContext.runTaskWithListeners(TaskContext.scala:166)
+	at org.apache.spark.scheduler.Task.run(Task.scala:141)
+	at org.apache.spark.executor.Executor$TaskRunner.$anonfun$run$4(Executor.scala:620)
+	at org.apache.spark.util.SparkErrorUtils.tryWithSafeFinally(SparkErrorUtils.scala:64)
+	at org.apache.spark.util.SparkErrorUtils.tryWithSafeFinally$(SparkErrorUtils.scala:61)
+	at org.apache.spark.util.Utils$.tryWithSafeFinally(Utils.scala:94)
+	at org.apache.spark.executor.Executor$TaskRunner.run(Executor.scala:623)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+Caused by: java.time.format.DateTimeParseException: Text '2024-06-24T11:06:41.024000Z' could not be parsed, unparsed text found at index 19
+	at java.base/java.time.format.DateTimeFormatter.parseResolved0(DateTimeFormatter.java:2055)
+	at java.base/java.time.format.DateTimeFormatter.parse(DateTimeFormatter.java:1880)
+	at org.apache.spark.sql.catalyst.util.Iso8601TimestampFormatter.parse(TimestampFormatter.scala:193)
+	... 27 more
+
+Driver stacktrace:
+	at org.apache.spark.scheduler.DAGScheduler.failJobAndIndependentStages(DAGScheduler.scala:2856)
+	at org.apache.spark.scheduler.DAGScheduler.$anonfun$abortStage$2(DAGScheduler.scala:2792)
+	at org.apache.spark.scheduler.DAGScheduler.$anonfun$abortStage$2$adapted(DAGScheduler.scala:2791)
+	at scala.collection.mutable.ResizableArray.foreach(ResizableArray.scala:62)
+	at scala.collection.mutable.ResizableArray.foreach$(ResizableArray.scala:55)
+	at scala.collection.mutable.ArrayBuffer.foreach(ArrayBuffer.scala:49)
+	at org.apache.spark.scheduler.DAGScheduler.abortStage(DAGScheduler.scala:2791)
+	at org.apache.spark.scheduler.DAGScheduler.$anonfun$handleTaskSetFailed$1(DAGScheduler.scala:1247)
+	at org.apache.spark.scheduler.DAGScheduler.$anonfun$handleTaskSetFailed$1$adapted(DAGScheduler.scala:1247)
+	at scala.Option.foreach(Option.scala:407)
+	at org.apache.spark.scheduler.DAGScheduler.handleTaskSetFailed(DAGScheduler.scala:1247)
+	at org.apache.spark.scheduler.DAGSchedulerEventProcessLoop.doOnReceive(DAGScheduler.scala:3060)
+	at org.apache.spark.scheduler.DAGSchedulerEventProcessLoop.onReceive(DAGScheduler.scala:2994)
+	at org.apache.spark.scheduler.DAGSchedulerEventProcessLoop.onReceive(DAGScheduler.scala:2983)
+	at org.apache.spark.util.EventLoop$$anon$1.run(EventLoop.scala:49)
+Caused by: org.apache.spark.SparkUpgradeException: [INCONSISTENT_BEHAVIOR_CROSS_VERSION.PARSE_DATETIME_BY_NEW_PARSER] You may get a different result due to the upgrading to Spark >= 3.0:
+Fail to parse '2024-06-24T11:06:41.024000Z' in the new parser. You can set "spark.sql.legacy.timeParserPolicy" to "LEGACY" to restore the behavior before Spark 3.0, or set to "CORRECTED" and treat it as an invalid datetime string.
+	at org.apache.spark.sql.errors.ExecutionErrors.failToParseDateTimeInNewParserError(ExecutionErrors.scala:54)
+	at org.apache.spark.sql.errors.ExecutionErrors.failToParseDateTimeInNewParserError$(ExecutionErrors.scala:48)
+	at org.apache.spark.sql.errors.ExecutionErrors$.failToParseDateTimeInNewParserError(ExecutionErrors.scala:218)
+	at org.apache.spark.sql.catalyst.util.DateTimeFormatterHelper$$anonfun$checkParsedDiff$1.applyOrElse(DateTimeFormatterHelper.scala:142)
+	at org.apache.spark.sql.catalyst.util.DateTimeFormatterHelper$$anonfun$checkParsedDiff$1.applyOrElse(DateTimeFormatterHelper.scala:135)
+	at scala.runtime.AbstractPartialFunction.apply(AbstractPartialFunction.scala:38)
+	at org.apache.spark.sql.catalyst.util.Iso8601TimestampFormatter.parse(TimestampFormatter.scala:195)
+	at org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage1.sort_addToSorter_0$(Unknown Source)
+	at org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage1.processNext(Unknown Source)
+	at org.apache.spark.sql.execution.BufferedRowIterator.hasNext(BufferedRowIterator.java:43)
+	at org.apache.spark.sql.execution.WholeStageCodegenEvaluatorFactory$WholeStageCodegenPartitionEvaluator$$anon$1.hasNext(WholeStageCodegenEvaluatorFactory.scala:43)
+	at org.apache.spark.sql.execution.aggregate.SortAggregateExec.$anonfun$doExecute$1(SortAggregateExec.scala:62)
+	at org.apache.spark.sql.execution.aggregate.SortAggregateExec.$anonfun$doExecute$1$adapted(SortAggregateExec.scala:59)
+	at org.apache.spark.rdd.RDD.$anonfun$mapPartitionsWithIndexInternal$2(RDD.scala:880)
+	at org.apache.spark.rdd.RDD.$anonfun$mapPartitionsWithIndexInternal$2$adapted(RDD.scala:880)
+	at org.apache.spark.rdd.MapPartitionsRDD.compute(MapPartitionsRDD.scala:52)
+	at org.apache.spark.rdd.RDD.computeOrReadCheckpoint(RDD.scala:367)
+	at org.apache.spark.rdd.RDD.iterator(RDD.scala:331)
+	at org.apache.spark.rdd.MapPartitionsRDD.compute(MapPartitionsRDD.scala:52)
+	at org.apache.spark.rdd.RDD.computeOrReadCheckpoint(RDD.scala:367)
+	at org.apache.spark.rdd.RDD.iterator(RDD.scala:331)
+	at org.apache.spark.shuffle.ShuffleWriteProcessor.write(ShuffleWriteProcessor.scala:59)
+	at org.apache.spark.scheduler.ShuffleMapTask.runTask(ShuffleMapTask.scala:104)
+	at org.apache.spark.scheduler.ShuffleMapTask.runTask(ShuffleMapTask.scala:54)
+	at org.apache.spark.TaskContext.runTaskWithListeners(TaskContext.scala:166)
+	at org.apache.spark.scheduler.Task.run(Task.scala:141)
+	at org.apache.spark.executor.Executor$TaskRunner.$anonfun$run$4(Executor.scala:620)
+	at org.apache.spark.util.SparkErrorUtils.tryWithSafeFinally(SparkErrorUtils.scala:64)
+	at org.apache.spark.util.SparkErrorUtils.tryWithSafeFinally$(SparkErrorUtils.scala:61)
+	at org.apache.spark.util.Utils$.tryWithSafeFinally(Utils.scala:94)
+	at org.apache.spark.executor.Executor$TaskRunner.run(Executor.scala:623)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+Caused by: java.time.format.DateTimeParseException: Text '2024-06-24T11:06:41.024000Z' could not be parsed, unparsed text found at index 19
+	at java.base/java.time.format.DateTimeFormatter.parseResolved0(DateTimeFormatter.java:2055)
+	at java.base/java.time.format.DateTimeFormatter.parse(DateTimeFormatter.java:1880)
+	at org.apache.spark.sql.catalyst.util.Iso8601TimestampFormatter.parse(TimestampFormatter.scala:193)
+	... 27 more
+Traceback (most recent call last):
+  File "/mnt/c/Users/ferna/Documents/GitHub/Proyecto_Big_Data_I/Proyecto_Big_Data_I/Proyecto/main_silver.py", line 203, in main
+    create_fact_satelital(spark, raw_base_path, f"{fact_base_path}/fact_satelital.parquet")
+  File "/mnt/c/Users/ferna/Documents/GitHub/Proyecto_Big_Data_I/Proyecto_Big_Data_I/Proyecto/silver/satelital.py", line 84, in create_fact_satelital
+    df_clean.write.mode("overwrite").parquet(output_path)
+  File "/home/fernaferna/spark_env/lib/python3.12/site-packages/pyspark/sql/readwriter.py", line 1721, in parquet
+    self._jwrite.parquet(path)
+  File "/home/fernaferna/spark_env/lib/python3.12/site-packages/py4j/java_gateway.py", line 1322, in __call__
+    return_value = get_return_value(
+                   ^^^^^^^^^^^^^^^^^
+  File "/home/fernaferna/spark_env/lib/python3.12/site-packages/pyspark/errors/exceptions/captured.py", line 179, in deco
+    return f(*a, **kw)
+           ^^^^^^^^^^^
+  File "/home/fernaferna/spark_env/lib/python3.12/site-packages/py4j/protocol.py", line 326, in get_return_value
+    raise Py4JJavaError(
+py4j.protocol.Py4JJavaError: An error occurred while calling o894.parquet.
+: org.apache.spark.SparkException: Job aborted due to stage failure: Task 0 in stage 59.0 failed 1 times, most recent failure: Lost task 0.0 in stage 59.0 (TID 73) (10.255.255.254 executor driver): org.apache.spark.SparkUpgradeException: [INCONSISTENT_BEHAVIOR_CROSS_VERSION.PARSE_DATETIME_BY_NEW_PARSER] You may get a different result due to the upgrading to Spark >= 3.0:
+Fail to parse '2024-06-24T11:06:41.024000Z' in the new parser. You can set "spark.sql.legacy.timeParserPolicy" to "LEGACY" to restore the behavior before Spark 3.0, or set to "CORRECTED" and treat it as an invalid datetime string.
+	at org.apache.spark.sql.errors.ExecutionErrors.failToParseDateTimeInNewParserError(ExecutionErrors.scala:54)
+	at org.apache.spark.sql.errors.ExecutionErrors.failToParseDateTimeInNewParserError$(ExecutionErrors.scala:48)
+	at org.apache.spark.sql.errors.ExecutionErrors$.failToParseDateTimeInNewParserError(ExecutionErrors.scala:218)
+	at org.apache.spark.sql.catalyst.util.DateTimeFormatterHelper$$anonfun$checkParsedDiff$1.applyOrElse(DateTimeFormatterHelper.scala:142)
+	at org.apache.spark.sql.catalyst.util.DateTimeFormatterHelper$$anonfun$checkParsedDiff$1.applyOrElse(DateTimeFormatterHelper.scala:135)
+	at scala.runtime.AbstractPartialFunction.apply(AbstractPartialFunction.scala:38)
+	at org.apache.spark.sql.catalyst.util.Iso8601TimestampFormatter.parse(TimestampFormatter.scala:195)
+	at org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage1.sort_addToSorter_0$(Unknown Source)
+	at org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage1.processNext(Unknown Source)
+	at org.apache.spark.sql.execution.BufferedRowIterator.hasNext(BufferedRowIterator.java:43)
+	at org.apache.spark.sql.execution.WholeStageCodegenEvaluatorFactory$WholeStageCodegenPartitionEvaluator$$anon$1.hasNext(WholeStageCodegenEvaluatorFactory.scala:43)
+	at org.apache.spark.sql.execution.aggregate.SortAggregateExec.$anonfun$doExecute$1(SortAggregateExec.scala:62)
+	at org.apache.spark.sql.execution.aggregate.SortAggregateExec.$anonfun$doExecute$1$adapted(SortAggregateExec.scala:59)
+	at org.apache.spark.rdd.RDD.$anonfun$mapPartitionsWithIndexInternal$2(RDD.scala:880)
+	at org.apache.spark.rdd.RDD.$anonfun$mapPartitionsWithIndexInternal$2$adapted(RDD.scala:880)
+	at org.apache.spark.rdd.MapPartitionsRDD.compute(MapPartitionsRDD.scala:52)
+	at org.apache.spark.rdd.RDD.computeOrReadCheckpoint(RDD.scala:367)
+	at org.apache.spark.rdd.RDD.iterator(RDD.scala:331)
+	at org.apache.spark.rdd.MapPartitionsRDD.compute(MapPartitionsRDD.scala:52)
+	at org.apache.spark.rdd.RDD.computeOrReadCheckpoint(RDD.scala:367)
+	at org.apache.spark.rdd.RDD.iterator(RDD.scala:331)
+	at org.apache.spark.shuffle.ShuffleWriteProcessor.write(ShuffleWriteProcessor.scala:59)
+	at org.apache.spark.scheduler.ShuffleMapTask.runTask(ShuffleMapTask.scala:104)
+	at org.apache.spark.scheduler.ShuffleMapTask.runTask(ShuffleMapTask.scala:54)
+	at org.apache.spark.TaskContext.runTaskWithListeners(TaskContext.scala:166)
+	at org.apache.spark.scheduler.Task.run(Task.scala:141)
+	at org.apache.spark.executor.Executor$TaskRunner.$anonfun$run$4(Executor.scala:620)
+	at org.apache.spark.util.SparkErrorUtils.tryWithSafeFinally(SparkErrorUtils.scala:64)
+	at org.apache.spark.util.SparkErrorUtils.tryWithSafeFinally$(SparkErrorUtils.scala:61)
+	at org.apache.spark.util.Utils$.tryWithSafeFinally(Utils.scala:94)
+	at org.apache.spark.executor.Executor$TaskRunner.run(Executor.scala:623)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+Caused by: java.time.format.DateTimeParseException: Text '2024-06-24T11:06:41.024000Z' could not be parsed, unparsed text found at index 19
+	at java.base/java.time.format.DateTimeFormatter.parseResolved0(DateTimeFormatter.java:2055)
+	at java.base/java.time.format.DateTimeFormatter.parse(DateTimeFormatter.java:1880)
+	at org.apache.spark.sql.catalyst.util.Iso8601TimestampFormatter.parse(TimestampFormatter.scala:193)
+	... 27 more
+
+Driver stacktrace:
+	at org.apache.spark.scheduler.DAGScheduler.failJobAndIndependentStages(DAGScheduler.scala:2856)
+	at org.apache.spark.scheduler.DAGScheduler.$anonfun$abortStage$2(DAGScheduler.scala:2792)
+	at org.apache.spark.scheduler.DAGScheduler.$anonfun$abortStage$2$adapted(DAGScheduler.scala:2791)
+	at scala.collection.mutable.ResizableArray.foreach(ResizableArray.scala:62)
+	at scala.collection.mutable.ResizableArray.foreach$(ResizableArray.scala:55)
+	at scala.collection.mutable.ArrayBuffer.foreach(ArrayBuffer.scala:49)
+	at org.apache.spark.scheduler.DAGScheduler.abortStage(DAGScheduler.scala:2791)
+	at org.apache.spark.scheduler.DAGScheduler.$anonfun$handleTaskSetFailed$1(DAGScheduler.scala:1247)
+	at org.apache.spark.scheduler.DAGScheduler.$anonfun$handleTaskSetFailed$1$adapted(DAGScheduler.scala:1247)
+	at scala.Option.foreach(Option.scala:407)
+	at org.apache.spark.scheduler.DAGScheduler.handleTaskSetFailed(DAGScheduler.scala:1247)
+	at org.apache.spark.scheduler.DAGSchedulerEventProcessLoop.doOnReceive(DAGScheduler.scala:3060)
+	at org.apache.spark.scheduler.DAGSchedulerEventProcessLoop.onReceive(DAGScheduler.scala:2994)
+	at org.apache.spark.scheduler.DAGSchedulerEventProcessLoop.onReceive(DAGScheduler.scala:2983)
+	at org.apache.spark.util.EventLoop$$anon$1.run(EventLoop.scala:49)
+Caused by: org.apache.spark.SparkUpgradeException: [INCONSISTENT_BEHAVIOR_CROSS_VERSION.PARSE_DATETIME_BY_NEW_PARSER] You may get a different result due to the upgrading to Spark >= 3.0:
+Fail to parse '2024-06-24T11:06:41.024000Z' in the new parser. You can set "spark.sql.legacy.timeParserPolicy" to "LEGACY" to restore the behavior before Spark 3.0, or set to "CORRECTED" and treat it as an invalid datetime string.
+	at org.apache.spark.sql.errors.ExecutionErrors.failToParseDateTimeInNewParserError(ExecutionErrors.scala:54)
+	at org.apache.spark.sql.errors.ExecutionErrors.failToParseDateTimeInNewParserError$(ExecutionErrors.scala:48)
+	at org.apache.spark.sql.errors.ExecutionErrors$.failToParseDateTimeInNewParserError(ExecutionErrors.scala:218)
+	at org.apache.spark.sql.catalyst.util.DateTimeFormatterHelper$$anonfun$checkParsedDiff$1.applyOrElse(DateTimeFormatterHelper.scala:142)
+	at org.apache.spark.sql.catalyst.util.DateTimeFormatterHelper$$anonfun$checkParsedDiff$1.applyOrElse(DateTimeFormatterHelper.scala:135)
+	at scala.runtime.AbstractPartialFunction.apply(AbstractPartialFunction.scala:38)
+	at org.apache.spark.sql.catalyst.util.Iso8601TimestampFormatter.parse(TimestampFormatter.scala:195)
+	at org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage1.sort_addToSorter_0$(Unknown Source)
+	at org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIteratorForCodegenStage1.processNext(Unknown Source)
+	at org.apache.spark.sql.execution.BufferedRowIterator.hasNext(BufferedRowIterator.java:43)
+	at org.apache.spark.sql.execution.WholeStageCodegenEvaluatorFactory$WholeStageCodegenPartitionEvaluator$$anon$1.hasNext(WholeStageCodegenEvaluatorFactory.scala:43)
+	at org.apache.spark.sql.execution.aggregate.SortAggregateExec.$anonfun$doExecute$1(SortAggregateExec.scala:62)
+	at org.apache.spark.sql.execution.aggregate.SortAggregateExec.$anonfun$doExecute$1$adapted(SortAggregateExec.scala:59)
+	at org.apache.spark.rdd.RDD.$anonfun$mapPartitionsWithIndexInternal$2(RDD.scala:880)
+	at org.apache.spark.rdd.RDD.$anonfun$mapPartitionsWithIndexInternal$2$adapted(RDD.scala:880)
+	at org.apache.spark.rdd.MapPartitionsRDD.compute(MapPartitionsRDD.scala:52)
+	at org.apache.spark.rdd.RDD.computeOrReadCheckpoint(RDD.scala:367)
+	at org.apache.spark.rdd.RDD.iterator(RDD.scala:331)
+	at org.apache.spark.rdd.MapPartitionsRDD.compute(MapPartitionsRDD.scala:52)
+	at org.apache.spark.rdd.RDD.computeOrReadCheckpoint(RDD.scala:367)
+	at org.apache.spark.rdd.RDD.iterator(RDD.scala:331)
+	at org.apache.spark.shuffle.ShuffleWriteProcessor.write(ShuffleWriteProcessor.scala:59)
+	at org.apache.spark.scheduler.ShuffleMapTask.runTask(ShuffleMapTask.scala:104)
+	at org.apache.spark.scheduler.ShuffleMapTask.runTask(ShuffleMapTask.scala:54)
+	at org.apache.spark.TaskContext.runTaskWithListeners(TaskContext.scala:166)
+	at org.apache.spark.scheduler.Task.run(Task.scala:141)
+	at org.apache.spark.executor.Executor$TaskRunner.$anonfun$run$4(Executor.scala:620)
+	at org.apache.spark.util.SparkErrorUtils.tryWithSafeFinally(SparkErrorUtils.scala:64)
+	at org.apache.spark.util.SparkErrorUtils.tryWithSafeFinally$(SparkErrorUtils.scala:61)
+	at org.apache.spark.util.Utils$.tryWithSafeFinally(Utils.scala:94)
+	at org.apache.spark.executor.Executor$TaskRunner.run(Executor.scala:623)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+Caused by: java.time.format.DateTimeParseException: Text '2024-06-24T11:06:41.024000Z' could not be parsed, unparsed text found at index 19
+	at java.base/java.time.format.DateTimeFormatter.parseResolved0(DateTimeFormatter.java:2055)
+	at java.base/java.time.format.DateTimeFormatter.parse(DateTimeFormatter.java:1880)
+	at org.apache.spark.sql.catalyst.util.Iso8601TimestampFormatter.parse(TimestampFormatter.scala:193)
+	... 27 more
+
+2026-04-22 02:02:22,188 - __main__ - INFO - Sesión Spark cerrada
+2026-04-22 02:02:22,197 - py4j.clientserver - INFO - Closing down clientserver connection
+2026-04-22 02:07:35,438 - __main__ - INFO - ======================================================================
+2026-04-22 02:07:35,439 - __main__ - INFO - INICIANDO PIPELINE RAW → SILVER (GeoLúmica)
+2026-04-22 02:07:35,439 - __main__ - INFO - Timestamp: 2026-04-22T02:07:35.439849
+2026-04-22 02:07:35,440 - __main__ - INFO - ======================================================================
+2026-04-22 02:07:35,444 - __main__ - INFO - Validando capa Raw...
+2026-04-22 02:07:35,524 - __main__ - INFO - ✅ Raw validado correctamente (archivos requeridos presentes)
+2026-04-22 02:07:35,525 - __main__ - INFO - Path HDFS (ya creado): hdfs://localhost:9000/geolumica/silver/dim
+2026-04-22 02:07:35,526 - __main__ - INFO - Path HDFS (ya creado): hdfs://localhost:9000/geolumica/silver/fact
+2026-04-22 02:07:35,528 - __main__ - INFO - Iniciando sesión Spark...
+2026-04-22 02:07:48,512 - __main__ - INFO - Spark versión: 3.5.1
+2026-04-22 02:07:48,512 - __main__ - INFO - ----------------------------------------------------------------------
+2026-04-22 02:07:48,513 - silver.dimensions - INFO - ============================================================
+2026-04-22 02:07:48,513 - silver.dimensions - INFO - INICIANDO GENERACIÓN DE DIMENSIONES (Silver)
+2026-04-22 02:07:48,514 - silver.dimensions - INFO - ============================================================
+2026-04-22 02:07:48,514 - silver.dimensions - INFO - Generando dim_municipio desde /mnt/c/Users/ferna/Documents/GitHub/Proyecto_Big_Data_I/Proyecto_Big_Data_I/municipios_es.geojson
+2026-04-22 02:07:55,274 - silver.dimensions - INFO - dim_municipio: 8131 registros → hdfs://localhost:9000/geolumica/silver/dim/dim_municipio.parquet
+2026-04-22 02:07:55,290 - silver.dimensions - INFO - Generando dim_provincia...
+2026-04-22 02:07:56,242 - silver.dimensions - INFO - dim_provincia: 52 registros → hdfs://localhost:9000/geolumica/silver/dim/dim_provincia.parquet
+2026-04-22 02:07:56,256 - silver.dimensions - INFO - Generando dim_fecha_anual...
+2026-04-22 02:07:56,701 - silver.dimensions - INFO - dim_fecha_anual: 31 registros → hdfs://localhost:9000/geolumica/silver/dim/dim_fecha_anual.parquet
+2026-04-22 02:07:56,711 - silver.dimensions - INFO - ✅ Dimensiones generadas
+2026-04-22 02:07:56,720 - __main__ - INFO - ----------------------------------------------------------------------
+2026-04-22 02:07:56,731 - silver.facts - INFO - ============================================================
+2026-04-22 02:07:56,738 - silver.facts - INFO - INICIANDO GENERACIÓN DE FACT TABLES (Silver)
+2026-04-22 02:07:56,749 - silver.facts - INFO - ============================================================
+2026-04-22 02:07:56,757 - silver.facts - INFO - Generando fact_demografia...
+2026-04-22 02:07:58,966 - silver.facts - INFO - fact_demografia cols: ['cod_prov', 'cod_muni', 'municipio', 'year', 'population']
+2026-04-22 02:08:04,781 - silver.facts - INFO - fact_demografia: 0 filas
+2026-04-22 02:08:04,783 - silver.facts - INFO - Generando fact_energia...
+2026-04-22 02:08:05,341 - silver.facts - INFO - fact_energia cols: ['Codigo', 'Nombre', 'Consumo eléctrico', 'Total']
+2026-04-22 02:08:07,171 - silver.facts - INFO - fact_energia: 58266 filas
+2026-04-22 02:08:07,181 - silver.facts - INFO - Generando fact_renta...
+2026-04-22 02:08:07,734 - silver.facts - INFO - fact_renta cols: ['codigo_municipio', 'nombre_municipio', 'provincia', 'anio', 'valor']
+2026-04-22 02:08:09,306 - silver.facts - INFO - fact_renta: 73251 filas
+2026-04-22 02:08:09,309 - silver.facts - INFO - Generando fact_migracion_neta...
+2026-04-22 02:08:09,564 - silver.facts - INFO - fact_migracion cols: ['codigo_municipio', 'nombre_municipio', 'codigo_provincia', 'provincia', 'anio', 'sexo', 'nacionalidad', 'valor']
+2026-04-22 02:08:10,485 - silver.facts - INFO - fact_migracion_neta: 32528 filas
+2026-04-22 02:08:10,487 - silver.facts - INFO - Generando fact_conectividad...
+2026-04-22 02:08:10,758 - silver.facts - INFO - fact_conectividad cols: ['LAU_ID', 'LAU_NAME', 'Anio', 'Vehiculos_Oficial', 'Indice_Conectividad', 'Poblacion_Est']
+2026-04-22 02:08:10,522 - silver.facts - INFO - fact_conectividad: 130096 filas
+2026-04-22 02:08:10,533 - silver.facts - INFO - Generando fact_empresas_transporte...
+2026-04-22 02:08:10,719 - silver.facts - INFO - fact_empresas cols: ['codigo', 'nombre', 'tipo', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025']
+2026-04-22 02:08:19,345 - silver.facts - INFO - fact_empresas_transporte: 114632 filas
+2026-04-22 02:08:19,349 - silver.facts - INFO - Generando fact_osm_logistica...
+2026-04-22 02:08:20,882 - silver.facts - INFO - fact_osm_logistica: 8131 filas
+2026-04-22 02:08:20,886 - silver.facts - INFO - Generando fact_viirs...
+2026-04-22 02:08:20,898 - silver.facts - INFO - Leyendo VIIRS raw CSV: ../data/raw/luz_nocturna/viirs_luz_nocturna.csv
+2026-04-22 02:08:21,399 - silver.facts - INFO - fact_viirs cols: ['AREA_KM2', 'CNTR_CODE', 'GISCO_ID', 'LAU_ID', 'LAU_NAME', 'POP_2023', 'YEAR', 'date', 'max', 'mean', 'min', 'stdDev']
+2026-04-22 02:08:42,313 - silver.facts - INFO - fact_viirs: 1366008 filas
+2026-04-22 02:08:42,314 - silver.facts - INFO - ============================================================
+2026-04-22 02:08:42,315 - silver.facts - INFO - GENERACIÓN DE FACT TABLES COMPLETADA
+2026-04-22 02:08:42,315 - silver.facts - INFO - ============================================================
+2026-04-22 02:08:42,318 - silver.satelital - INFO - Generando fact_satelital...
+2026-04-22 02:08:43,328 - silver.satelital - INFO - fact_satelital: 296 productos escritos → hdfs://localhost:9000/geolumica/silver/fact/fact_satelital.parquet
+2026-04-22 02:08:43,348 - __main__ - INFO - ----------------------------------------------------------------------
+2026-04-22 02:08:43,349 - __main__ - INFO - Validando capa Silver...
+2026-04-22 02:08:47,506 - __main__ - INFO - ✅ dim_municipio.parquet
+2026-04-22 02:08:49,302 - __main__ - INFO - ✅ dim_provincia.parquet
+2026-04-22 02:08:50,814 - __main__ - INFO - ✅ dim_fecha_anual.parquet
+2026-04-22 02:08:52,359 - __main__ - INFO - ✅ fact_demografia.parquet
+2026-04-22 02:08:54,413 - __main__ - INFO - ✅ fact_energia.parquet
+2026-04-22 02:08:56,536 - __main__ - INFO - ✅ fact_renta.parquet
+2026-04-22 02:08:58,089 - __main__ - INFO - ✅ fact_migracion_neta.parquet
+2026-04-22 02:09:00,305 - __main__ - INFO - ✅ fact_conectividad.parquet
+2026-04-22 02:09:02,001 - __main__ - INFO - ✅ fact_empresas_transporte.parquet
+2026-04-22 02:09:03,752 - __main__ - INFO - ✅ fact_osm_logistica.parquet
+2026-04-22 02:09:05,469 - __main__ - INFO - ✅ fact_viirs.parquet
+2026-04-22 02:09:07,608 - __main__ - INFO - ✅ fact_satelital.parquet
+2026-04-22 02:09:07,609 - __main__ - INFO - ✅ Silver layer válida
+2026-04-22 02:09:07,610 - __main__ - INFO - ======================================================================
+2026-04-22 02:09:07,612 - __main__ - INFO - ✅ PIPELINE COMPLETADO EXITOSAMENTE
+2026-04-22 02:09:07,614 - __main__ - INFO - ======================================================================
+2026-04-22 02:09:07,893 - __main__ - INFO - Sesión Spark cerrada
+2026-04-22 02:09:07,902 - py4j.clientserver - INFO - Closing down clientserver connection
+2026-04-22 02:21:50,633 - __main__ - INFO - ======================================================================
+2026-04-22 02:21:50,635 - __main__ - INFO - INICIANDO PIPELINE RAW → SILVER (GeoLúmica)
+2026-04-22 02:21:50,636 - __main__ - INFO - Timestamp: 2026-04-22T02:21:50.636642
+2026-04-22 02:21:50,637 - __main__ - INFO - ======================================================================
+2026-04-22 02:21:50,638 - __main__ - INFO - Validando capa Raw...
+2026-04-22 02:21:50,735 - __main__ - INFO - ✅ Raw validado correctamente (archivos requeridos presentes)
+2026-04-22 02:21:50,739 - __main__ - INFO - Path HDFS (ya creado): hdfs://localhost:9000/geolumica/silver/dim
+2026-04-22 02:21:50,740 - __main__ - INFO - Path HDFS (ya creado): hdfs://localhost:9000/geolumica/silver/fact
+2026-04-22 02:21:50,741 - __main__ - INFO - Iniciando sesión Spark...
+2026-04-22 02:22:08,776 - __main__ - INFO - Spark versión: 3.5.1
+2026-04-22 02:22:08,778 - __main__ - INFO - ----------------------------------------------------------------------
+2026-04-22 02:22:08,779 - silver.dimensions - INFO - ============================================================
+2026-04-22 02:22:08,780 - silver.dimensions - INFO - INICIANDO GENERACIÓN DE DIMENSIONES (Silver)
+2026-04-22 02:22:08,782 - silver.dimensions - INFO - ============================================================
+2026-04-22 02:22:08,783 - silver.dimensions - INFO - Generando dim_municipio desde /mnt/c/Users/ferna/Documents/GitHub/Proyecto_Big_Data_I/Proyecto_Big_Data_I/municipios_es.geojson
+2026-04-22 02:22:20,150 - silver.dimensions - INFO - dim_municipio: 8131 registros → hdfs://localhost:9000/geolumica/silver/dim/dim_municipio.parquet
+2026-04-22 02:22:20,165 - silver.dimensions - INFO - Generando dim_provincia...
+2026-04-22 02:22:21,764 - silver.dimensions - INFO - dim_provincia: 52 registros → hdfs://localhost:9000/geolumica/silver/dim/dim_provincia.parquet
+2026-04-22 02:22:21,795 - silver.dimensions - INFO - Generando dim_fecha_anual...
+2026-04-22 02:22:22,230 - silver.dimensions - INFO - dim_fecha_anual: 31 registros → hdfs://localhost:9000/geolumica/silver/dim/dim_fecha_anual.parquet
+2026-04-22 02:22:22,231 - silver.dimensions - INFO - ✅ Dimensiones generadas
+2026-04-22 02:22:22,231 - __main__ - INFO - ----------------------------------------------------------------------
+2026-04-22 02:22:22,232 - silver.facts - INFO - ============================================================
+2026-04-22 02:22:22,233 - silver.facts - INFO - INICIANDO GENERACIÓN DE FACT TABLES (Silver)
+2026-04-22 02:22:22,233 - silver.facts - INFO - ============================================================
+2026-04-22 02:22:22,234 - silver.facts - INFO - Generando fact_demografia...
+2026-04-22 02:22:23,666 - silver.facts - INFO - fact_demografia cols: ['cod_prov', 'cod_muni', 'municipio', 'year', 'population']
+2026-04-22 02:22:27,620 - silver.facts - INFO - fact_demografia: 0 filas
+2026-04-22 02:22:27,621 - silver.facts - INFO - Generando fact_energia...
+2026-04-22 02:22:28,107 - silver.facts - INFO - fact_energia cols: ['Codigo', 'Nombre', 'Consumo eléctrico', 'Total']
+2026-04-22 02:22:29,414 - silver.facts - INFO - fact_energia: 3185 filas
+2026-04-22 02:22:29,419 - silver.facts - INFO - Generando fact_renta...
+2026-04-22 02:22:29,964 - silver.facts - INFO - fact_renta cols: ['codigo_municipio', 'nombre_municipio', 'provincia', 'anio', 'valor']
+2026-04-22 02:22:30,942 - silver.facts - INFO - fact_renta: 73251 filas
+2026-04-22 02:22:30,944 - silver.facts - INFO - Generando fact_migracion_neta...
+2026-04-22 02:22:31,187 - silver.facts - INFO - fact_migracion cols: ['codigo_municipio', 'nombre_municipio', 'codigo_provincia', 'provincia', 'anio', 'sexo', 'nacionalidad', 'valor']
+2026-04-22 02:22:32,343 - silver.facts - INFO - fact_migracion_neta: 32528 filas
+2026-04-22 02:22:32,345 - silver.facts - INFO - Generando fact_conectividad...
+2026-04-22 02:22:32,634 - silver.facts - INFO - fact_conectividad cols: ['LAU_ID', 'LAU_NAME', 'Anio', 'Vehiculos_Oficial', 'Indice_Conectividad', 'Poblacion_Est']
+2026-04-22 02:22:33,654 - silver.facts - INFO - fact_conectividad: 130096 filas
+2026-04-22 02:22:33,660 - silver.facts - INFO - Generando fact_empresas_transporte...
+2026-04-22 02:22:33,891 - silver.facts - INFO - fact_empresas cols: ['codigo', 'nombre', 'tipo', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025']
+2026-04-22 02:22:42,885 - silver.facts - INFO - fact_empresas_transporte: 114632 filas
+2026-04-22 02:22:42,888 - silver.facts - INFO - Generando fact_osm_logistica...
+2026-04-22 02:22:44,273 - silver.facts - INFO - fact_osm_logistica: 8131 filas
+2026-04-22 02:22:44,274 - silver.facts - INFO - Generando fact_viirs...
+2026-04-22 02:22:44,282 - silver.facts - INFO - Leyendo VIIRS raw CSV: ../data/raw/luz_nocturna/viirs_luz_nocturna.csv
+2026-04-22 02:22:44,905 - silver.facts - INFO - fact_viirs cols: ['AREA_KM2', 'CNTR_CODE', 'GISCO_ID', 'LAU_ID', 'LAU_NAME', 'POP_2023', 'YEAR', 'date', 'max', 'mean', 'min', 'stdDev']
+2026-04-22 02:23:05,645 - silver.facts - INFO - fact_viirs: 1366008 filas
+2026-04-22 02:23:05,646 - silver.facts - INFO - ============================================================
+2026-04-22 02:23:05,647 - silver.facts - INFO - GENERACIÓN DE FACT TABLES COMPLETADA
+2026-04-22 02:23:05,648 - silver.facts - INFO - ============================================================
+2026-04-22 02:23:05,656 - silver.satelital - INFO - Generando fact_satelital...
+2026-04-22 02:23:07,555 - silver.satelital - INFO - fact_satelital: 296 productos escritos → hdfs://localhost:9000/geolumica/silver/fact/fact_satelital.parquet
+2026-04-22 02:23:07,576 - __main__ - INFO - ----------------------------------------------------------------------
+2026-04-22 02:23:07,578 - __main__ - INFO - Validando capa Silver...
+2026-04-22 02:23:11,196 - __main__ - INFO - ✅ dim_municipio.parquet
+2026-04-22 02:23:13,269 - __main__ - INFO - ✅ dim_provincia.parquet
+2026-04-22 02:23:15,448 - __main__ - INFO - ✅ dim_fecha_anual.parquet
+2026-04-22 02:23:17,021 - __main__ - INFO - ✅ fact_demografia.parquet
+2026-04-22 02:23:18,768 - __main__ - INFO - ✅ fact_energia.parquet
+2026-04-22 02:23:20,964 - __main__ - INFO - ✅ fact_renta.parquet
+2026-04-22 02:23:22,977 - __main__ - INFO - ✅ fact_migracion_neta.parquet
+2026-04-22 02:23:24,668 - __main__ - INFO - ✅ fact_conectividad.parquet
+2026-04-22 02:23:26,465 - __main__ - INFO - ✅ fact_empresas_transporte.parquet
+2026-04-22 02:23:28,621 - __main__ - INFO - ✅ fact_osm_logistica.parquet
+2026-04-22 02:23:30,318 - __main__ - INFO - ✅ fact_viirs.parquet
+2026-04-22 02:23:32,178 - __main__ - INFO - ✅ fact_satelital.parquet
+2026-04-22 02:23:32,179 - __main__ - INFO - ✅ Silver layer válida
+2026-04-22 02:23:32,180 - __main__ - INFO - ======================================================================
+2026-04-22 02:23:32,181 - __main__ - INFO - ✅ PIPELINE COMPLETADO EXITOSAMENTE
+2026-04-22 02:23:32,182 - __main__ - INFO - ======================================================================
+2026-04-22 02:23:32,368 - __main__ - INFO - Sesión Spark cerrada
+2026-04-22 02:23:32,376 - py4j.clientserver - INFO - Closing down clientserver connection
+2026-04-22 02:37:42,877 - __main__ - INFO - ======================================================================
+2026-04-22 02:37:42,879 - __main__ - INFO - INICIANDO PIPELINE RAW → SILVER (GeoLúmica)
+2026-04-22 02:37:42,880 - __main__ - INFO - Timestamp: 2026-04-22T02:37:42.880264
+2026-04-22 02:37:42,881 - __main__ - INFO - ======================================================================
+2026-04-22 02:37:42,881 - __main__ - INFO - Validando capa Raw...
+2026-04-22 02:37:43,010 - __main__ - INFO - ✅ Raw validado correctamente (archivos requeridos presentes)
+2026-04-22 02:37:43,011 - __main__ - INFO - Path HDFS (ya creado): hdfs://localhost:9000/geolumica/silver/dim
+2026-04-22 02:37:43,012 - __main__ - INFO - Path HDFS (ya creado): hdfs://localhost:9000/geolumica/silver/fact
+2026-04-22 02:37:43,013 - __main__ - INFO - Iniciando sesión Spark...
+2026-04-22 02:37:57,971 - __main__ - INFO - Spark versión: 3.5.1
+2026-04-22 02:37:57,971 - __main__ - INFO - ----------------------------------------------------------------------
+2026-04-22 02:37:57,976 - silver.dimensions - INFO - ============================================================
+2026-04-22 02:37:57,976 - silver.dimensions - INFO - INICIANDO GENERACIÓN DE DIMENSIONES (Silver)
+2026-04-22 02:37:57,978 - silver.dimensions - INFO - ============================================================
+2026-04-22 02:37:57,979 - silver.dimensions - INFO - Generando dim_municipio desde /mnt/c/Users/ferna/Documents/GitHub/Proyecto_Big_Data_I/Proyecto_Big_Data_I/municipios_es.geojson
+2026-04-22 02:38:07,752 - silver.dimensions - INFO - dim_municipio: 8131 registros → hdfs://localhost:9000/geolumica/silver/dim/dim_municipio.parquet
+2026-04-22 02:38:07,770 - silver.dimensions - INFO - Generando dim_provincia...
+2026-04-22 02:38:08,737 - silver.dimensions - INFO - dim_provincia: 52 registros → hdfs://localhost:9000/geolumica/silver/dim/dim_provincia.parquet
+2026-04-22 02:38:08,751 - silver.dimensions - INFO - Generando dim_fecha_anual...
+2026-04-22 02:38:09,133 - silver.dimensions - INFO - dim_fecha_anual: 31 registros → hdfs://localhost:9000/geolumica/silver/dim/dim_fecha_anual.parquet
+2026-04-22 02:38:09,134 - silver.dimensions - INFO - ✅ Dimensiones generadas
+2026-04-22 02:38:09,139 - __main__ - INFO - ----------------------------------------------------------------------
+2026-04-22 02:38:09,140 - silver.facts - INFO - ============================================================
+2026-04-22 02:38:09,140 - silver.facts - INFO - INICIANDO GENERACIÓN DE FACT TABLES (Silver)
+2026-04-22 02:38:09,141 - silver.facts - INFO - ============================================================
+2026-04-22 02:38:09,141 - silver.facts - INFO - Generando fact_demografia...
+2026-04-22 02:38:10,421 - silver.facts - INFO - fact_demografia cols: ['municipio', 'year', 'population']
+2026-04-22 02:38:10,423 - silver.facts - WARNING - fact_demografia: sin cod_muni ni dim_municipio disponible
+2026-04-22 02:38:10,440 - silver.facts - INFO - Generando fact_energia...
+2026-04-22 02:38:11,196 - silver.facts - INFO - fact_energia cols: ['Codigo', 'Nombre', 'Consumo eléctrico', 'Total']
+2026-04-22 02:38:13,007 - silver.facts - INFO - fact_energia: 3185 filas
+2026-04-22 02:38:13,031 - silver.facts - INFO - Generando fact_renta...
+2026-04-22 02:38:13,605 - silver.facts - INFO - fact_renta cols: ['codigo_municipio', 'nombre_municipio', 'provincia', 'anio', 'valor']
+2026-04-22 02:38:14,527 - silver.facts - INFO - fact_renta: 73251 filas
+2026-04-22 02:38:14,528 - silver.facts - INFO - Generando fact_migracion_neta...
+2026-04-22 02:38:14,743 - silver.facts - INFO - fact_migracion cols: ['codigo_municipio', 'nombre_municipio', 'codigo_provincia', 'provincia', 'anio', 'sexo', 'nacionalidad', 'valor']
+2026-04-22 02:38:15,589 - silver.facts - INFO - fact_migracion_neta: 32528 filas
+2026-04-22 02:38:15,590 - silver.facts - INFO - Generando fact_conectividad...
+2026-04-22 02:38:15,829 - silver.facts - INFO - fact_conectividad cols: ['LAU_ID', 'LAU_NAME', 'Anio', 'Vehiculos_Oficial', 'Indice_Conectividad', 'Poblacion_Est']
+2026-04-22 02:38:17,271 - silver.facts - INFO - fact_conectividad: 130096 filas
+2026-04-22 02:38:17,274 - silver.facts - INFO - Generando fact_empresas_transporte...
+2026-04-22 02:38:17,876 - silver.facts - INFO - fact_empresas cols: ['codigo', 'nombre', 'tipo', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025']
+2026-04-22 02:38:27,491 - silver.facts - INFO - fact_empresas_transporte: 114632 filas
+2026-04-22 02:38:27,496 - silver.facts - INFO - Generando fact_osm_logistica...
+2026-04-22 02:38:29,053 - silver.facts - INFO - fact_osm_logistica: 8131 filas
+2026-04-22 02:38:29,054 - silver.facts - INFO - Generando fact_viirs...
+2026-04-22 02:38:29,069 - silver.facts - INFO - Leyendo VIIRS raw CSV: ../data/raw/luz_nocturna/viirs_luz_nocturna.csv
+2026-04-22 02:38:29,554 - silver.facts - INFO - fact_viirs cols: ['AREA_KM2', 'CNTR_CODE', 'GISCO_ID', 'LAU_ID', 'LAU_NAME', 'POP_2023', 'YEAR', 'date', 'max', 'mean', 'min', 'stdDev']
+2026-04-22 02:38:52,572 - silver.facts - INFO - fact_viirs: 1366008 filas
+2026-04-22 02:38:52,577 - silver.facts - INFO - ============================================================
+2026-04-22 02:38:52,579 - silver.facts - INFO - GENERACIÓN DE FACT TABLES COMPLETADA
+2026-04-22 02:38:52,580 - silver.facts - INFO - ============================================================
+2026-04-22 02:38:52,588 - silver.satelital - INFO - Generando fact_satelital...
+2026-04-22 02:38:54,901 - silver.satelital - INFO - fact_satelital: 296 productos escritos → hdfs://localhost:9000/geolumica/silver/fact/fact_satelital.parquet
+2026-04-22 02:38:54,904 - __main__ - INFO - ----------------------------------------------------------------------
+2026-04-22 02:38:54,905 - __main__ - INFO - Validando capa Silver...
+2026-04-22 02:38:57,084 - __main__ - INFO - ✅ dim_municipio.parquet
+2026-04-22 02:38:58,765 - __main__ - INFO - ✅ dim_provincia.parquet
+2026-04-22 02:39:00,398 - __main__ - INFO - ✅ dim_fecha_anual.parquet
+2026-04-22 02:39:02,589 - __main__ - INFO - ✅ fact_demografia.parquet
+2026-04-22 02:39:04,349 - __main__ - INFO - ✅ fact_energia.parquet
+2026-04-22 02:39:06,000 - __main__ - INFO - ✅ fact_renta.parquet
+2026-04-22 02:39:07,374 - __main__ - INFO - ✅ fact_migracion_neta.parquet
+2026-04-22 02:39:08,767 - __main__ - INFO - ✅ fact_conectividad.parquet
+2026-04-22 02:39:10,384 - __main__ - INFO - ✅ fact_empresas_transporte.parquet
+2026-04-22 02:39:11,253 - __main__ - INFO - ✅ fact_osm_logistica.parquet
+2026-04-22 02:39:13,290 - __main__ - INFO - ✅ fact_viirs.parquet
+2026-04-22 02:39:15,060 - __main__ - INFO - ✅ fact_satelital.parquet
+2026-04-22 02:39:15,062 - __main__ - INFO - ✅ Silver layer válida
+2026-04-22 02:39:15,064 - __main__ - INFO - ======================================================================
+2026-04-22 02:39:15,066 - __main__ - INFO - ✅ PIPELINE COMPLETADO EXITOSAMENTE
+2026-04-22 02:39:15,067 - __main__ - INFO - ======================================================================
+2026-04-22 02:39:15,311 - __main__ - INFO - Sesión Spark cerrada
+2026-04-22 02:39:15,364 - py4j.clientserver - INFO - Closing down clientserver connection
+2026-04-22 02:41:17,220 - __main__ - INFO - ======================================================================
+2026-04-22 02:41:17,221 - __main__ - INFO - INICIANDO PIPELINE RAW → SILVER (GeoLúmica)
+2026-04-22 02:41:17,222 - __main__ - INFO - Timestamp: 2026-04-22T02:41:17.222502
+2026-04-22 02:41:17,223 - __main__ - INFO - ======================================================================
+2026-04-22 02:41:17,224 - __main__ - INFO - Validando capa Raw...
+2026-04-22 02:41:17,286 - __main__ - INFO - ✅ Raw validado correctamente (archivos requeridos presentes)
+2026-04-22 02:41:17,288 - __main__ - INFO - Path HDFS (ya creado): hdfs://localhost:9000/geolumica/silver/dim
+2026-04-22 02:41:17,289 - __main__ - INFO - Path HDFS (ya creado): hdfs://localhost:9000/geolumica/silver/fact
+2026-04-22 02:41:17,291 - __main__ - INFO - Iniciando sesión Spark...
+2026-04-22 02:41:30,568 - __main__ - INFO - Spark versión: 3.5.1
+2026-04-22 02:41:30,569 - __main__ - INFO - ----------------------------------------------------------------------
+2026-04-22 02:41:30,569 - silver.dimensions - INFO - ============================================================
+2026-04-22 02:41:30,569 - silver.dimensions - INFO - INICIANDO GENERACIÓN DE DIMENSIONES (Silver)
+2026-04-22 02:41:30,570 - silver.dimensions - INFO - ============================================================
+2026-04-22 02:41:30,570 - silver.dimensions - INFO - Generando dim_municipio desde /mnt/c/Users/ferna/Documents/GitHub/Proyecto_Big_Data_I/Proyecto_Big_Data_I/municipios_es.geojson
+2026-04-22 02:41:36,262 - silver.dimensions - INFO - dim_municipio: 8131 registros → hdfs://localhost:9000/geolumica/silver/dim/dim_municipio.parquet
+2026-04-22 02:41:36,285 - silver.dimensions - INFO - Generando dim_provincia...
+2026-04-22 02:41:37,974 - silver.dimensions - INFO - dim_provincia: 52 registros → hdfs://localhost:9000/geolumica/silver/dim/dim_provincia.parquet
+2026-04-22 02:41:37,999 - silver.dimensions - INFO - Generando dim_fecha_anual...
+2026-04-22 02:41:38,512 - silver.dimensions - INFO - dim_fecha_anual: 31 registros → hdfs://localhost:9000/geolumica/silver/dim/dim_fecha_anual.parquet
+2026-04-22 02:41:38,513 - silver.dimensions - INFO - ✅ Dimensiones generadas
+2026-04-22 02:41:38,513 - __main__ - INFO - ----------------------------------------------------------------------
+2026-04-22 02:41:38,514 - silver.facts - INFO - ============================================================
+2026-04-22 02:41:38,514 - silver.facts - INFO - INICIANDO GENERACIÓN DE FACT TABLES (Silver)
+2026-04-22 02:41:38,515 - silver.facts - INFO - ============================================================
+2026-04-22 02:41:38,515 - silver.facts - INFO - Generando fact_demografia...
+2026-04-22 02:41:39,877 - silver.facts - INFO - fact_demografia cols: ['municipio', 'year', 'population']
+2026-04-22 02:41:42,859 - silver.facts - INFO - fact_demografia: 232110 filas
+2026-04-22 02:41:42,860 - silver.facts - INFO - Generando fact_energia...
+2026-04-22 02:41:43,068 - silver.facts - INFO - fact_energia cols: ['Codigo', 'Nombre', 'Consumo eléctrico', 'Total']
+2026-04-22 02:41:44,430 - silver.facts - INFO - fact_energia: 3185 filas
+2026-04-22 02:41:44,432 - silver.facts - INFO - Generando fact_renta...
+2026-04-22 02:41:44,647 - silver.facts - INFO - fact_renta cols: ['codigo_municipio', 'nombre_municipio', 'provincia', 'anio', 'valor']
+2026-04-22 02:41:45,854 - silver.facts - INFO - fact_renta: 73251 filas
+2026-04-22 02:41:45,890 - silver.facts - INFO - Generando fact_migracion_neta...
+2026-04-22 02:41:46,238 - silver.facts - INFO - fact_migracion cols: ['codigo_municipio', 'nombre_municipio', 'codigo_provincia', 'provincia', 'anio', 'sexo', 'nacionalidad', 'valor']
+2026-04-22 02:41:47,277 - silver.facts - INFO - fact_migracion_neta: 32528 filas
+2026-04-22 02:41:47,283 - silver.facts - INFO - Generando fact_conectividad...
+2026-04-22 02:41:47,501 - silver.facts - INFO - fact_conectividad cols: ['LAU_ID', 'LAU_NAME', 'Anio', 'Vehiculos_Oficial', 'Indice_Conectividad', 'Poblacion_Est']
+2026-04-22 02:41:49,562 - silver.facts - INFO - fact_conectividad: 130096 filas
+2026-04-22 02:41:49,565 - silver.facts - INFO - Generando fact_empresas_transporte...
+2026-04-22 02:41:50,182 - silver.facts - INFO - fact_empresas cols: ['codigo', 'nombre', 'tipo', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025']
+2026-04-22 02:41:59,798 - silver.facts - INFO - fact_empresas_transporte: 114632 filas
+2026-04-22 02:41:59,814 - silver.facts - INFO - Generando fact_osm_logistica...
+2026-04-22 02:42:01,256 - silver.facts - INFO - fact_osm_logistica: 8131 filas
+2026-04-22 02:42:01,257 - silver.facts - INFO - Generando fact_viirs...
+2026-04-22 02:42:01,266 - silver.facts - INFO - Leyendo VIIRS raw CSV: ../data/raw/luz_nocturna/viirs_luz_nocturna.csv
+2026-04-22 02:42:01,938 - silver.facts - INFO - fact_viirs cols: ['AREA_KM2', 'CNTR_CODE', 'GISCO_ID', 'LAU_ID', 'LAU_NAME', 'POP_2023', 'YEAR', 'date', 'max', 'mean', 'min', 'stdDev']
+2026-04-22 02:42:25,593 - silver.facts - INFO - fact_viirs: 1366008 filas
+2026-04-22 02:42:25,599 - silver.facts - INFO - ============================================================
+2026-04-22 02:42:25,602 - silver.facts - INFO - GENERACIÓN DE FACT TABLES COMPLETADA
+2026-04-22 02:42:25,612 - silver.facts - INFO - ============================================================
+2026-04-22 02:42:25,660 - silver.satelital - INFO - Generando fact_satelital...
+2026-04-22 02:42:28,153 - silver.satelital - INFO - fact_satelital: 296 productos escritos → hdfs://localhost:9000/geolumica/silver/fact/fact_satelital.parquet
+2026-04-22 02:42:28,154 - __main__ - INFO - ----------------------------------------------------------------------
+2026-04-22 02:42:28,156 - __main__ - INFO - Validando capa Silver...
+2026-04-22 02:42:29,986 - __main__ - INFO - ✅ dim_municipio.parquet
+2026-04-22 02:42:31,708 - __main__ - INFO - ✅ dim_provincia.parquet
+2026-04-22 02:42:33,759 - __main__ - INFO - ✅ dim_fecha_anual.parquet
+2026-04-22 02:42:34,840 - __main__ - INFO - ✅ fact_demografia.parquet
+2026-04-22 02:42:36,892 - __main__ - INFO - ✅ fact_energia.parquet
+2026-04-22 02:42:38,655 - __main__ - INFO - ✅ fact_renta.parquet
+2026-04-22 02:42:40,514 - __main__ - INFO - ✅ fact_migracion_neta.parquet
+2026-04-22 02:42:42,381 - __main__ - INFO - ✅ fact_conectividad.parquet
+2026-04-22 02:42:44,434 - __main__ - INFO - ✅ fact_empresas_transporte.parquet
+2026-04-22 02:42:46,041 - __main__ - INFO - ✅ fact_osm_logistica.parquet
+2026-04-22 02:42:47,765 - __main__ - INFO - ✅ fact_viirs.parquet
+2026-04-22 02:42:49,529 - __main__ - INFO - ✅ fact_satelital.parquet
+2026-04-22 02:42:49,530 - __main__ - INFO - ✅ Silver layer válida
+2026-04-22 02:42:49,532 - __main__ - INFO - ======================================================================
+2026-04-22 02:42:49,535 - __main__ - INFO - ✅ PIPELINE COMPLETADO EXITOSAMENTE
+2026-04-22 02:42:49,536 - __main__ - INFO - ======================================================================
+2026-04-22 02:42:50,636 - __main__ - INFO - Sesión Spark cerrada
+2026-04-22 02:42:50,650 - py4j.clientserver - INFO - Closing down clientserver connection
+2026-04-22 02:50:03,973 - __main__ - INFO - ======================================================================
+2026-04-22 02:50:03,974 - __main__ - INFO - INICIANDO PIPELINE RAW → SILVER (GeoLúmica)
+2026-04-22 02:50:03,976 - __main__ - INFO - Timestamp: 2026-04-22T02:50:03.976123
+2026-04-22 02:50:03,977 - __main__ - INFO - ======================================================================
+2026-04-22 02:50:03,978 - __main__ - INFO - Validando capa Raw...
+2026-04-22 02:50:04,045 - __main__ - INFO - ✅ Raw validado correctamente (archivos requeridos presentes)
+2026-04-22 02:50:04,046 - __main__ - INFO - Path HDFS (ya creado): hdfs://localhost:9000/geolumica/silver/dim
+2026-04-22 02:50:04,049 - __main__ - INFO - Path HDFS (ya creado): hdfs://localhost:9000/geolumica/silver/fact
+2026-04-22 02:50:04,050 - __main__ - INFO - Iniciando sesión Spark...
+2026-04-22 02:50:18,009 - __main__ - INFO - Spark versión: 3.5.1
+2026-04-22 02:50:18,011 - __main__ - INFO - ----------------------------------------------------------------------
+2026-04-22 02:50:18,011 - silver.dimensions - INFO - ============================================================
+2026-04-22 02:50:18,012 - silver.dimensions - INFO - INICIANDO GENERACIÓN DE DIMENSIONES (Silver)
+2026-04-22 02:50:18,013 - silver.dimensions - INFO - ============================================================
+2026-04-22 02:50:18,014 - silver.dimensions - INFO - Generando dim_municipio desde /mnt/c/Users/ferna/Documents/GitHub/Proyecto_Big_Data_I/Proyecto_Big_Data_I/municipios_es.geojson
+2026-04-22 02:50:24,054 - silver.dimensions - INFO - dim_municipio: 8131 registros → hdfs://localhost:9000/geolumica/silver/dim/dim_municipio.parquet
+2026-04-22 02:50:24,081 - silver.dimensions - INFO - Generando dim_provincia...
+2026-04-22 02:50:24,931 - silver.dimensions - INFO - dim_provincia: 52 registros → hdfs://localhost:9000/geolumica/silver/dim/dim_provincia.parquet
+2026-04-22 02:50:24,947 - silver.dimensions - INFO - Generando dim_fecha_anual...
+2026-04-22 02:50:25,346 - silver.dimensions - INFO - dim_fecha_anual: 31 registros → hdfs://localhost:9000/geolumica/silver/dim/dim_fecha_anual.parquet
+2026-04-22 02:50:25,346 - silver.dimensions - INFO - ✅ Dimensiones generadas
+2026-04-22 02:50:25,347 - __main__ - INFO - ----------------------------------------------------------------------
+2026-04-22 02:50:25,347 - silver.facts - INFO - ============================================================
+2026-04-22 02:50:25,348 - silver.facts - INFO - INICIANDO GENERACIÓN DE FACT TABLES (Silver)
+2026-04-22 02:50:25,349 - silver.facts - INFO - ============================================================
+2026-04-22 02:50:25,349 - silver.facts - INFO - Generando fact_demografia...
+2026-04-22 02:50:27,091 - silver.facts - INFO - fact_demografia cols: ['municipio', 'year', 'population']
+2026-04-22 02:50:30,813 - silver.facts - INFO - fact_demografia: 231124 filas
+2026-04-22 02:50:30,815 - silver.facts - INFO - Generando fact_energia...
+2026-04-22 02:50:31,052 - silver.facts - INFO - fact_energia cols: ['Codigo', 'Nombre', 'Consumo eléctrico', 'Total']
+2026-04-22 02:50:31,983 - silver.facts - INFO - fact_energia: 3185 filas
+2026-04-22 02:50:31,986 - silver.facts - INFO - Generando fact_renta...
+2026-04-22 02:50:32,267 - silver.facts - INFO - fact_renta cols: ['codigo_municipio', 'nombre_municipio', 'provincia', 'anio', 'valor']
+2026-04-22 02:50:33,294 - silver.facts - INFO - fact_renta: 73251 filas
+2026-04-22 02:50:33,297 - silver.facts - INFO - Generando fact_migracion_neta...
+2026-04-22 02:50:33,586 - silver.facts - INFO - fact_migracion cols: ['codigo_municipio', 'nombre_municipio', 'codigo_provincia', 'provincia', 'anio', 'sexo', 'nacionalidad', 'valor']
+2026-04-22 02:50:34,632 - silver.facts - INFO - fact_migracion_neta: 32528 filas
+2026-04-22 02:50:34,633 - silver.facts - INFO - Generando fact_conectividad...
+2026-04-22 02:50:34,964 - silver.facts - INFO - fact_conectividad cols: ['LAU_ID', 'LAU_NAME', 'Anio', 'Vehiculos_Oficial', 'Indice_Conectividad', 'Poblacion_Est']
+2026-04-22 02:50:36,275 - silver.facts - INFO - fact_conectividad: 130096 filas
+2026-04-22 02:50:36,314 - silver.facts - INFO - Generando fact_empresas_transporte...
+2026-04-22 02:50:36,905 - silver.facts - INFO - fact_empresas cols: ['codigo', 'nombre', 'tipo', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025']
+2026-04-22 02:50:41,625 - silver.facts - INFO - fact_empresas_transporte: 114632 filas
+2026-04-22 02:50:41,626 - silver.facts - INFO - Generando fact_osm_logistica...
+2026-04-22 02:50:42,846 - silver.facts - INFO - fact_osm_logistica: 8131 filas
+2026-04-22 02:50:42,847 - silver.facts - INFO - Generando fact_viirs...
+2026-04-22 02:50:42,853 - silver.facts - INFO - Leyendo VIIRS raw CSV: ../data/raw/luz_nocturna/viirs_luz_nocturna.csv
+2026-04-22 02:50:43,068 - silver.facts - INFO - fact_viirs cols: ['AREA_KM2', 'CNTR_CODE', 'GISCO_ID', 'LAU_ID', 'LAU_NAME', 'POP_2023', 'YEAR', 'date', 'max', 'mean', 'min', 'stdDev']
+2026-04-22 02:51:00,849 - silver.facts - INFO - fact_viirs: 1366008 filas
+2026-04-22 02:51:00,851 - silver.facts - INFO - ============================================================
+2026-04-22 02:51:00,852 - silver.facts - INFO - GENERACIÓN DE FACT TABLES COMPLETADA
+2026-04-22 02:51:00,854 - silver.facts - INFO - ============================================================
+2026-04-22 02:51:00,877 - silver.satelital - INFO - Generando fact_satelital...
+2026-04-22 02:51:02,052 - silver.satelital - INFO - fact_satelital: 296 productos escritos → hdfs://localhost:9000/geolumica/silver/fact/fact_satelital.parquet
+2026-04-22 02:51:02,056 - __main__ - INFO - ----------------------------------------------------------------------
+2026-04-22 02:51:02,056 - __main__ - INFO - Validando capa Silver...
+2026-04-22 02:51:03,645 - __main__ - INFO - ✅ dim_municipio.parquet
+2026-04-22 02:51:05,568 - __main__ - INFO - ✅ dim_provincia.parquet
+2026-04-22 02:51:07,438 - __main__ - INFO - ✅ dim_fecha_anual.parquet
+2026-04-22 02:51:09,445 - __main__ - INFO - ✅ fact_demografia.parquet
+2026-04-22 02:51:11,191 - __main__ - INFO - ✅ fact_energia.parquet
+2026-04-22 02:51:12,722 - __main__ - INFO - ✅ fact_renta.parquet
+2026-04-22 02:51:14,753 - __main__ - INFO - ✅ fact_migracion_neta.parquet
+2026-04-22 02:51:16,320 - __main__ - INFO - ✅ fact_conectividad.parquet
+2026-04-22 02:51:16,801 - __main__ - INFO - ✅ fact_empresas_transporte.parquet
+2026-04-22 02:51:18,244 - __main__ - INFO - ✅ fact_osm_logistica.parquet
+2026-04-22 02:51:19,629 - __main__ - INFO - ✅ fact_viirs.parquet
+2026-04-22 02:51:21,150 - __main__ - INFO - ✅ fact_satelital.parquet
+2026-04-22 02:51:21,152 - __main__ - INFO - ✅ Silver layer válida
+2026-04-22 02:51:21,153 - __main__ - INFO - ======================================================================
+2026-04-22 02:51:21,154 - __main__ - INFO - ✅ PIPELINE COMPLETADO EXITOSAMENTE
+2026-04-22 02:51:21,155 - __main__ - INFO - ======================================================================
+2026-04-22 02:51:21,453 - __main__ - INFO - Sesión Spark cerrada
+2026-04-22 02:51:21,461 - py4j.clientserver - INFO - Closing down clientserver connection
+2026-04-22 03:03:10,365 - __main__ - INFO - ======================================================================
+2026-04-22 03:03:10,366 - __main__ - INFO - INICIANDO PIPELINE RAW → SILVER (GeoLúmica)
+2026-04-22 03:03:10,367 - __main__ - INFO - Timestamp: 2026-04-22T03:03:10.367470
+2026-04-22 03:03:10,368 - __main__ - INFO - ======================================================================
+2026-04-22 03:03:10,369 - __main__ - INFO - Validando capa Raw...
+2026-04-22 03:03:10,439 - __main__ - INFO - ✅ Raw validado correctamente (archivos requeridos presentes)
+2026-04-22 03:03:10,440 - __main__ - INFO - Path HDFS (ya creado): hdfs://localhost:9000/geolumica/silver/dim
+2026-04-22 03:03:10,441 - __main__ - INFO - Path HDFS (ya creado): hdfs://localhost:9000/geolumica/silver/fact
+2026-04-22 03:03:10,442 - __main__ - INFO - Iniciando sesión Spark...
+2026-04-22 03:03:26,124 - __main__ - INFO - Spark versión: 3.5.1
+2026-04-22 03:03:26,124 - __main__ - INFO - ----------------------------------------------------------------------
+2026-04-22 03:03:26,125 - silver.dimensions - INFO - ============================================================
+2026-04-22 03:03:26,126 - silver.dimensions - INFO - INICIANDO GENERACIÓN DE DIMENSIONES (Silver)
+2026-04-22 03:03:26,126 - silver.dimensions - INFO - ============================================================
+2026-04-22 03:03:26,127 - silver.dimensions - INFO - Generando dim_municipio desde /mnt/c/Users/ferna/Documents/GitHub/Proyecto_Big_Data_I/Proyecto_Big_Data_I/municipios_es.geojson
+2026-04-22 03:03:37,247 - silver.dimensions - INFO - dim_municipio: 8131 registros → hdfs://localhost:9000/geolumica/silver/dim/dim_municipio.parquet
+2026-04-22 03:03:37,269 - silver.dimensions - INFO - Generando dim_provincia...
+2026-04-22 03:03:39,176 - silver.dimensions - INFO - dim_provincia: 52 registros → hdfs://localhost:9000/geolumica/silver/dim/dim_provincia.parquet
+2026-04-22 03:03:39,192 - silver.dimensions - INFO - Generando dim_fecha_anual...
+2026-04-22 03:03:40,135 - silver.dimensions - INFO - dim_fecha_anual: 31 registros → hdfs://localhost:9000/geolumica/silver/dim/dim_fecha_anual.parquet
+2026-04-22 03:03:40,136 - silver.dimensions - INFO - ✅ Dimensiones generadas
+2026-04-22 03:03:40,137 - __main__ - INFO - ----------------------------------------------------------------------
+2026-04-22 03:03:40,138 - silver.facts - INFO - ============================================================
+2026-04-22 03:03:40,139 - silver.facts - INFO - INICIANDO GENERACIÓN DE FACT TABLES (Silver)
+2026-04-22 03:03:40,140 - silver.facts - INFO - ============================================================
+2026-04-22 03:03:40,141 - silver.facts - INFO - Generando fact_demografia...
+2026-04-22 03:03:41,756 - silver.facts - INFO - fact_demografia cols: ['municipio', 'year', 'population']
+2026-04-22 03:03:45,572 - silver.facts - INFO - fact_demografia: 231124 filas
+2026-04-22 03:03:45,574 - silver.facts - INFO - Generando fact_energia...
+2026-04-22 03:03:45,874 - silver.facts - INFO - fact_energia cols: ['Codigo', 'Nombre', 'Consumo eléctrico', 'Total']
+2026-04-22 03:03:47,367 - silver.facts - INFO - fact_energia: 3185 filas
+2026-04-22 03:03:47,368 - silver.facts - INFO - Generando fact_renta...
+2026-04-22 03:03:47,883 - silver.facts - INFO - fact_renta cols: ['codigo_municipio', 'nombre_municipio', 'provincia', 'anio', 'valor']
+2026-04-22 03:03:49,353 - silver.facts - INFO - fact_renta: 73251 filas
+2026-04-22 03:03:49,355 - silver.facts - INFO - Generando fact_migracion_neta...
+2026-04-22 03:03:49,591 - silver.facts - INFO - fact_migracion cols: ['codigo_municipio', 'nombre_municipio', 'codigo_provincia', 'provincia', 'anio', 'sexo', 'nacionalidad', 'valor']
+2026-04-22 03:03:51,137 - silver.facts - INFO - fact_migracion_neta: 32528 filas
+2026-04-22 03:03:51,138 - silver.facts - INFO - Generando fact_conectividad...
+2026-04-22 03:03:51,372 - silver.facts - INFO - fact_conectividad cols: ['LAU_ID', 'LAU_NAME', 'Anio', 'Vehiculos_Oficial', 'Indice_Conectividad', 'Poblacion_Est']
+2026-04-22 03:03:51,768 - silver.facts - INFO - fact_conectividad: 130096 filas
+2026-04-22 03:03:51,769 - silver.facts - INFO - Generando fact_empresas_transporte...
+2026-04-22 03:03:52,013 - silver.facts - INFO - fact_empresas cols: ['codigo', 'nombre', 'tipo', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025']
+2026-04-22 03:03:59,214 - silver.facts - INFO - fact_empresas_transporte: 114632 filas
+2026-04-22 03:03:59,220 - silver.facts - INFO - Generando fact_osm_logistica...
+2026-04-22 03:04:00,458 - silver.facts - INFO - fact_osm_logistica: 8131 filas
+2026-04-22 03:04:00,464 - silver.facts - INFO - Generando fact_viirs...
+2026-04-22 03:04:00,476 - silver.facts - INFO - Leyendo VIIRS raw CSV: ../data/raw/luz_nocturna/viirs_luz_nocturna.csv
+2026-04-22 03:04:00,991 - silver.facts - INFO - fact_viirs cols: ['AREA_KM2', 'CNTR_CODE', 'GISCO_ID', 'LAU_ID', 'LAU_NAME', 'POP_2023', 'YEAR', 'date', 'max', 'mean', 'min', 'stdDev']
+2026-04-22 03:04:19,085 - silver.facts - INFO - fact_viirs: 1366008 filas
+2026-04-22 03:04:19,087 - silver.facts - INFO - ============================================================
+2026-04-22 03:04:19,088 - silver.facts - INFO - GENERACIÓN DE FACT TABLES COMPLETADA
+2026-04-22 03:04:19,089 - silver.facts - INFO - ============================================================
+2026-04-22 03:04:19,103 - silver.satelital - INFO - Generando fact_satelital...
+2026-04-22 03:04:20,603 - silver.satelital - INFO - fact_satelital: 296 productos escritos → hdfs://localhost:9000/geolumica/silver/fact/fact_satelital.parquet
+2026-04-22 03:04:20,606 - __main__ - INFO - ----------------------------------------------------------------------
+2026-04-22 03:04:20,607 - __main__ - INFO - Validando capa Silver...
+2026-04-22 03:04:22,391 - __main__ - INFO - ✅ dim_municipio.parquet
+2026-04-22 03:04:24,182 - __main__ - INFO - ✅ dim_provincia.parquet
+2026-04-22 03:04:25,858 - __main__ - INFO - ✅ dim_fecha_anual.parquet
+2026-04-22 03:04:27,692 - __main__ - INFO - ✅ fact_demografia.parquet
+2026-04-22 03:04:29,570 - __main__ - INFO - ✅ fact_energia.parquet
+2026-04-22 03:04:31,030 - __main__ - INFO - ✅ fact_renta.parquet
+2026-04-22 03:04:32,519 - __main__ - INFO - ✅ fact_migracion_neta.parquet
+2026-04-22 03:04:34,314 - __main__ - INFO - ✅ fact_conectividad.parquet
+2026-04-22 03:04:36,175 - __main__ - INFO - ✅ fact_empresas_transporte.parquet
+2026-04-22 03:04:37,672 - __main__ - INFO - ✅ fact_osm_logistica.parquet
+2026-04-22 03:04:39,481 - __main__ - INFO - ✅ fact_viirs.parquet
+2026-04-22 03:04:41,296 - __main__ - INFO - ✅ fact_satelital.parquet
+2026-04-22 03:04:41,297 - __main__ - INFO - ✅ Silver layer válida
+2026-04-22 03:04:41,299 - __main__ - INFO - ======================================================================
+2026-04-22 03:04:41,300 - __main__ - INFO - ✅ PIPELINE COMPLETADO EXITOSAMENTE
+2026-04-22 03:04:41,301 - __main__ - INFO - ======================================================================
+2026-04-22 03:04:42,179 - __main__ - INFO - Sesión Spark cerrada
+2026-04-22 03:04:42,192 - py4j.clientserver - INFO - Closing down clientserver connection
