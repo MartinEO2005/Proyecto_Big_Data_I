@@ -17,7 +17,7 @@ Esquema:
 import logging
 import os as _os
 from pyspark.sql import functions as F
-from pyspark.sql.types import StructType, StructField, StringType, DoubleType, BooleanType
+from pyspark.sql.types import DoubleType, StringType
 
 logger = logging.getLogger(__name__)
 

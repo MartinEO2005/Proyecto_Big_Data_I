@@ -37,7 +37,7 @@ MUN_DIR   = os.path.join(LUZ_DIR, "municipios")
 TRANS_DIR = os.path.join(BASE_DIR, "transporte")
 MUNIS_GEOJSON = os.path.join(_ROOT, "municipios_es.geojson")
 DEFAULT_PROJECT = "bubbly-reducer-477312-d0"
-REINTENTOS = 3  # <-- Parámetro de reintentos
+REINTENTOS = 3
 
 def ensure_dirs():
     """Crea la estructura de directorios necesaria."""
@@ -83,7 +83,7 @@ def run_all(num_images=None):
     for i in range(REINTENTOS):
         try:
             print(f"-> Descargando intensidad de consumo eléctrico (Intento {i+1})...")
-            path_en = consumo_electrico.fetch_viviendas_uso_ine(base_outdir=BASE_DIR)
+            consumo_electrico.fetch_viviendas_uso_ine(base_outdir=BASE_DIR)
             break
         except Exception as e:
             print(f"  ⚠️ Error consumo eléctrico: {e}")
@@ -92,7 +92,7 @@ def run_all(num_images=None):
     for i in range(REINTENTOS):
         try:
             print(f"-> Descargando empresas de transporte (INE t=4721) (Intento {i+1})...")
-            path_emp = empresas_transporte_downloader.procesar(base_outdir=BASE_DIR)
+            empresas_transporte_downloader.procesar(base_outdir=BASE_DIR)
             break
         except Exception as e:
             print(f"  ⚠️ Error empresas transporte: {e}")
@@ -101,7 +101,7 @@ def run_all(num_images=None):
     for i in range(REINTENTOS):
         try:
             print(f"-> Descargando renta municipal (INE Atlas) (Intento {i+1})...")
-            path_renta = consumo_renta_media_pib.fetch_renta_municipios_and_save(base_outdir=BASE_DIR)
+            consumo_renta_media_pib.fetch_renta_municipios_and_save(base_outdir=BASE_DIR)
             break
         except Exception as e:
             print(f"  ⚠️ Error renta municipal: {e}")
@@ -110,7 +110,7 @@ def run_all(num_images=None):
     for i in range(REINTENTOS):
         try:
             print(f"-> Descargando migración interior (INE) (Intento {i+1})...")
-            path_mig = migracion_downloader.fetch_migracion_interior_and_save(base_outdir=BASE_DIR)
+            migracion_downloader.fetch_migracion_interior_and_save(base_outdir=BASE_DIR)
             break
         except Exception as e:
             print(f"  ⚠️ Error migración: {e}")
@@ -171,7 +171,7 @@ def run_all(num_images=None):
             print(f"  ⚠️ Error OSM: {e}")
             if i < REINTENTOS - 1: time.sleep(15)
 
-    # --- 1. LUZ NOCTURNA (VIIRS) ---
+    # --- 5. LUZ NOCTURNA (VIIRS) ---
     print("\n--- 🌙 SECCIÓN: LUZ NOCTURNA (VIIRS) ---")
     
     for i in range(REINTENTOS):
@@ -199,7 +199,7 @@ def run_all(num_images=None):
 
 
 
-    # --- 5. SATELITAL (COPERNICUS) ---
+    # --- 6. SATELITAL (COPERNICUS) ---
     print("\n--- 📡 SECCIÓN: SATELITAL (Sentinel) ---")
     
     for i in range(REINTENTOS):
@@ -213,7 +213,7 @@ def run_all(num_images=None):
             # Descarga Real de Imágenes
             target = num_images if num_images is not None else TOP
             print(f"-> Iniciando descarga de {target} imágenes Sentinel-2...")
-            downloader_run(top=target)
+            downloader_run(top=target, base_outdir=BASE_DIR)
             break
         except Exception as e:
             print(f"  ⚠️ Error satelital: {e}")

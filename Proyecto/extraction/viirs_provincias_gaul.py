@@ -8,7 +8,8 @@ import time
 from datetime import datetime
 
 # --- 🔹 Configuración Global ---
-DEFAULT_OUTDIR = 'data/luz_nocturna/provincias'
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_OUTDIR = os.path.join(_script_dir, '..', 'data', 'luz_nocturna', 'provincias')
 SCALE = 1000
 TILE_SCALE = 16
 SIMPLIFY_TOL = 1000
@@ -16,7 +17,8 @@ DEFAULT_PROJECT = "bubbly-reducer-477312-d0"
 
 def init_ee(project=DEFAULT_PROJECT):
     """Inicialización de Earth Engine con soporte para Service Account o local."""
-    json_path = 'google_credentials.json'
+    _script_dir = os.path.dirname(os.path.abspath(__file__))
+    json_path = os.path.join(_script_dir, "..", "google_credentials.json")
     EE_SCOPES = ['https://www.googleapis.com/auth/earthengine', 'https://www.googleapis.com/auth/cloud-platform']
     
     try:
@@ -125,6 +127,9 @@ def procesar_anio_provincias(prov_fc, anio, outdir):
 def concatenar_csvs(outdir):
     """Une todos los archivos anuales en el CSV maestro final[cite: 14]."""
     tmp_outdir = os.path.join(outdir, "tmp_provincias")
+    if not os.path.isdir(tmp_outdir):
+        print("⚠️ No se encontró el directorio temporal de provincias. No hay datos que concatenar.")
+        return None
     files = sorted([f for f in os.listdir(tmp_outdir) if f.startswith("viirs_provincias_") and f.endswith(".csv")])
     
     if not files: return None

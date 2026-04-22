@@ -106,7 +106,7 @@ def create_fact_demografia(spark, raw_path, dim_muni_path, output_path):
 
 # ==================== FACT_ENERGIA ====================
 
-def create_fact_energia(spark, raw_path, dim_muni_path, output_path):
+def create_fact_energia(spark, raw_path, _dim_muni_path, output_path):
     """Genera fact_energia desde el CSV limpio (snapshot sin año).
 
     CSV limpio: nombre_provincia, Nombre (muni), Codigo (INE), Mediana consumo anual, ...
@@ -133,8 +133,12 @@ def create_fact_energia(spark, raw_path, dim_muni_path, output_path):
 
         if not id_col or not val_col:
             logger.warning(f"fact_energia: columnas clave no encontradas. Cols: {cols}")
-            df.write.mode("overwrite").parquet(output_path)
-            return df
+            empty = spark.createDataFrame([], StructType([
+                StructField("muni_id", StringType(), True),
+                StructField("consumo_kwh_total", DoubleType(), True),
+            ]))
+            empty.write.mode("overwrite").parquet(output_path)
+            return empty
 
         # Filtrar solo "Mediana consumo anual" → 1 fila por municipio (evita fan-out en Gold)
         # Además filtrar solo códigos de 5 dígitos (municipios, no provincias)
@@ -165,16 +169,20 @@ def create_fact_energia(spark, raw_path, dim_muni_path, output_path):
 
 # ==================== FACT_RENTA ====================
 
-def create_fact_renta(spark, raw_path, dim_muni_path, dim_prov_path, output_path):
+def create_fact_renta(spark, raw_path, _dim_muni_path, output_path):
     """Versión simplificada de renta."""
     logger.info("Generando fact_renta...")
     
     try:
         # Buscar el CSV de renta (puede variar el nombre)
-        renta_files = glob.glob(f"{raw_path}/renta/*.csv")
+        renta_files = sorted(glob.glob(f"{raw_path}/renta/*.csv"))
         if not renta_files:
             logger.warning("No hay CSV de renta")
-            return spark.createDataFrame([], StructType([]))
+            return spark.createDataFrame([], StructType([
+                StructField("muni_id", StringType(), True),
+                StructField("year", IntegerType(), True),
+                StructField("renta_neta_media_euros", DoubleType(), True),
+            ]))
         
         renta = spark.read.csv(_local(renta_files[0]), header=True)
         cols = renta.columns
@@ -188,14 +196,19 @@ def create_fact_renta(spark, raw_path, dim_muni_path, dim_prov_path, output_path
         
         if not all([id_col, year_col, val_col]):
             logger.warning(f"fact_renta: no se encontraron columnas clave. Cols: {cols}")
-            renta.write.mode("overwrite").parquet(output_path)
-            return renta
+            empty = spark.createDataFrame([], StructType([
+                StructField("muni_id", StringType(), True),
+                StructField("year", IntegerType(), True),
+                StructField("renta_neta_media_euros", DoubleType(), True),
+            ]))
+            empty.write.mode("overwrite").parquet(output_path)
+            return empty
         
         renta_clean = renta.select(
-            F.col(id_col).alias("muni_id"),
+            F.lpad(F.col(id_col).cast("string"), 5, "0").alias("muni_id"),
             F.col(year_col).cast(IntegerType()).alias("year"),
             F.col(val_col).cast(DoubleType()).alias("renta_neta_media_euros")
-        )
+        ).filter(F.col("muni_id").isNotNull())
         
         renta_clean.write.mode("overwrite").parquet(output_path)
         logger.info(f"fact_renta: {renta_clean.count()} filas")
@@ -203,20 +216,28 @@ def create_fact_renta(spark, raw_path, dim_muni_path, dim_prov_path, output_path
     
     except Exception as e:
         logger.error(f"Error en fact_renta: {e}")
-        return spark.createDataFrame([], StructType([]))
+        return spark.createDataFrame([], StructType([
+            StructField("muni_id", StringType(), True),
+            StructField("year", IntegerType(), True),
+            StructField("renta_neta_media_euros", DoubleType(), True),
+        ]))
 
 
 # ==================== FACT_MIGRACION_NETA ====================
 
-def create_fact_migracion_neta(spark, raw_path, dim_muni_path, output_path):
+def create_fact_migracion_neta(spark, raw_path, _dim_muni_path, output_path):
     """Versión simplificada de migración."""
     logger.info("Generando fact_migracion_neta...")
     
     try:
-        mig_files = glob.glob(f"{raw_path}/migracion/*.csv")
+        mig_files = sorted(glob.glob(f"{raw_path}/migracion/*.csv"))
         if not mig_files:
             logger.warning("No hay CSV de migración")
-            return spark.createDataFrame([], StructType([]))
+            return spark.createDataFrame([], StructType([
+                StructField("muni_id", StringType(), True),
+                StructField("year", IntegerType(), True),
+                StructField("saldo_migratorio_neto", IntegerType(), True),
+            ]))
         
         migracion = spark.read.csv(_local(mig_files[0]), header=True)
         cols = migracion.columns
@@ -229,23 +250,36 @@ def create_fact_migracion_neta(spark, raw_path, dim_muni_path, output_path):
         
         if not all([id_col, year_col]):
             logger.warning(f"fact_migracion: columnas no encontradas. Cols: {cols}")
-            migracion.write.mode("overwrite").parquet(output_path)
-            return migracion
+            empty = spark.createDataFrame([], StructType([
+                StructField("muni_id", StringType(), True),
+                StructField("year", IntegerType(), True),
+                StructField("saldo_migratorio_neto", IntegerType(), True),
+            ]))
+            empty.write.mode("overwrite").parquet(output_path)
+            return empty
         
-        # El CSV INE tiene una fila por (municipio, año, nacionalidad) — hay que agregar
+        # El CSV INE tiene una fila por (municipio, año, sexo, nacionalidad).
+        # Filtramos a la fila agregada (Ambos sexos / Total) para evitar doble conteo.
+        sexo_col = next((c for c in ["sexo"] if c in cols), None)
+        nac_col  = next((c for c in ["nacionalidad"] if c in cols), None)
         if val_col:
-            migracion_clean = migracion.select(
+            df_mig = migracion
+            if sexo_col:
+                df_mig = df_mig.filter(F.col(sexo_col) == "Ambos sexos")
+            if nac_col:
+                df_mig = df_mig.filter(F.col(nac_col) == "Total")
+            migracion_clean = df_mig.select(
                 F.lpad(F.col(id_col).cast("string"), 5, "0").alias("muni_id"),
                 F.col(year_col).cast(IntegerType()).alias("year"),
                 F.col(val_col).cast(DoubleType()).alias("_val")
-            ).groupBy("muni_id", "year").agg(
+            ).filter(F.col("muni_id").isNotNull()).groupBy("muni_id", "year").agg(
                 F.sum("_val").cast(IntegerType()).alias("saldo_migratorio_neto")
             )
         else:
             migracion_clean = migracion.select(
                 F.lpad(F.col(id_col).cast("string"), 5, "0").alias("muni_id"),
                 F.col(year_col).cast(IntegerType()).alias("year")
-            ).dropDuplicates(["muni_id", "year"])
+            ).filter(F.col("muni_id").isNotNull()).dropDuplicates(["muni_id", "year"])
         
         migracion_clean.write.mode("overwrite").parquet(output_path)
         logger.info(f"fact_migracion_neta: {migracion_clean.count()} filas")
@@ -253,12 +287,16 @@ def create_fact_migracion_neta(spark, raw_path, dim_muni_path, output_path):
     
     except Exception as e:
         logger.error(f"Error en fact_migracion_neta: {e}")
-        return spark.createDataFrame([], StructType([]))
+        return spark.createDataFrame([], StructType([
+            StructField("muni_id", StringType(), True),
+            StructField("year", IntegerType(), True),
+            StructField("saldo_migratorio_neto", IntegerType(), True),
+        ]))
 
 
 # ==================== FACT_CONECTIVIDAD ====================
 
-def create_fact_conectividad(spark, raw_path, dim_muni_path, output_path):
+def create_fact_conectividad(spark, raw_path, _dim_muni_path, output_path):
     """Versión simplificada de conectividad."""
     logger.info("Generando fact_conectividad...")
     
@@ -282,23 +320,37 @@ def create_fact_conectividad(spark, raw_path, dim_muni_path, output_path):
         if idx_col: select_cols.append(F.col(idx_col).cast(DoubleType()).alias("indice_conectividad"))
         if veh_col: select_cols.append(F.col(veh_col).cast(IntegerType()).alias("num_vehiculos"))
         
-        if not select_cols:
-            conectividad.write.mode("overwrite").parquet(output_path)
-            return conectividad
+        if not id_col or not year_col:
+            logger.warning(f"fact_conectividad: columnas clave (id o year) no encontradas. Cols: {cols}")
+            empty = spark.createDataFrame([], StructType([
+                StructField("muni_id", StringType(), True),
+                StructField("year", IntegerType(), True),
+                StructField("indice_conectividad", DoubleType(), True),
+                StructField("num_vehiculos", IntegerType(), True),
+            ]))
+            empty.write.mode("overwrite").parquet(output_path)
+            return empty
         
-        conectividad_clean = conectividad.select(*select_cols)
+        conectividad_clean = conectividad.select(*select_cols).filter(
+            F.col("muni_id").isNotNull()
+        )
         conectividad_clean.write.mode("overwrite").parquet(output_path)
         logger.info(f"fact_conectividad: {conectividad_clean.count()} filas")
         return conectividad_clean
     
     except Exception as e:
         logger.error(f"Error en fact_conectividad: {e}")
-        return spark.createDataFrame([], StructType([]))
+        return spark.createDataFrame([], StructType([
+            StructField("muni_id", StringType(), True),
+            StructField("year", IntegerType(), True),
+            StructField("indice_conectividad", DoubleType(), True),
+            StructField("num_vehiculos", IntegerType(), True),
+        ]))
 
 
 # ==================== FACT_EMPRESAS_TRANSPORTE ====================
 
-def create_fact_empresas_transporte(spark, raw_path, dim_muni_path, output_path):
+def create_fact_empresas_transporte(spark, raw_path, _dim_muni_path, output_path):
     """Versión simplificada de empresas transporte."""
     logger.info("Generando fact_empresas_transporte...")
     
@@ -311,12 +363,23 @@ def create_fact_empresas_transporte(spark, raw_path, dim_muni_path, output_path)
         logger.info(f"fact_empresas cols: {cols}")
         
         # Cols reales: codigo, nombre, tipo, 2012, 2013, ..., 2025
-        id_col = next((c for c in ["codigo", "muni_id", "LAU_ID", "codigo_municipio"] if c in cols), None)
+        id_col   = next((c for c in ["codigo", "muni_id", "LAU_ID", "codigo_municipio"] if c in cols), None)
+        tipo_col = next((c for c in ["tipo"] if c in cols), None)
         year_cols = [c for c in cols if c.isdigit()]
+
+        # Excluir filas de provincia (tipo != "municipio")
+        if tipo_col:
+            empresas = empresas.filter(F.col(tipo_col) == "municipio")
         
         if not id_col or not year_cols:
-            empresas.write.mode("overwrite").parquet(output_path)
-            return empresas
+            logger.warning(f"fact_empresas_transporte: columnas clave no encontradas. Cols: {cols}")
+            empty = spark.createDataFrame([], StructType([
+                StructField("muni_id", StringType(), True),
+                StructField("year", IntegerType(), True),
+                StructField("num_empresas_total", IntegerType(), True),
+            ]))
+            empty.write.mode("overwrite").parquet(output_path)
+            return empty
         
         # Unpivot: una fila por municipio-año
         rows = []
@@ -328,7 +391,9 @@ def create_fact_empresas_transporte(spark, raw_path, dim_muni_path, output_path)
                     F.col(year).cast(IntegerType()).alias("num_empresas_total")
                 )
             )
-        empresas_clean = reduce(DataFrame.unionAll, rows)
+        empresas_clean = reduce(DataFrame.unionAll, rows).filter(
+            F.col("muni_id").isNotNull()
+        )
         
         empresas_clean.write.mode("overwrite").parquet(output_path)
         logger.info(f"fact_empresas_transporte: {empresas_clean.count()} filas")
@@ -336,12 +401,16 @@ def create_fact_empresas_transporte(spark, raw_path, dim_muni_path, output_path)
     
     except Exception as e:
         logger.error(f"Error en fact_empresas_transporte: {e}")
-        return spark.createDataFrame([], StructType([]))
+        return spark.createDataFrame([], StructType([
+            StructField("muni_id", StringType(), True),
+            StructField("year", IntegerType(), True),
+            StructField("num_empresas_total", IntegerType(), True),
+        ]))
 
 
 # ==================== FACT_OSM_LOGISTICA ====================
 
-def create_fact_osm_logistica(spark, raw_path, dim_muni_path, output_path):
+def create_fact_osm_logistica(spark, raw_path, _dim_muni_path, output_path):
     """Versión simplificada de OSM logística."""
     logger.info("Generando fact_osm_logistica...")
     
@@ -364,7 +433,7 @@ def create_fact_osm_logistica(spark, raw_path, dim_muni_path, output_path):
             F.col("mean_distance_km_to_station").cast(DoubleType()).alias("distancia_media_km"),
             F.col("stations_density_km2").cast(DoubleType()).alias("densidad_estaciones_km2"),
             F.col("accessible_share").cast(DoubleType()).alias("ratio_accesibilidad")
-        )
+        ).filter(F.col("muni_id").isNotNull())
         
         osm_clean.write.mode("overwrite").parquet(output_path)
         logger.info(f"fact_osm_logistica: {osm_clean.count()} filas")
@@ -372,12 +441,20 @@ def create_fact_osm_logistica(spark, raw_path, dim_muni_path, output_path):
     
     except Exception as e:
         logger.error(f"Error en fact_osm_logistica: {e}")
-        return spark.createDataFrame([], StructType([]))
+        return spark.createDataFrame([], StructType([
+            StructField("muni_id", StringType(), True),
+            StructField("num_estaciones", IntegerType(), True),
+            StructField("num_operadores", IntegerType(), True),
+            StructField("distancia_min_km", DoubleType(), True),
+            StructField("distancia_media_km", DoubleType(), True),
+            StructField("densidad_estaciones_km2", DoubleType(), True),
+            StructField("ratio_accesibilidad", DoubleType(), True),
+        ]))
 
 
 # ==================== FACT_VIIRS ====================
 
-def create_fact_viirs(spark, raw_path, dim_muni_path, output_path):
+def create_fact_viirs(spark, raw_path, _dim_muni_path, output_path):
     """Genera fact_viirs desde el CSV limpio (viirsFinal_limpio.csv).
 
     CSV limpio: PROV_NAME, date (YYYY-MM), mean_prov, AREA_KM2, CNTR_CODE,
@@ -419,12 +496,16 @@ def create_fact_viirs(spark, raw_path, dim_muni_path, output_path):
                 F.col("stdDev").cast(DoubleType()).alias("radiancia_stddev"),
             ).filter(F.col("muni_id").isNotNull())
         else:
-            viirs_clean = viirs.select(
-                F.lpad(F.col("muni_id").cast("string"), 5, "0").alias("muni_id"),
-                F.col("year").cast(IntegerType()),
-                F.col("month").cast(IntegerType()),
-                F.col("radiancia_media").cast(DoubleType()),
-            ).filter(F.col("muni_id").isNotNull())
+            logger.warning(f"fact_viirs: columnas id/date no encontradas — se omite. Cols: {cols}")
+            viirs_clean = spark.createDataFrame([], StructType([
+                StructField("muni_id",          StringType(),  True),
+                StructField("year",             IntegerType(), True),
+                StructField("month",            IntegerType(), True),
+                StructField("radiancia_media",  DoubleType(),  True),
+                StructField("radiancia_max",    DoubleType(),  True),
+                StructField("radiancia_min",    DoubleType(),  True),
+                StructField("radiancia_stddev", DoubleType(),  True),
+            ]))
 
         viirs_clean.write.mode("overwrite").parquet(output_path)
         logger.info(f"fact_viirs: {viirs_clean.count()} filas")
@@ -450,8 +531,7 @@ def main_facts(spark, raw_base_path, dim_base_path, fact_base_path):
     logger.info("="*60)
     
     dim_muni_path = f"{dim_base_path}/dim_municipio.parquet"
-    dim_prov_path = f"{dim_base_path}/dim_provincia.parquet"
-    
+
     facts = {}
     
     # Generar todas las facts
@@ -466,7 +546,7 @@ def main_facts(spark, raw_base_path, dim_base_path, fact_base_path):
     )
     
     facts['renta'] = create_fact_renta(
-        spark, raw_base_path, dim_muni_path, dim_prov_path,
+        spark, raw_base_path, dim_muni_path,
         f"{fact_base_path}/fact_renta.parquet"
     )
     

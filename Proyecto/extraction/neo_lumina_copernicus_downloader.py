@@ -134,22 +134,27 @@ def worker(item, out_dir, user, password):
             if retry == 2: return f"FAILED: {ident}"
             time.sleep(10)
 
-def run(top=None):
+def run(top=None, base_outdir=None):
     """
     Función principal llamada por el orquestador (main.py).
     Si se pasa 'top', ignora el valor de config.py.
+    Si se pasa 'base_outdir', guarda en base_outdir/satelital/copernicus.
     """
     # Prioridad: 1. Argumento de función | 2. config.py | 3. Valor fijo
     limit = top if top is not None else CONFIG_TOP
     
-    print(f"\n🛰️ NeoLumina Downloader")
+    print(f"\n\U0001f6f0\ufe0f NeoLumina Downloader")
     print(f"   -> Objetivo: {limit} imágenes")
     print(f"   -> Periodo: {DATE_FROM} a {DATE_TO}")
 
     if not CDSE_USER or not CDSE_PASS:
         print("   ❌ Error: Credenciales CDSE_USER/CDSE_PASS no encontradas."); return
 
-    dest = Path(OUTDIR) / "satelital" / "copernicus"
+    if base_outdir is not None:
+        dest = Path(base_outdir) / "satelital" / "copernicus"
+    else:
+        _script_dir = os.path.dirname(os.path.abspath(__file__))
+        dest = (Path(_script_dir) / ".." / "data" / "raw" / "satelital" / "copernicus").resolve()
     dest.mkdir(parents=True, exist_ok=True)
 
     # Construcción de la Query OData

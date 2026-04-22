@@ -14,7 +14,6 @@ import subprocess
 import shutil
 from datetime import datetime
 from pyspark.sql import SparkSession
-from pathlib import Path
 
 # Importar módulos locales
 import sys
@@ -59,19 +58,27 @@ def validate_raw_layer(raw_base_path):
         "migracion": ["migracion_interior_municipios.csv"],
         "transporte": [
             "conectividad_municipal_2010_2025.csv",
-            "muni_station_metrics_reduced.csv"
         ],
         "empresas_transporte": ["empresas_transporte_prov_mun_anchos.csv"]
     }
+
+    optional_files = [
+        "transporte/muni_station_metrics_reduced.csv",
+    ]
     
     missing = []
-    
+
     for tema, archivos in required_files.items():
         for archivo in archivos:
             path = os.path.join(raw_base_path, tema, archivo)
             if not os.path.exists(path):
                 missing.append(f"{tema}/{archivo}")
                 logger.warning(f"FALTA (REQUERIDO): {path}")
+
+    for rel_path in optional_files:
+        path = os.path.join(raw_base_path, rel_path)
+        if not os.path.exists(path):
+            logger.warning(f"OPCIONAL ausente (se omitirá): {path}")
     
     if missing:
         logger.error(f"Raw incompleto. Faltan {len(missing)} archivos REQUERIDOS:")
@@ -115,8 +122,10 @@ def validate_silver_layer(dim_base_path, fact_base_path):
         "fact_conectividad.parquet",
         "fact_empresas_transporte.parquet",
         "fact_osm_logistica.parquet",
+    ]
+    optional_facts = [
         "fact_viirs.parquet",
-        "fact_satelital.parquet"
+        "fact_satelital.parquet",
     ]
 
     def _exists(base, name):
@@ -145,6 +154,12 @@ def validate_silver_layer(dim_base_path, fact_base_path):
             all_ok = False
         else:
             logger.info(f"✅ {fact}")
+
+    for fact in optional_facts:
+        if not _exists(fact_base_path, fact):
+            logger.warning(f"OPCIONAL no encontrada: {fact_base_path}/{fact}")
+        else:
+            logger.info(f"✅ {fact} (opcional)")
 
     return all_ok
 
@@ -178,11 +193,10 @@ def main(
     logger.info("Iniciando sesión Spark...")
     spark = SparkSession.builder \
         .appName("GeoLumica-Silver") \
-        .master("local[1]") \
-        .config("spark.sql.shuffle.partitions", "1") \
+        .master("local[*]") \
+        .config("spark.sql.shuffle.partitions", "4") \
         .config("spark.driver.memory", "2g") \
-        .config("spark.executor.memory", "2g") \
-        .config("spark.default.parallelism", "1") \
+        .config("spark.default.parallelism", "4") \
         .config("spark.hadoop.fs.defaultFS", "hdfs://localhost:9000") \
         .getOrCreate()
     

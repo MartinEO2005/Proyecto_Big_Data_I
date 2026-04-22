@@ -22,8 +22,9 @@ OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 REQUEST_TIMEOUT = 180
 
 # ----------------- CONFIG -----------------
-MUNIS_PATH = "municipios_es.geojson"   # ruta a tu geojson de municipios
-OUT_PREFIX = "muni_station_metrics_reduced"
+_script_dir = Path(__file__).resolve().parent
+MUNIS_PATH = str((_script_dir / ".." / "municipios_es.geojson").resolve())
+OUT_PREFIX = str((_script_dir / ".." / "data" / "raw" / "transporte" / "muni_station_metrics_reduced").resolve())
 MAX_TILE_AREA_DEG2 = 1.0               # tamaño máximo de cada tile en grados^2
 # ------------------------------------------
 

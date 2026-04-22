@@ -97,7 +97,8 @@ def validate_silver(spark, dim_base_path, fact_base_path):
             "fact_osm_logistica": f"{fact_base_path}/fact_osm_logistica.parquet",
         }
         facts_optional = {
-            "fact_viirs": f"{fact_base_path}/fact_viirs.parquet",
+            "fact_viirs":     f"{fact_base_path}/fact_viirs.parquet",
+            "fact_satelital": f"{fact_base_path}/fact_satelital.parquet",
         }
 
         for fact_name, fact_path in {**facts_required, **facts_optional}.items():
@@ -107,22 +108,29 @@ def validate_silver(spark, dim_base_path, fact_base_path):
                 count = df.count()
                 print(f"{'⚠' if optional else '✓'} {fact_name}: {count} registros{'  (opcional)' if optional else ''}")
 
-                # Validar duplicados en clave primaria: (muni_id, year) para facts temporales
-                # fact_energia y fact_osm no tienen year (snapshot)
-                if "osm" not in fact_name and "energia" not in fact_name and "viirs" not in fact_name:
+                # Validar duplicados según la clave primaria real del fact
+                cols = df.columns
+                if "muni_id" in cols and "year" in cols:
                     duplicates = df.groupBy("muni_id", "year").count().filter("count > 1").count()
                     if duplicates > 0:
                         problemas.append(f"{fact_name} tiene {duplicates} duplicados en (muni_id, year)")
                         print(f"  ❌ {fact_name} tiene {duplicates} duplicados en clave")
                     else:
-                        print(f"  → Sin duplicados en clave primaria ✓")
-                elif "osm" in fact_name or "energia" in fact_name:
+                        print(f"  → Sin duplicados en (muni_id, year) ✓")
+                elif "muni_id" in cols:
                     duplicates = df.groupBy("muni_id").count().filter("count > 1").count()
                     if duplicates > 0:
                         problemas.append(f"{fact_name} tiene {duplicates} duplicados en muni_id")
                         print(f"  ❌ {fact_name} tiene {duplicates} duplicados en muni_id")
                     else:
                         print(f"  → Sin duplicados en muni_id ✓")
+                elif "product_id" in cols:
+                    duplicates = df.groupBy("product_id").count().filter("count > 1").count()
+                    if duplicates > 0:
+                        problemas.append(f"{fact_name} tiene {duplicates} duplicados en product_id")
+                        print(f"  ❌ {fact_name} tiene {duplicates} duplicados en product_id")
+                    else:
+                        print(f"  → Sin duplicados en product_id ✓")
             except Exception as e:
                 if optional:
                     print(f"  ⚠ {fact_name}: no encontrada (opcional, se omite)")
@@ -158,7 +166,7 @@ def validate_gold(spark, gold_path):
     
     try:
         print(f"\nLeyendo Gold desde {gold_path}/df_maestro.parquet...")
-        gold = spark.read.parquet(f"{gold_path}/df_maestro.parquet")
+        gold = spark.read.parquet(f"{gold_path}/df_maestro.parquet").cache()
         
         total_count = gold.count()
         print(f"✓ df_maestro.parquet: {total_count} registros")
@@ -186,8 +194,12 @@ def validate_gold(spark, gold_path):
         else:
             print(f"\n✅ NO HAY DUPLICADOS en (muni_id, year)")
             print(f"   Total registros: {total_count}")
-            print(f"   Municipios únicos: {gold.select('muni_id').distinct().count()}")
-            print(f"   Años únicos: {gold.select('year').distinct().count()}")
+            stats = gold.agg(
+                F.countDistinct("muni_id").alias("munis"),
+                F.countDistinct("year").alias("anios")
+            ).collect()[0]
+            print(f"   Municipios únicos: {stats['munis']}")
+            print(f"   Años únicos: {stats['anios']}")
         
         # Validar número de columnas
         num_cols = len(gold.columns)
@@ -212,11 +224,8 @@ def validate_gold(spark, gold_path):
                 status = "✅" if null_pct < threshold else "❌"
                 print(f"  {status} {col}: {null_pct:.1f}% NULLs ({null_count}) [umbral: <{threshold}%]")
         
-        # Mostrar estadísticas básicas
-        print(f"\n" + "-"*70)
-        print("Estadísticas de Gold:")
-        gold.describe().show()
-        
+        gold.unpersist()
+
     except Exception as e:
         problemas.append(f"Error leyendo Gold: {e}")
         print(f"❌ Error: {e}")
@@ -251,7 +260,8 @@ def main(
     
     spark = SparkSession.builder \
         .appName("GeoLumica-ValidationPost") \
-        .config("spark.sql.shuffle.partitions", "1") \
+        .master("local[*]") \
+        .config("spark.sql.shuffle.partitions", "4") \
         .config("spark.hadoop.fs.defaultFS", "hdfs://localhost:9000") \
         .getOrCreate()
     

@@ -115,22 +115,13 @@ def build_gold_dataframe(spark, components):
     dim_fecha  = components["dim_fecha"]
 
     fact_demo        = components["fact_demografia"]
-    fact_energia     = components["fact_energia"]       # muni_id, year, consumo_kwh_total
+    fact_energia     = components["fact_energia"]       # muni_id, consumo_kwh_total (snapshot — sin year)
     fact_renta       = components["fact_renta"]         # muni_id, year, renta_neta_media_euros
-    fact_migracion   = components["fact_migracion"]     # muni_id, year, valor
+    fact_migracion   = components["fact_migracion"]     # muni_id, year, saldo_migratorio_neto
     fact_conectividad = components["fact_conectividad"] # muni_id, year, indice_conectividad, num_vehiculos
     fact_empresas    = components["fact_empresas"]      # muni_id, year, num_empresas_total
     fact_osm         = components["fact_osm"]           # muni_id (sin year — snapshot)
     fact_viirs       = components["fact_viirs"]         # None o muni_id, year, radiancia_*
-
-    # Renombrar valor de migración
-    # Compatibilidad: facts antiguo usaba "valor", nuevo usa "saldo_migratorio_neto"
-    if "valor" in fact_migracion.columns and "saldo_migratorio_neto" not in fact_migracion.columns:
-        fact_migracion = fact_migracion.withColumnRenamed("valor", "saldo_migratorio_neto")
-
-    # Cast indice_conectividad: se almacena como String en el parquet
-    fact_conectividad = fact_conectividad \
-        .withColumn("indice_conectividad", F.col("indice_conectividad").cast("double"))
 
     # 1. Base: municipios × años
     logger.info("CROSS JOIN: municipios × años...")
@@ -229,10 +220,12 @@ def build_gold_dataframe(spark, components):
                )
 
     # Renta vs media nacional del año
-    renta_nacional = gold.groupBy("year").agg(
+    # Cache antes del self-join para evitar que Spark recalcule el plan dos veces
+    _gold_cached = gold.cache()
+    renta_nacional = _gold_cached.groupBy("year").agg(
         F.avg("renta_neta_media_euros").alias("_renta_nacional_avg")
     )
-    gold = gold.join(renta_nacional, on="year", how="left") \
+    gold = _gold_cached.join(renta_nacional, on="year", how="left") \
                .withColumn(
                    "renta_vs_nacional_pct",
                    F.when(
@@ -277,6 +270,7 @@ def build_gold_dataframe(spark, components):
 
     count = gold.count()
     logger.info(f"Gold dataframe construido: {count} registros")
+    _gold_cached.unpersist()
     return gold
 
 
@@ -338,8 +332,10 @@ def main(
     logger.info("Iniciando sesión Spark...")
     spark = SparkSession.builder \
         .appName("GeoLumica-Gold") \
-        .config("spark.sql.shuffle.partitions", "1") \
+        .master("local[*]") \
+        .config("spark.sql.shuffle.partitions", "4") \
         .config("spark.driver.memory", "2g") \
+        .config("spark.default.parallelism", "4") \
         .config("spark.hadoop.fs.defaultFS", "hdfs://localhost:9000") \
         .getOrCreate()
 

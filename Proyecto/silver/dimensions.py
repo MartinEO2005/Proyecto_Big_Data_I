@@ -6,17 +6,12 @@ Produce: dim_municipio, dim_provincia, dim_fecha_anual
 import logging
 import os
 import json
-from pyspark.sql import SparkSession, functions as F
+from pyspark.sql import functions as F
 from pyspark.sql.types import (
     StructType, StructField, StringType, IntegerType, DoubleType
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _local(path):
-    """Prefija file:// para que Spark no resuelva el path como HDFS."""
-    return f"file://{os.path.abspath(path)}"
 
 
 def create_dim_municipio(spark, geojson_path, output_path):
@@ -108,7 +103,7 @@ def create_dim_provincia(spark, geojson_path, output_path):
         StructField("prov_id",   StringType(), False),
         StructField("prov_name", StringType(), True),
     ])
-    df = spark.createDataFrame(rows, schema).dropDuplicates(["prov_id"])
+    df = spark.createDataFrame(rows, schema)
     df.write.mode("overwrite").parquet(output_path)
     logger.info(f"dim_provincia: {df.count()} registros → {output_path}")
     return df
