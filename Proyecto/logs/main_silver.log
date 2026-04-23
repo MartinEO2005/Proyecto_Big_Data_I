@@ -814,3 +814,25 @@ Caused by: java.time.format.DateTimeParseException: Text '2024-06-24T11:06:41.02
 2026-04-22 03:04:41,301 - __main__ - INFO - ======================================================================
 2026-04-22 03:04:42,179 - __main__ - INFO - Sesión Spark cerrada
 2026-04-22 03:04:42,192 - py4j.clientserver - INFO - Closing down clientserver connection
+2026-04-23 13:21:23,994 - __main__ - INFO - ======================================================================
+2026-04-23 13:21:23,994 - __main__ - INFO - INICIANDO PIPELINE RAW → SILVER (GeoLúmica)
+2026-04-23 13:21:23,995 - __main__ - INFO - Timestamp: 2026-04-23T13:21:23.995682
+2026-04-23 13:21:23,996 - __main__ - INFO - ======================================================================
+2026-04-23 13:21:23,997 - __main__ - INFO - Validando capa Raw...
+2026-04-23 13:21:24,002 - __main__ - WARNING - FALTA (REQUERIDO): ../data/raw/demografia/demografia_poblacion_municipios.csv
+2026-04-23 13:21:24,008 - __main__ - WARNING - FALTA (REQUERIDO): ../data/raw/demografia/demografia_poblacion_provincias.csv
+2026-04-23 13:21:24,014 - __main__ - WARNING - FALTA (REQUERIDO): ../data/raw/energia/consumo_electrico.csv
+2026-04-23 13:21:24,018 - __main__ - WARNING - FALTA (REQUERIDO): ../data/raw/renta/renta_municipios.csv
+2026-04-23 13:21:24,024 - __main__ - WARNING - FALTA (REQUERIDO): ../data/raw/migracion/migracion_interior_municipios.csv
+2026-04-23 13:21:24,031 - __main__ - WARNING - FALTA (REQUERIDO): ../data/raw/transporte/conectividad_municipal_2010_2025.csv
+2026-04-23 13:21:24,034 - __main__ - WARNING - FALTA (REQUERIDO): ../data/raw/empresas_transporte/empresas_transporte_prov_mun_anchos.csv
+2026-04-23 13:21:24,039 - __main__ - WARNING - OPCIONAL ausente (se omitirá): ../data/raw/transporte/muni_station_metrics_reduced.csv
+2026-04-23 13:21:24,039 - __main__ - ERROR - Raw incompleto. Faltan 7 archivos REQUERIDOS:
+2026-04-23 13:21:24,040 - __main__ - ERROR -   - demografia/demografia_poblacion_municipios.csv
+2026-04-23 13:21:24,040 - __main__ - ERROR -   - demografia/demografia_poblacion_provincias.csv
+2026-04-23 13:21:24,041 - __main__ - ERROR -   - energia/consumo_electrico.csv
+2026-04-23 13:21:24,042 - __main__ - ERROR -   - renta/renta_municipios.csv
+2026-04-23 13:21:24,042 - __main__ - ERROR -   - migracion/migracion_interior_municipios.csv
+2026-04-23 13:21:24,043 - __main__ - ERROR -   - transporte/conectividad_municipal_2010_2025.csv
+2026-04-23 13:21:24,043 - __main__ - ERROR -   - empresas_transporte/empresas_transporte_prov_mun_anchos.csv
+2026-04-23 13:21:24,044 - __main__ - ERROR - ❌ Raw layer inválida. Abortando.

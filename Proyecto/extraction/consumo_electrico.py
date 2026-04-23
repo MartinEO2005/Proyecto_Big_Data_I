@@ -2,7 +2,6 @@ import os
 import requests
 import pandas as pd
 import io
-import re
 
 def fetch_viviendas_uso_ine(base_outdir="data"):
     url_csv = "https://www.ine.es/jaxi/files/tpx/es/csv_bdsc/59531.csv"
@@ -35,52 +34,45 @@ def fetch_viviendas_uso_ine(base_outdir="data"):
     df = pd.read_csv(io.StringIO(contenido), sep=';')
     df.columns = [c.strip() for c in df.columns]
 
-    rows_list = []
+    # 1. Determinar columna origen por prioridad (municipio > provincia)
+    muni_s = df['Municipios'].fillna('').astype(str).str.strip()
+    prov_s = df['Provincias'].fillna('').astype(str).str.strip()
 
-    # Iteramos directamente para evitar problemas de "name not defined" en apply
-    for _, row in df.iterrows():
-        muni_val = str(row.get('Municipios', '')).strip()
-        prov_val = str(row.get('Provincias', '')).strip()
-        
-        target = ""
-        # 1. Identificar si es Municipio (prioridad) o Provincia
-        if muni_val and muni_val != 'nan' and re.match(r'^\d{5}', muni_val):
-            target = muni_val
-        elif prov_val and prov_val != 'nan' and re.match(r'^\d{2}\s', prov_val):
-            target = prov_val
-        
-        if not target:
-            continue
+    is_muni = muni_s.str.match(r'^\d{5}')
+    is_prov = (~is_muni) & prov_s.str.match(r'^\d{2}\s')
 
-        # 2. Extraer Código y Nombre
-        match = re.search(r'^(\d+)\s+(.*)$', target)
-        if match:
-            cod, nom = match.group(1), match.group(2).strip()
-            
-            # 3. Validación estricta para GeoLúmica
-            es_valido = False
-            if len(cod) == 5: # Es municipio
-                es_valido = True
-            elif len(cod) == 2: # Es provincia
-                if provincias_dict.get(cod) == nom:
-                    es_valido = True
-            
-            if es_valido:
-                # Limpieza de dato numérico
-                total_raw = str(row.get('Total', '0'))
-                total_clean = total_raw.replace('.', '').replace(',', '.')
-                
-                rows_list.append({
-                    'Codigo': cod,
-                    'Nombre': nom,
-                    'Consumo eléctrico': row.get('Consumo eléctrico', ''),
-                    'Total': total_clean
-                })
+    target = pd.Series('', index=df.index)
+    target = target.where(~is_muni, muni_s)
+    target = target.where(~is_prov, prov_s)
 
-    if not rows_list:
+    df2     = df[is_muni | is_prov].copy()
+    target2 = target[is_muni | is_prov]
+
+    # 2. Extraer Código y Nombre con regex vectorizado
+    extracted = target2.str.extract(r'^(\d+)\s+(.*)$')
+    extracted.columns = ['Codigo', 'Nombre']
+    extracted['Nombre'] = extracted['Nombre'].str.strip()
+
+    # 3. Validación estricta (municipios: 5 dígitos; provincias: código en dict)
+    valid_muni = extracted['Codigo'].str.len() == 5
+    prov_mapped = extracted['Codigo'].map(provincias_dict)
+    valid_prov  = (extracted['Codigo'].str.len() == 2) & (prov_mapped == extracted['Nombre'])
+    valid = (valid_muni | valid_prov).values
+
+    df3  = df2[valid].copy()
+    ext3 = extracted[valid]
+
+    if df3.empty:
         raise ValueError("No se pudieron extraer datos. Revisa el formato del CSV del INE.")
 
-    df_final = pd.DataFrame(rows_list)
+    df3 = df3.copy()
+    df3['Codigo'] = ext3['Codigo'].values
+    df3['Nombre'] = ext3['Nombre'].values
+    df3['Total']  = (df3['Total'].fillna('0').astype(str)
+                     .str.replace('.', '', regex=False)
+                     .str.replace(',', '.', regex=False))
+
+    df_final = df3[['Codigo', 'Nombre', 'Consumo eléctrico', 'Total']].copy()
     # Eliminar duplicados técnicos por el cruce de tablas del INE
     df_final = df_final.drop_duplicates(subset=['Codigo', 'Consumo eléctrico'])
 

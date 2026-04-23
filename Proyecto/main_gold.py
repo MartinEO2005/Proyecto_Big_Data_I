@@ -234,6 +234,27 @@ def build_gold_dataframe(spark, components):
                    ).otherwise(F.lit(None).cast("double"))
                ).drop("_renta_nacional_avg")
 
+    # Alias interno para facilitar la tasa migratoria (saldo / pob * 1000)
+    # (renta_neta_media_euros se expondrá como pib_absoluto_actual al seleccionar)
+
+    # Ratio masculinidad (hombres / mujeres * 100)
+    gold = gold.withColumn(
+        "ratio_masculinidad",
+        F.when(
+            F.col("poblacion_mujeres").isNotNull() & (F.col("poblacion_mujeres") > 0),
+            F.col("poblacion_hombres").cast("double") / F.col("poblacion_mujeres").cast("double") * 100
+        ).otherwise(F.lit(None).cast("double"))
+    )
+
+    # Tasa migratoria pct (saldo / poblacion * 1000)
+    gold = gold.withColumn(
+        "tasa_migratoria_pct",
+        F.when(
+            F.col("poblacion_total").isNotNull() & (F.col("poblacion_total") > 0),
+            F.col("saldo_migratorio_neto").cast("double") / F.col("poblacion_total").cast("double") * 1000
+        ).otherwise(F.lit(None).cast("double"))
+    )
+
     # Categoría de municipio por tamaño
     gold = gold.withColumn(
         "categoria_municipio",
@@ -275,43 +296,71 @@ def build_gold_dataframe(spark, components):
 
 
 def select_final_columns(df):
-    """Selecciona columnas finales que existen en el dataframe."""
+    """Selecciona columnas finales con los nombres de df_master."""
 
+    # (nombre_interno_spark, nombre_final_gold / df_master)
     desired = [
         # Identificadores
-        "muni_id", "muni_name", "prov_id", "prov_name", "region_name",
+        ("muni_id",                  "muni_id_join"),
+        ("muni_name",                "muni_display"),
+        ("prov_id",                  "prov_id_join"),
+        ("prov_name",                "prov_name"),
+        ("region_name",              "region_name"),
         # Temporal
-        "year", "quarter",
+        ("year",                     "year"),
+        ("quarter",                  "quarter"),
         # Geografía
-        "latitude", "longitude", "area_km2",
+        ("latitude",                 "latitude"),
+        ("longitude",                "longitude"),
+        ("area_km2",                 "area_km2"),
         # Demografía
-        "poblacion_total", "densidad_poblacion_km2",
-        "crecimiento_pob_yoy_pct", "crecimiento_pob_3y_pct",
-        "poblacion_lag1", "poblacion_lag3",
+        ("poblacion_total",          "pob_absoluta_actual"),
+        ("poblacion_hombres",        "poblacion_hombres"),
+        ("poblacion_mujeres",        "poblacion_mujeres"),
+        ("densidad_poblacion_km2",   "densidad_poblacion_km2"),
+        ("crecimiento_pob_yoy_pct",  "crecimiento_pob_yoy_pct"),
+        ("crecimiento_pob_3y_pct",   "crecimiento_pob_3y_pct"),
+        ("poblacion_lag1",           "poblacion_lag1"),
+        ("poblacion_lag3",           "poblacion_lag3"),
         # Economía
-        "renta_neta_media_euros", "renta_vs_nacional_pct",
+        ("renta_neta_media_euros",   "pib_absoluto_actual"),
+        ("renta_vs_nacional_pct",    "renta_vs_nacional_pct"),
         # Energía (snapshot — sin year)
-        "consumo_kwh_total", "consumo_per_capita", "consumo_per_km2",
+        ("consumo_kwh_total",        "consumo_kwh_total"),
+        ("consumo_per_capita",       "consumo_per_capita"),
+        ("consumo_per_km2",          "consumo_per_km2"),
         # Migración
-        "saldo_migratorio_neto",
+        ("saldo_migratorio_neto",    "saldo_migratorio_neto"),
+        ("tasa_migratoria_pct",      "tasa_migratoria_pct"),
         # Conectividad vial
-        "num_vehiculos", "indice_conectividad",
+        ("num_vehiculos",            "num_vehiculos"),
+        ("indice_conectividad",      "Indice_Conectividad"),
         # OSM logística
-        "num_estaciones", "num_operadores",
-        "distancia_min_km", "distancia_media_km",
-        "densidad_estaciones_km2", "ratio_accesibilidad",
+        ("num_estaciones",           "num_estaciones"),
+        ("num_operadores",           "num_operadores"),
+        ("distancia_min_km",         "distancia_min_km"),
+        ("distancia_media_km",       "mean_distance_km_to_station"),
+        ("densidad_estaciones_km2",  "stations_density_km2"),
+        ("ratio_accesibilidad",      "ratio_accesibilidad"),
         # Empresas transporte
-        "num_empresas_total", "densidad_empresas_1000hab",
+        ("num_empresas_total",       "empresas_transporte_actual"),
+        ("densidad_empresas_1000hab","densidad_empresas_1000hab"),
         # VIIRS (opcional)
-        "radiancia_media_anual", "radiancia_max_anual",
-        "radiancia_min_anual", "radiancia_stddev_anual",
+        ("radiancia_media_anual",    "luz_absoluta_actual"),
+        ("radiancia_max_anual",      "radiancia_max_anual"),
+        ("radiancia_min_anual",      "radiancia_min_anual"),
+        ("radiancia_stddev_anual",   "luz_volatilidad_std"),
+        # Derivadas demográficas
+        ("ratio_masculinidad",       "ratio_masculinidad"),
         # Derivadas / scoring
-        "categoria_municipio", "riesgo_despoblacion_score",
+        ("categoria_municipio",      "categoria_municipio"),
+        ("riesgo_despoblacion_score","riesgo_despoblacion_score"),
     ]
 
-    existing = [c for c in desired if c in df.columns]
-    logger.info(f"Columnas finales: {len(existing)}/{len(desired)}")
-    return df.select(existing)
+    available = set(df.columns)
+    cols = [F.col(old).alias(new) for old, new in desired if old in available]
+    logger.info(f"Columnas finales: {len(cols)}/{len(desired)}")
+    return df.select(cols)
 
 
 def main(

@@ -5,7 +5,7 @@
 # =============================================================================
 set -euo pipefail
 
-HADOOP_HOME="${HADOOP_HOME:-/home/fernaferna/hadoop-3.3.6}"
+HADOOP_HOME="${HADOOP_HOME:-$(ls -d "$HOME"/hadoop-3.3.* 2>/dev/null | head -1)}"
 HDFS_BIN="$HADOOP_HOME/bin/hdfs"
 NAMENODE_DIR="${HOME}/hadoop-data/namenode"
 
