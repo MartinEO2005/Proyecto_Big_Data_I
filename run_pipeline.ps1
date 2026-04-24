@@ -1,3 +1,15 @@
+<#
+Uso desde PowerShell en la raiz del proyecto:
+
+Con extraccion completa:
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\run_pipeline.ps1
+
+Sin extraccion previa:
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\run_pipeline.ps1 -SkipExtraction
+#>
+
 param([switch]$SkipExtraction, [switch]$SkipHdfs)
 
 $d = $PSScriptRoot.Substring(0,1).ToLower()
@@ -41,39 +53,57 @@ $L.Add('run_step() {')
 $L.Add('  local label="$1"')
 $L.Add('  local cmd="$2"')
 $L.Add('  local t=$SECONDS')
-$L.Add('  local i=0')
+$L.Add('  printf "  %-40s INICIANDO\n" "$label"')
 $L.Add('  eval "$cmd" >> "$LOG" 2>&1 &')
 $L.Add('  local pid=$!')
 $L.Add('  while kill -0 $pid 2>/dev/null; do')
-$L.Add('    local filled=$(( i % (BAR_WIDTH + 1) ))')
-$L.Add('    local empty=$(( BAR_WIDTH - filled ))')
-$L.Add('    local elapsed=$(( SECONDS - t ))')
-$L.Add('    printf "\r  %-28s [%s%s] %ds" "$label" "$(printf "#%.0s" $(seq 1 $filled) 2>/dev/null || printf "%${filled}s" | tr " " "#")" "$(printf "%${empty}s")" "$elapsed"')
-$L.Add('    i=$(( i + 1 ))')
 $L.Add('    sleep 1')
 $L.Add('  done')
 $L.Add('  if wait $pid; then')
 $L.Add('    local elapsed=$(( SECONDS - t ))')
-$L.Add('    printf "\r  %-28s [%s] %ds  OK\n" "$label" "$(printf "%${BAR_WIDTH}s" | tr " " "#")" "$elapsed"')
+$L.Add('    printf "  %-40s %ds  OK\n" "$label" "$elapsed"')
 $L.Add('  else')
-$L.Add('    printf "\r  %-28s [FALLO]\n" "$label"')
+$L.Add('    printf "  %-40s FALLO\n" "$label"')
 $L.Add('    echo "--- ultimas lineas del log ---"')
 $L.Add('    tail -25 "$LOG"')
-$L.Add('    exit 1')
+$L.Add('    return 1')
 $L.Add('  fi')
+$L.Add('  return 0')
+$L.Add('}')
+$L.Add('')
+$L.Add('run_step_retry() {')
+$L.Add('  local retries="$1"')
+$L.Add('  local label="$2"')
+$L.Add('  local cmd="$3"')
+$L.Add('  local attempt=1')
+$L.Add('  while [ $attempt -le $retries ]; do')
+$L.Add('    local tag="$label"')
+$L.Add('    if [ $retries -gt 1 ]; then')
+$L.Add('      tag="$label (intento $attempt/$retries)"')
+$L.Add('    fi')
+$L.Add('    if run_step "$tag" "$cmd"; then')
+$L.Add('      return 0')
+$L.Add('    fi')
+$L.Add('    attempt=$(( attempt + 1 ))')
+$L.Add('    if [ $attempt -le $retries ]; then')
+$L.Add('      echo "Reintentando en 3s..."')
+$L.Add('      sleep 3')
+$L.Add('    fi')
+$L.Add('  done')
+$L.Add('  return 1')
 $L.Add('}')
 $L.Add('')
 
 if (-not $SkipHdfs) {
-    $L.Add("run_step '[1/5] Iniciando HDFS' '$HD/sbin/start-dfs.sh'")
+    $L.Add("run_step_retry 2 '[1/5] Iniciando HDFS (sin SSH)' 'nohup $HD/bin/hdfs --daemon start namenode >/tmp/geolumica_hdfs_start.log 2>&1 < /dev/null; nohup $HD/bin/hdfs --daemon start datanode >>/tmp/geolumica_hdfs_start.log 2>&1 < /dev/null; nohup $HD/bin/hdfs --daemon start secondarynamenode >>/tmp/geolumica_hdfs_start.log 2>&1 < /dev/null; sleep 4; $HD/bin/hdfs dfsadmin -safemode leave || true; $HD/bin/hdfs dfs -ls / >/dev/null' || exit 1")
 }
-$L.Add("run_step '[2/5] Instalando requirements' '$PY -m pip install -q -r $W/requirements.txt'")
+$L.Add("run_step_retry 2 '[2/5] Instalando requirements' '$PY -m pip install -q -r $W/requirements.txt' || exit 1")
 if (-not $SkipExtraction) {
-    $L.Add("run_step '[3/5] Descargando datos (~20 min)' 'cd $W/Proyecto && $PY main_extraction.py'")
+    $L.Add("run_step '[3/5] Descargando datos (~6h 47m 1s aprox.)' 'cd $W/Proyecto && $PY main_extraction.py' || exit 1")
 }
-$L.Add("run_step '[4/5] Generando Silver' 'cd $W/Proyecto && $PY main_silver.py --geojson $GEO --raw ../data/raw --dim $DIM --fact $FACT'")
-$L.Add("run_step '[5/5] Generando Gold' 'cd $W/Proyecto && $PY main_gold.py --dim $DIM --fact $FACT --gold $GOLD'")
-$L.Add("run_step '[+]   Validando' 'cd $W/Proyecto && $PY validation_post.py --dim $DIM --fact $FACT --gold $GOLD'")
+$L.Add("run_step_retry 2 '[4/5] Generando Silver' 'cd $W/Proyecto && $PY main_silver.py --geojson $GEO --raw ../data/raw --dim $DIM --fact $FACT' || exit 1")
+$L.Add("run_step_retry 2 '[5/5] Generando Gold' 'cd $W/Proyecto && $PY main_gold.py --dim $DIM --fact $FACT --gold $GOLD' || exit 1")
+$L.Add("run_step_retry 2 '[+]   Validando' 'cd $W/Proyecto && $PY validation_post.py --dim $DIM --fact $FACT --gold $GOLD' || exit 1")
 $L.Add('echo ""')
 $L.Add('echo "Pipeline completado en $(( SECONDS - TOTAL_START ))s"')
 

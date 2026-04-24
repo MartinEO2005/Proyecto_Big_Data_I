@@ -110,7 +110,14 @@ def validate_silver(spark, dim_base_path, fact_base_path):
 
                 # Validar duplicados según la clave primaria real del fact
                 cols = df.columns
-                if "muni_id" in cols and "year" in cols:
+                if fact_name == "fact_viirs" and {"muni_id", "year", "month"}.issubset(set(cols)):
+                    duplicates = df.groupBy("muni_id", "year", "month").count().filter("count > 1").count()
+                    if duplicates > 0:
+                        problemas.append(f"{fact_name} tiene {duplicates} duplicados en (muni_id, year, month)")
+                        print(f"  ❌ {fact_name} tiene {duplicates} duplicados en clave mensual")
+                    else:
+                        print(f"  → Sin duplicados en (muni_id, year, month) ✓")
+                elif "muni_id" in cols and "year" in cols:
                     duplicates = df.groupBy("muni_id", "year").count().filter("count > 1").count()
                     if duplicates > 0:
                         problemas.append(f"{fact_name} tiene {duplicates} duplicados en (muni_id, year)")
@@ -171,31 +178,31 @@ def validate_gold(spark, gold_path):
         total_count = gold.count()
         print(f"✓ df_maestro.parquet: {total_count} registros")
         
-        # VALIDADOR CRÍTICO: Duplicados en (muni_id, year)
-        print("\n" + "🔴 VALIDACIÓN CRÍTICA: Duplicados en (muni_id, year)".center(70))
-        
-        duplicate_check = gold.groupBy("muni_id", "year").count().filter("count > 1")
+        # VALIDADOR CRÍTICO: Duplicados en (muni_id_join, year)
+        print("\n" + "🔴 VALIDACIÓN CRÍTICA: Duplicados en (muni_id_join, year)".center(70))
+
+        duplicate_check = gold.groupBy("muni_id_join", "year").count().filter("count > 1")
         duplicate_count = duplicate_check.count()
         
         if duplicate_count > 0:
-            problemas.append(f"⚠️ GOLD tiene {duplicate_count} duplicados en (muni_id, year)")
-            print(f"\n❌ PROBLEMA: Hay {duplicate_count} pares (muni_id, year) duplicados")
+            problemas.append(f"⚠️ GOLD tiene {duplicate_count} duplicados en (muni_id_join, year)")
+            print(f"\n❌ PROBLEMA: Hay {duplicate_count} pares (muni_id_join, year) duplicados")
             print("   Esto significa que el CROSS JOIN o los LEFT JOINs fallaron.")
             print("   Mostrando ejemplos:")
             duplicate_check.limit(10).show()
             
             # Mostrar ejemplo de fila duplicada
             first_dup = duplicate_check.limit(1).collect()[0]
-            muni_id = first_dup['muni_id']
+            muni_id = first_dup['muni_id_join']
             year = first_dup['year']
             
             print(f"\n   Filas duplicadas para muni_id={muni_id}, year={year}:")
-            gold.filter((F.col("muni_id") == muni_id) & (F.col("year") == year)).show(truncate=False)
+            gold.filter((F.col("muni_id_join") == muni_id) & (F.col("year") == year)).show(truncate=False)
         else:
-            print(f"\n✅ NO HAY DUPLICADOS en (muni_id, year)")
+            print(f"\n✅ NO HAY DUPLICADOS en (muni_id_join, year)")
             print(f"   Total registros: {total_count}")
             stats = gold.agg(
-                F.countDistinct("muni_id").alias("munis"),
+                F.countDistinct("muni_id_join").alias("munis"),
                 F.countDistinct("year").alias("anios")
             ).collect()[0]
             print(f"   Municipios únicos: {stats['munis']}")
@@ -212,10 +219,10 @@ def validate_gold(spark, gold_path):
         
         # Umbrales por columna: algunos datasets no cubren todos los municipios/años
         key_cols = {
-            "poblacion_total":        10,   # debe cubrir casi todo
+            "pob_absoluta_actual":    10,   # debe cubrir casi todo
             "consumo_kwh_total":      70,   # solo ~3185 municipios en la fuente
-            "renta_neta_media_euros": 80,   # cobertura parcial por año
-            "radiancia_media_anual":  85,   # VIIRS cubre ~6/31 años → ~80% NULLs esperado
+            "pib_absoluto_actual":    80,   # cobertura parcial por año
+            "luz_absoluta_actual":    85,   # VIIRS cubre ~6/31 años → ~80% NULLs esperado
         }
         for col, threshold in key_cols.items():
             if col in gold.columns:

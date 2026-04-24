@@ -238,13 +238,17 @@ def build_gold_dataframe(spark, components):
     # (renta_neta_media_euros se expondrá como pib_absoluto_actual al seleccionar)
 
     # Ratio masculinidad (hombres / mujeres * 100)
-    gold = gold.withColumn(
-        "ratio_masculinidad",
-        F.when(
-            F.col("poblacion_mujeres").isNotNull() & (F.col("poblacion_mujeres") > 0),
-            F.col("poblacion_hombres").cast("double") / F.col("poblacion_mujeres").cast("double") * 100
-        ).otherwise(F.lit(None).cast("double"))
-    )
+    # En algunos cortes de Silver no vienen columnas por sexo: dejamos nulo para mantener compatibilidad.
+    if {"poblacion_hombres", "poblacion_mujeres"}.issubset(set(gold.columns)):
+        gold = gold.withColumn(
+            "ratio_masculinidad",
+            F.when(
+                F.col("poblacion_mujeres").isNotNull() & (F.col("poblacion_mujeres") > 0),
+                F.col("poblacion_hombres").cast("double") / F.col("poblacion_mujeres").cast("double") * 100
+            ).otherwise(F.lit(None).cast("double"))
+        )
+    else:
+        gold = gold.withColumn("ratio_masculinidad", F.lit(None).cast("double"))
 
     # Tasa migratoria pct (saldo / poblacion * 1000)
     gold = gold.withColumn(
