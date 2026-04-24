@@ -111,56 +111,98 @@ def build_gold_dataframe(spark, components):
     logger.info("Construyendo Gold dataframe...")
 
     dim_muni   = components["dim_municipio"]
+
+    dim_muni   = components["dim_municipio"]
     dim_prov   = components["dim_provincia"]
-    dim_fecha  = components["dim_fecha"]
 
     fact_demo        = components["fact_demografia"]
-    fact_energia     = components["fact_energia"]       # muni_id, consumo_kwh_total (snapshot — sin year)
-    fact_renta       = components["fact_renta"]         # muni_id, year, renta_neta_media_euros
-    fact_migracion   = components["fact_migracion"]     # muni_id, year, saldo_migratorio_neto
-    fact_conectividad = components["fact_conectividad"] # muni_id, year, indice_conectividad, num_vehiculos
-    fact_empresas    = components["fact_empresas"]      # muni_id, year, num_empresas_total
-    fact_osm         = components["fact_osm"]           # muni_id (sin year — snapshot)
-    fact_viirs       = components["fact_viirs"]         # None o muni_id, year, radiancia_*
+    fact_energia     = components["fact_energia"]
+    fact_renta       = components["fact_renta"]
+    fact_migracion   = components["fact_migracion"]
+    fact_conectividad = components["fact_conectividad"]
+    fact_empresas    = components["fact_empresas"]
+    fact_osm         = components["fact_osm"]
+    fact_viirs       = components["fact_viirs"]
 
-    # 1. Base: municipios × años
-    logger.info("CROSS JOIN: municipios × años...")
-    base = dim_muni.crossJoin(dim_fecha).select(
-        "muni_id", "muni_name", "prov_id",
-        "latitude", "longitude", "area_km2",
-        "year"
+    # 1. Base: solo combinaciones municipio/año presentes en todas las facts anuales críticas.
+    # La intersección se hace con claves, pero luego hay que volver a unir las columnas de cada fact.
+    logger.info("Calculando intersección de municipio/año en facts críticas...")
+
+    base_keys = fact_demo.select("muni_id", "year").dropDuplicates(["muni_id", "year"])
+    for fact in [fact_renta, fact_migracion, fact_conectividad, fact_empresas]:
+        fact_keys = fact.select("muni_id", "year").dropDuplicates(["muni_id", "year"])
+        base_keys = base_keys.join(fact_keys, on=["muni_id", "year"], how="inner")
+
+    gold = base_keys \
+        .join(
+            fact_demo.select("muni_id", "year", "poblacion_total"),
+            on=["muni_id", "year"],
+            how="inner"
+        ) \
+        .join(
+            fact_renta.select("muni_id", "year", "renta_neta_media_euros"),
+            on=["muni_id", "year"],
+            how="inner"
+        ) \
+        .join(
+            fact_migracion.select("muni_id", "year", "saldo_migratorio_neto"),
+            on=["muni_id", "year"],
+            how="inner"
+        ) \
+        .join(
+            fact_conectividad.select("muni_id", "year", "indice_conectividad", "num_vehiculos"),
+            on=["muni_id", "year"],
+            how="inner"
+        ) \
+        .join(
+            fact_empresas.select("muni_id", "year", "num_empresas_total"),
+            on=["muni_id", "year"],
+            how="inner"
+        )
+
+    # Añadir info de municipio y provincia.
+    gold = gold.join(
+        dim_muni.select("muni_id", "muni_name", "prov_id", "latitude", "longitude", "area_km2"),
+        on="muni_id",
+        how="left"
     )
+    gold = gold.join(dim_prov.select("prov_id", "prov_name"), on="prov_id", how="left")
 
-    # 2. Añadir info de provincia
-    base = base.join(
-        dim_prov.select("prov_id", "prov_name"),
-        on="prov_id", how="left"
-    )
-
-    # 3. JOINs con facts (todas por muni_id + year, excepto energía y osm — sin year)
-    logger.info("JOINs con facts...")
-    gold = base \
-        .join(fact_demo,         on=["muni_id", "year"], how="left") \
-        .join(fact_energia,      on="muni_id",           how="left") \
-        .join(fact_renta,        on=["muni_id", "year"], how="left") \
-        .join(fact_migracion,    on=["muni_id", "year"], how="left") \
-        .join(fact_conectividad, on=["muni_id", "year"], how="left") \
-        .join(fact_empresas,     on=["muni_id", "year"], how="left") \
-        .join(fact_osm,          on="muni_id",           how="left")
-
-    # VIIRS opcional — agregar a nivel anual (avg mensual) para evitar duplicados
+    # Añadir energía y osm (sin year) por left join solo en muni_id.
+    gold = gold \
+        .join(fact_energia, on="muni_id", how="left") \
+        .join(fact_osm, on="muni_id", how="left")
+    # Añadir VIIRS (opcional) SOLO UNA VEZ
     if fact_viirs is not None:
-        logger.info("JOIN con fact_viirs...")
+        logger.info("JOIN con fact_viirs (LEFT, solo una vez)...")
         viirs_annual = fact_viirs.groupBy("muni_id", "year").agg(
             F.avg("radiancia_media").alias("radiancia_media_anual"),
             F.avg("radiancia_max").alias("radiancia_max_anual"),
             F.avg("radiancia_min").alias("radiancia_min_anual"),
             F.avg("radiancia_stddev").alias("radiancia_stddev_anual"),
         )
+        # Elimina columnas duplicadas antes del join si ya existen
+        for col in ["radiancia_media_anual", "radiancia_max_anual", "radiancia_min_anual", "radiancia_stddev_anual"]:
+            if col in gold.columns:
+                gold = gold.drop(col)
         gold = gold.join(viirs_annual, on=["muni_id", "year"], how="left")
+
+    # (El join con fact_viirs ya se realiza arriba, no repetir)
 
     # 4. Variables derivadas
     logger.info("Calculando variables derivadas...")
+
+
+    # Rellenar nulos críticos con 'desconocido' (string) en todos los campos relevantes
+    fill_unknown_cols = [
+        "poblacion_total", "renta_neta_media_euros", "consumo_kwh_total", "saldo_migratorio_neto",
+        "num_vehiculos", "indice_conectividad", "num_empresas_total",
+        "radiancia_media_anual", "radiancia_max_anual", "radiancia_min_anual", "radiancia_stddev_anual",
+        "prov_name"
+    ]
+    for col in fill_unknown_cols:
+        if col in gold.columns:
+            gold = gold.withColumn(col, F.when(F.col(col).isNull(), F.lit("desconocido")).otherwise(F.col(col)))
 
     # Densidad de población
     gold = gold.withColumn(
@@ -168,7 +210,7 @@ def build_gold_dataframe(spark, components):
         F.when(
             F.col("area_km2").isNotNull() & (F.col("area_km2") > 0),
             F.col("poblacion_total").cast("double") / F.col("area_km2")
-        ).otherwise(F.lit(None).cast("double"))
+        ).otherwise(F.lit(0.0))
     )
 
     # Consumo per cápita
@@ -177,7 +219,7 @@ def build_gold_dataframe(spark, components):
         F.when(
             F.col("poblacion_total").isNotNull() & (F.col("poblacion_total") > 0),
             F.col("consumo_kwh_total") / F.col("poblacion_total").cast("double")
-        ).otherwise(F.lit(None).cast("double"))
+        ).otherwise(F.lit(0.0))
     )
 
     # Consumo per km²
@@ -186,7 +228,7 @@ def build_gold_dataframe(spark, components):
         F.when(
             F.col("area_km2").isNotNull() & (F.col("area_km2") > 0),
             F.col("consumo_kwh_total") / F.col("area_km2")
-        ).otherwise(F.lit(None).cast("double"))
+        ).otherwise(F.lit(0.0))
     )
 
     # Densidad de empresas por 1000 hab
@@ -195,7 +237,7 @@ def build_gold_dataframe(spark, components):
         F.when(
             F.col("poblacion_total").isNotNull() & (F.col("poblacion_total") > 0),
             (F.col("num_empresas_total").cast("double") * 1000) / F.col("poblacion_total").cast("double")
-        ).otherwise(F.lit(None).cast("double"))
+        ).otherwise(F.lit(0.0))
     )
 
     # Crecimiento interanual de población
@@ -208,7 +250,7 @@ def build_gold_dataframe(spark, components):
                        F.col("poblacion_lag1").isNotNull() & (F.col("poblacion_lag1") > 0),
                        ((F.col("poblacion_total").cast("double") - F.col("poblacion_lag1").cast("double"))
                         / F.col("poblacion_lag1").cast("double")) * 100
-                   ).otherwise(F.lit(None).cast("double"))
+                   ).otherwise(F.lit(0.0))
                ) \
                .withColumn(
                    "crecimiento_pob_3y_pct",
@@ -216,11 +258,10 @@ def build_gold_dataframe(spark, components):
                        F.col("poblacion_lag3").isNotNull() & (F.col("poblacion_lag3") > 0),
                        ((F.col("poblacion_total").cast("double") - F.col("poblacion_lag3").cast("double"))
                         / F.col("poblacion_lag3").cast("double")) * 100 / 3
-                   ).otherwise(F.lit(None).cast("double"))
+                   ).otherwise(F.lit(0.0))
                )
 
     # Renta vs media nacional del año
-    # Cache antes del self-join para evitar que Spark recalcule el plan dos veces
     _gold_cached = gold.cache()
     renta_nacional = _gold_cached.groupBy("year").agg(
         F.avg("renta_neta_media_euros").alias("_renta_nacional_avg")
@@ -231,24 +272,20 @@ def build_gold_dataframe(spark, components):
                    F.when(
                        F.col("_renta_nacional_avg").isNotNull() & (F.col("_renta_nacional_avg") > 0),
                        (F.col("renta_neta_media_euros") / F.col("_renta_nacional_avg")) * 100
-                   ).otherwise(F.lit(None).cast("double"))
+                   ).otherwise(F.lit(0.0))
                ).drop("_renta_nacional_avg")
 
-    # Alias interno para facilitar la tasa migratoria (saldo / pob * 1000)
-    # (renta_neta_media_euros se expondrá como pib_absoluto_actual al seleccionar)
-
     # Ratio masculinidad (hombres / mujeres * 100)
-    # En algunos cortes de Silver no vienen columnas por sexo: dejamos nulo para mantener compatibilidad.
     if {"poblacion_hombres", "poblacion_mujeres"}.issubset(set(gold.columns)):
         gold = gold.withColumn(
             "ratio_masculinidad",
             F.when(
                 F.col("poblacion_mujeres").isNotNull() & (F.col("poblacion_mujeres") > 0),
                 F.col("poblacion_hombres").cast("double") / F.col("poblacion_mujeres").cast("double") * 100
-            ).otherwise(F.lit(None).cast("double"))
+            ).otherwise(F.lit(0.0))
         )
     else:
-        gold = gold.withColumn("ratio_masculinidad", F.lit(None).cast("double"))
+        gold = gold.withColumn("ratio_masculinidad", F.lit(0.0))
 
     # Tasa migratoria pct (saldo / poblacion * 1000)
     gold = gold.withColumn(
@@ -256,7 +293,7 @@ def build_gold_dataframe(spark, components):
         F.when(
             F.col("poblacion_total").isNotNull() & (F.col("poblacion_total") > 0),
             F.col("saldo_migratorio_neto").cast("double") / F.col("poblacion_total").cast("double") * 1000
-        ).otherwise(F.lit(None).cast("double"))
+        ).otherwise(F.lit(0.0))
     )
 
     # Categoría de municipio por tamaño
@@ -266,7 +303,7 @@ def build_gold_dataframe(spark, components):
          .when(F.col("poblacion_total") > 10000,  "Ciudad mediana")
          .when(F.col("poblacion_total") > 1000,   "Rural")
          .when(F.col("poblacion_total") > 0,       "Muy rural")
-         .otherwise(F.lit(None))
+         .otherwise(F.lit("desconocido"))
     )
 
     # Comunidad Autónoma (region_name) derivada del prov_id
@@ -304,73 +341,55 @@ def select_final_columns(df):
 
     # (nombre_interno_spark, nombre_final_gold / df_master)
     desired = [
-        # Identificadores
-        ("muni_id",                  "muni_id_join"),
-        ("muni_name",                "muni_display"),
-        ("prov_id",                  "prov_id_join"),
-        ("prov_name",                "prov_name"),
-        ("region_name",              "region_name"),
-        # Temporal
-        ("year",                     "year"),
-        ("quarter",                  "quarter"),
-        # Geografía
-        ("latitude",                 "latitude"),
-        ("longitude",                "longitude"),
-        ("area_km2",                 "area_km2"),
+        # Identificadores y tiempo
+        ("muni_id",           "muni_id_join"),
+        ("year",              "year"),
+        # Contexto territorial
+        ("prov_name",         "provincia"),
+        ("region_name",       "comunidad_autonoma"),
+        ("area_km2",          "area_km2"),
         # Demografía
-        ("poblacion_total",          "pob_absoluta_actual"),
-        ("poblacion_hombres",        "poblacion_hombres"),
-        ("poblacion_mujeres",        "poblacion_mujeres"),
-        ("densidad_poblacion_km2",   "densidad_poblacion_km2"),
-        ("crecimiento_pob_yoy_pct",  "crecimiento_pob_yoy_pct"),
-        ("crecimiento_pob_3y_pct",   "crecimiento_pob_3y_pct"),
-        ("poblacion_lag1",           "poblacion_lag1"),
-        ("poblacion_lag3",           "poblacion_lag3"),
-        # Economía
-        ("renta_neta_media_euros",   "pib_absoluto_actual"),
-        ("renta_vs_nacional_pct",    "renta_vs_nacional_pct"),
-        # Energía (snapshot — sin year)
-        ("consumo_kwh_total",        "consumo_kwh_total"),
-        ("consumo_per_capita",       "consumo_per_capita"),
-        ("consumo_per_km2",          "consumo_per_km2"),
+        ("poblacion_total",   "pob_absoluta_actual"),
+        ("densidad_poblacion_km2", "densidad_poblacion_km2"),
+        ("crecimiento_pob_yoy_pct", "crecimiento_pob_yoy_pct"),
         # Migración
-        ("saldo_migratorio_neto",    "saldo_migratorio_neto"),
-        ("tasa_migratoria_pct",      "tasa_migratoria_pct"),
-        # Conectividad vial
-        ("num_vehiculos",            "num_vehiculos"),
-        ("indice_conectividad",      "Indice_Conectividad"),
-        # OSM logística
-        ("num_estaciones",           "num_estaciones"),
-        ("num_operadores",           "num_operadores"),
-        ("distancia_min_km",         "distancia_min_km"),
-        ("distancia_media_km",       "mean_distance_km_to_station"),
-        ("densidad_estaciones_km2",  "stations_density_km2"),
-        ("ratio_accesibilidad",      "ratio_accesibilidad"),
+        ("saldo_migratorio_neto", "saldo_migratorio_neto"),
+        ("tasa_migratoria_pct", "tasa_migratoria_1000hab"),
+        # Conectividad
+        ("num_vehiculos",     "num_vehiculos"),
+        ("indice_conectividad", "Indice_Conectividad"),
         # Empresas transporte
-        ("num_empresas_total",       "empresas_transporte_actual"),
-        ("densidad_empresas_1000hab","densidad_empresas_1000hab"),
-        # VIIRS (opcional)
-        ("radiancia_media_anual",    "luz_absoluta_actual"),
-        ("radiancia_max_anual",      "radiancia_max_anual"),
-        ("radiancia_min_anual",      "radiancia_min_anual"),
-        ("radiancia_stddev_anual",   "luz_volatilidad_std"),
-        # Derivadas demográficas
-        ("ratio_masculinidad",       "ratio_masculinidad"),
-        # Derivadas / scoring
-        ("categoria_municipio",      "categoria_municipio"),
-        ("riesgo_despoblacion_score","riesgo_despoblacion_score"),
+        ("num_empresas_total", "empresas_transporte_actual"),
+        ("densidad_empresas_1000hab", "densidad_empresas_1000hab"),
+        # VIIRS (luz)
+        ("radiancia_media_anual", "luz_absoluta_actual"),
     ]
 
     available = set(df.columns)
     cols = [F.col(old).alias(new) for old, new in desired if old in available]
     logger.info(f"Columnas finales: {len(cols)}/{len(desired)}")
-    return df.select(cols)
+    out = df.select(cols)
+
+    # Redondeo para mejorar legibilidad del Gold final y del CSV exportado.
+    rounding_final = {
+        "area_km2": 2,
+        "densidad_poblacion_km2": 2,
+        "crecimiento_pob_yoy_pct": 2,
+        "tasa_migratoria_1000hab": 2,
+        "densidad_empresas_1000hab": 3,
+        "luz_absoluta_actual": 3,
+    }
+    for col_name, dec in rounding_final.items():
+        if col_name in out.columns:
+            out = out.withColumn(col_name, F.round(F.col(col_name).cast("double"), dec))
+
+    return out
 
 
 def main(
-    dim_base_path="data/silver/dim",
-    fact_base_path="data/silver/fact",
-    gold_base_path="data/gold"
+    dim_base_path="../data/silver/dim",
+    fact_base_path="../data/silver/fact",
+    gold_base_path="../data/gold"
 ):
     setup_logger()
 
@@ -379,8 +398,7 @@ def main(
     logger.info(f"Timestamp: {datetime.now().isoformat()}")
     logger.info("=" * 70)
 
-    if not gold_base_path.startswith("hdfs://"):
-        os.makedirs(gold_base_path, exist_ok=True)
+    os.makedirs(gold_base_path, exist_ok=True)
 
     logger.info("Iniciando sesión Spark...")
     spark = SparkSession.builder \
@@ -422,9 +440,9 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Pipeline Silver → Gold para GeoLúmica")
-    parser.add_argument("--dim",  default="../data/silver/dim",  help="Dimensiones Silver")
-    parser.add_argument("--fact", default="../data/silver/fact", help="Facts Silver")
-    parser.add_argument("--gold", default="../data/gold",        help="Salida Gold")
+    parser.add_argument("--dim",  default="../data/silver/dim",  help="Dimensiones Silver (ruta local)")
+    parser.add_argument("--fact", default="../data/silver/fact", help="Facts Silver (ruta local)")
+    parser.add_argument("--gold", default="../data/gold",        help="Salida Gold (ruta local)")
     args = parser.parse_args()
 
     success = main(

@@ -1,16 +1,20 @@
 <#
-Uso desde PowerShell en la raiz del proyecto:
+PASOS PARA ARRANCAR EL PROYECTO (PowerShell en la raíz):
 
-Con extraccion completa:
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\run_pipeline.ps1
+1. Arranque completo (con extracción):
+    Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; .\run_pipeline.ps1
 
-Sin extraccion previa:
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\run_pipeline.ps1 -SkipExtraction
+2. Sin extracción (más rápido, si ya tienes los datos):
+    Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; .\run_pipeline.ps1 -SkipExtraction
+
+3. Solo Silver/Gold/validación (si HDFS ya está levantado):
+    Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; .\run_pipeline.ps1 -SkipExtraction -SkipHdfs
 #>
 
 param([switch]$SkipExtraction, [switch]$SkipHdfs)
+
+# Crea carpeta local para exportar Gold CSV si no existe
+if (-not (Test-Path "$PSScriptRoot\data\gold")) { New-Item -ItemType Directory -Path "$PSScriptRoot\data\gold" | Out-Null }
 
 $d = $PSScriptRoot.Substring(0,1).ToLower()
 $r = $PSScriptRoot.Substring(2) -replace "\\", "/"
@@ -42,6 +46,8 @@ $L.Add("export PYSPARK_PYTHON=$PY")
 $L.Add("export PYSPARK_DRIVER_PYTHON=$PY")
 $L.Add("export TQDM_DISABLE=1")
 $L.Add("export HADOOP_ROOT_LOGGER=ERROR,console")
+$L.Add('export HDFS_NAMENODE_OPTS="${HDFS_NAMENODE_OPTS:-} -Ddfs.client.use.datanode.hostname=true"')
+$L.Add('export HDFS_DATANODE_OPTS="${HDFS_DATANODE_OPTS:-} -Ddfs.datanode.hostname=localhost -Ddfs.datanode.use.datanode.hostname=true -Ddfs.client.use.datanode.hostname=true"')
 $L.Add('LOG=/tmp/geolumica_run.log')
 $L.Add('> "$LOG"')
 $L.Add('TOTAL_START=$SECONDS')
@@ -118,3 +124,7 @@ $tmpWSL = "/mnt/$td$tr/geolumica_run.sh"
 Write-Host ""
 wsl -d Ubuntu -- bash $tmpWSL
 if ($LASTEXITCODE -ne 0) { Write-Host "FALLO (codigo $LASTEXITCODE)" -ForegroundColor Red; exit 1 }
+
+# Exporta Gold a CSV local tras terminar el pipeline
+Write-Host "Exportando Gold a CSV en data/gold..." -ForegroundColor Cyan
+c:/Users/ferna/Documents/GitHub/Proyecto_Big_Data_I/Proyecto_Big_Data_I/.venv/Scripts/python.exe ./export_gold_to_csv.py
