@@ -4,3 +4,6 @@ __pycache__/
 # ignore all user-generated data output
 google_credentials.json
 .env
+.venv/
+venv/
+bubbly-reducer-477312-d0-77d1c0df876f.json

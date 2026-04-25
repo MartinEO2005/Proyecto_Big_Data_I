@@ -1,0 +1,134 @@
+{
+  "translation": {
+    "nav": {
+      "home": "Home",
+      "about": "About Us",
+      "dashboard": "Dashboard",
+      "profile": "My Profile",
+      "searchPlaceholder": "Search LAU_ID or Municipality..."
+    },
+    "accessibility": {
+      "title": "Accessibility",
+      "screenReader": "Screen Reader Mode",
+      "highContrast": "High Contrast",
+      "fontResizer": "Font Resizer",
+      "dyslexiaFont": "Dyslexia-Friendly Font",
+      "pauseAnimations": "Pause Animations",
+      "language": "Language Selection"
+    },
+    "home": {
+      "badge": "Intelligent Territorial Monitoring",
+      "title": "GeoLumica: Cities Future",
+      "subtitle": "Analytical platform crossing Earth Observation data with official socio-economic records. We assess depopulation risk and economic change in rural areas by applying artificial intelligence at the municipal scale.",
+      "openDashboard": "Open Dashboard",
+      "pillar1": {
+        "title": "Satellite Intelligence",
+        "desc": "Processing of monthly light radiance (VIIRS) to accurately measure the economic pulse at the municipal level."
+      },
+      "pillar2": {
+        "title": "Land Connectivity",
+        "desc": "Topological analysis of the railway network (OSM) to determine the degree of isolation or integration of the territory."
+      },
+      "pillar3": {
+        "title": "Predictive Modeling",
+        "desc": "Regression and clustering algorithms to identify patterns of population and economic decline for proactive solutions."
+      }
+    },
+    "about": {
+      "heroTitle1": "ABOUT",
+      "heroTitle2": "US.",
+      "heroP1": "The geographic landscape in many European countries, notably in Spain, is characterized by a sharp contrast between dynamic large urban centers and a vast network of towns and rural communities facing serious challenges. These challenges boil down to a persistent depopulation process, where lack of opportunities and disconnection cause a progressive decline.",
+      "heroP2_1": "The ",
+      "heroP2_2": "GeoLúmica",
+      "heroP2_3": " project was born to address this regional disparity. Its purpose is to generate advanced geospatial intelligence to map and understand the complex dynamics of urban growth and depopulation risk. By combining satellite night-time luminosity with socio-economic and railway data at an unprecedented level of ",
+      "heroP2_4": "municipal granularity",
+      "heroP2_5": ", we offer a vital predictive tool.",
+      "quote1": "Anticipate demographic decline before the process becomes ",
+      "quote2": "irreversible",
+      "quote3": ".",
+      "quoteAuthor": "— The vision of GeoLúmica",
+      "dataTitle": "THE DATA.",
+      "dataProvinces": "Provinces",
+      "dataMunicipalities": "Analyzed Municipalities",
+      "dataPillars": "Analytical Pillars",
+      "dataCoverage": "Territorial Coverage",
+      "dataDesc1": "Monthly satellite images (VIIRS) processed from Google Earth Engine to transform light radiance into municipal economic activity metrics.",
+      "dataDesc2": "Massive download of the railway network via Overpass API. In-house calculation of connectivity, distances to the municipal centroid, and infrastructure density.",
+      "dataDesc3": "Extraction of official and verified reality: demographic microdata, average income, and electricity consumption. The solid and historical foundation of our ML models.",
+      "teamTitle": "THE TEAM.",
+      "teamDesc": "A multidisciplinary approach combining Mathematical Engineering, Geospatial Analysis, and Machine Learning to respond to territorial challenges.",
+      "roleMartin1": "Project Director",
+      "roleMartin2": "Head of Machine Learning",
+      "roleDS": "Data Scientist / Engineer",
+      "footer": "© 2026 GeoLúmica. Academic project - All rights reserved."
+    },
+    "profile": {
+      "auth": {
+        "welcomeBack": "Welcome back",
+        "join": "Join GeoLúmica",
+        "loginDesc": "Log in to access your analytical Dashboard",
+        "registerDesc": "Create your account to monitor demographic risk",
+        "fullName": "Full Name",
+        "namePlaceholder": "E.g. Martin Otero",
+        "email": "Email Address",
+        "password": "Password",
+        "loginBtn": "Access Dashboard",
+        "registerBtn": "Create Account",
+        "noAccount": "Don't have an account?",
+        "hasAccount": "Already have an account?",
+        "registerHere": "Register here",
+        "loginHere": "Log In",
+        "noAccountAlert": "Account does not exist. Please register first.",
+        "wrongAuthAlert": "Incorrect email or password. Please try again.",
+        "newPasswordPrompt": "Enter your new GeoLúmica password:",
+        "passwordSuccess": "Password successfully updated!"
+      },
+      "name": "Martin Otero",
+      "role": "Regional Planner",
+      "editProfile": "Edit Profile",
+      "accountInfo": {
+        "title": "Account Information",
+        "emailLabel": "Corporate Email",
+        "emailValue": "l.navarro@georesearch.es",
+        "companyLabel": "Company / Purpose",
+        "companyValue": "GeoLúmica Research"
+      },
+      "subscription": {
+        "title": "Subscription Level",
+        "tier": "Government Enterprise Tier",
+        "desc": "Your organization has full access to luminosity metrics, OSM connectivity, and demographic projections at the municipal level."
+      },
+      "security": {
+        "title": "Security",
+        "changePassword": "Change Password"
+      },
+      "logout": "Log Out",
+      "savedRegions": {
+        "title": "Saved Regions",
+        "add": "+ Add Region",
+        "region1": "Castile and León - Zone A",
+        "region2": "Andalusia - Municipality X",
+        "region3": "Extremadura - Rural District Y"
+      },
+      "recentActivity": {
+        "title": "Recent Activity",
+        "act1Title": "Connectivity report downloaded",
+        "act1Desc": "You downloaded the comparative railway density report for \"Extremadura - Rural District Y\".",
+        "act1Time": "2 hours ago",
+        "act2Title": "New region added to favorites",
+        "act2Desc": "You added \"Castile and León - Zone A\" to your continuous demographic risk monitoring list.",
+        "act2Time": "Yesterday, 16:30",
+        "act3Title": "Interactive Map Query",
+        "act3Desc": "You visualized the VIIRS luminosity layer overlaid with OSM nodes of \"Andalusia - Municipality X\".",
+        "act3Time": "Mar 14, 09:15"
+      },
+      "advancedMode": {
+        "title": "Advanced Analyst Mode",
+        "desc1": "Thanks to your ",
+        "desc2": "Enterprise Tier",
+        "desc3": " subscription, you have unlocked access to raw clustering data (K-Means/DBSCAN) on the Dashboard.",
+        "badge": "Feature Unlocked"
+      }
+    }
+  }
+}

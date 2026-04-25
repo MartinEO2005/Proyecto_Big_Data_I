@@ -36,8 +36,13 @@ def add_keys_and_indexes(engine, table_names):
         for table in table_names:
             if table in ['dim_geografia', 'dim_provincia']: continue
             print(f"⚡ Indexando {table}... ", end="", flush=True)
+            
+            # 1. Aseguramos el tipo de dato
             conn.execute(text(f"ALTER TABLE {table} MODIFY muni_id_join VARCHAR(255);"))
+            
+            # 2. Creamos el índice para que los cruces en ML y Dashboards vuelen
             conn.execute(text(f"CREATE INDEX idx_{table}_muni ON {table}(muni_id_join);"))
+            
             print("HECHO ✅")
 
 def prepare_and_load():
@@ -105,24 +110,54 @@ def prepare_and_load():
     # ---------------------------------------------------------
     for name, path in datasets_files.items():
         table_name = f'fact_{name}'
-        print(f"📥 Cargando {table_name}... ", end="", flush=True)
+        print(f"\n📥 Cargando {table_name}... ", end="", flush=True)
         
         try:
             df = pd.read_csv(path)
             
-            # Aseguramos que la clave de unión existe y tiene 5 dígitos (por si Pandas lo leyó como número)
-            col_id = next((c for c in df.columns if c.lower() in ['muni_id_join', 'lau_id', 'codigo_municipio']), None)
+            # Lista ampliada de sinónimos para detectar el ID del municipio
+            posibles_ids = ['muni_id_join', 'lau_id', 'codigo_municipio', 'region_code', 'codigo', 'cod_muni', 'sog_id']
+            col_id = next((c for c in df.columns if c.lower() in posibles_ids), None)
+            
             if col_id:
-                df['muni_id_join'] = df[col_id].apply(lambda x: str(int(float(x))).zfill(5) if pd.notnull(x) else None)
-                # Si la columna original no se llamaba muni_id_join, la podemos borrar o dejar
+                # Función robusta para limpiar letras (ES_) y decimales
+                def clean_muni_id(x):
+                    if pd.isnull(x): return None
+                    val = str(x).replace('ES_', '').strip() 
+                    try:
+                        val = str(int(float(val))) 
+                    except ValueError:
+                        pass
+                    return val.zfill(5)
+                    
+                df['muni_id_join'] = df[col_id].apply(clean_muni_id)
             else:
-                print("⚠️ ADVERTENCIA: No se detectó columna LAU_ID/muni_id_join en este CSV.")
+                print(f"⚠️ ADVERTENCIA: No se detectó columna de ID en {path}.")
                 
+            # --- FORZAR MODELO ESTRELLA PARA EMPRESAS ---
+            if name == "empresas_transporte":
+                year_cols = [c for c in df.columns if c.isdigit()]
+                id_vars = [c for c in df.columns if c not in year_cols]
+                # Transformamos las columnas de años en filas
+                df = df.melt(id_vars=id_vars, value_vars=year_cols, var_name='year', value_name='total_empresas')
+                df['year'] = df['year'].astype(int)
+            # ---------------------------------------------------
+                
+            # Carga a la base de datos
             df.to_sql(table_name, engine, if_exists='replace', index=False)
             created_tables.append(table_name)
-            print("OK ✅")
+            
+            # --- REPORTE DETALLADO ---
+            columnas = list(df.columns)
+            num_columnas = len(columnas)
+            print(f"OK ✅")
+            print(f"   📊 Shape: ({len(df)} filas, {num_columnas} columnas)")
+            print(f"   📋 Columnas: {columnas}")
+            
         except FileNotFoundError:
             print(f"❌ Error: Archivo no encontrado en {path}")
+        except Exception as e:
+            print(f"❌ Error cargando {table_name}: {str(e)}")
 
     # FASE 3: RELACIONES E ÍNDICES
     add_keys_and_indexes(engine, created_tables)
