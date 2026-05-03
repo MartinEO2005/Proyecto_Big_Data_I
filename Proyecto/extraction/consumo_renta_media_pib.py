@@ -25,6 +25,7 @@ MAPEO_PROVINCIAS = {
 def descargar_tabla():
     url = f"https://www.ine.es/jaxiT3/files/t/csv_bd/{T_ID}.csv"
     r = requests.get(url)
+    r.raise_for_status()
     r.encoding = "utf-8"
     text = r.text
     sep = "\t" if "\t" in text.splitlines()[0] else ";"

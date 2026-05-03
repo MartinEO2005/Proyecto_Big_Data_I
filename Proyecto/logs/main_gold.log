@@ -1,0 +1,463 @@
+2026-04-22 02:09:08,547 - __main__ - INFO - ======================================================================
+2026-04-22 02:09:08,548 - __main__ - INFO - INICIANDO PIPELINE SILVER → GOLD (GeoLúmica)
+2026-04-22 02:09:08,550 - __main__ - INFO - Timestamp: 2026-04-22T02:09:08.550056
+2026-04-22 02:09:08,551 - __main__ - INFO - ======================================================================
+2026-04-22 02:09:08,552 - __main__ - INFO - Iniciando sesión Spark...
+2026-04-22 02:09:21,990 - __main__ - INFO - Leyendo componentes de Silver...
+2026-04-22 02:09:27,387 - __main__ - INFO - fact_viirs cargada
+2026-04-22 02:09:27,415 - __main__ - INFO - Construyendo Gold dataframe...
+2026-04-22 02:09:27,650 - __main__ - INFO - CROSS JOIN: municipios × años...
+2026-04-22 02:09:27,771 - __main__ - INFO - JOINs con facts...
+2026-04-22 02:09:27,895 - __main__ - INFO - JOIN con fact_viirs...
+2026-04-22 02:09:27,954 - __main__ - INFO - Calculando variables derivadas...
+2026-04-22 02:09:31,664 - __main__ - INFO - Gold dataframe construido: 1906314 registros
+2026-04-22 02:09:31,693 - __main__ - INFO - Columnas finales: 36/36
+2026-04-22 02:09:31,787 - __main__ - INFO - Escribiendo Gold en hdfs://localhost:9000/geolumica/gold/df_maestro.parquet...
+2026-04-22 02:09:45,052 - __main__ - INFO - ✅ Gold escrita: 1906314 registros, 36 columnas
+2026-04-22 02:09:45,053 - __main__ - INFO - ======================================================================
+2026-04-22 02:09:45,055 - __main__ - INFO - ✅ PIPELINE COMPLETADO EXITOSAMENTE
+2026-04-22 02:09:45,056 - __main__ - INFO - ======================================================================
+2026-04-22 02:09:45,322 - __main__ - INFO - Sesión Spark cerrada
+2026-04-22 02:09:45,333 - py4j.clientserver - INFO - Closing down clientserver connection
+2026-04-22 02:23:33,059 - __main__ - INFO - ======================================================================
+2026-04-22 02:23:33,061 - __main__ - INFO - INICIANDO PIPELINE SILVER → GOLD (GeoLúmica)
+2026-04-22 02:23:33,062 - __main__ - INFO - Timestamp: 2026-04-22T02:23:33.062677
+2026-04-22 02:23:33,063 - __main__ - INFO - ======================================================================
+2026-04-22 02:23:33,064 - __main__ - INFO - Iniciando sesión Spark...
+2026-04-22 02:23:45,805 - __main__ - INFO - Leyendo componentes de Silver...
+2026-04-22 02:23:49,928 - __main__ - INFO - fact_viirs cargada
+2026-04-22 02:23:49,929 - __main__ - INFO - Construyendo Gold dataframe...
+2026-04-22 02:23:50,017 - __main__ - INFO - CROSS JOIN: municipios × años...
+2026-04-22 02:23:50,102 - __main__ - INFO - JOINs con facts...
+2026-04-22 02:23:50,227 - __main__ - INFO - JOIN con fact_viirs...
+2026-04-22 02:23:50,295 - __main__ - INFO - Calculando variables derivadas...
+2026-04-22 02:23:53,505 - __main__ - INFO - Gold dataframe construido: 252061 registros
+2026-04-22 02:23:53,507 - __main__ - INFO - Columnas finales: 36/36
+2026-04-22 02:23:53,609 - __main__ - INFO - Escribiendo Gold en hdfs://localhost:9000/geolumica/gold/df_maestro.parquet...
+2026-04-22 02:23:59,897 - __main__ - INFO - ✅ Gold escrita: 252061 registros, 36 columnas
+2026-04-22 02:23:59,898 - __main__ - INFO - ======================================================================
+2026-04-22 02:23:59,898 - __main__ - INFO - ✅ PIPELINE COMPLETADO EXITOSAMENTE
+2026-04-22 02:23:59,899 - __main__ - INFO - ======================================================================
+2026-04-22 02:24:00,219 - __main__ - INFO - Sesión Spark cerrada
+2026-04-22 02:24:00,227 - py4j.clientserver - INFO - Closing down clientserver connection
+2026-04-22 02:39:16,115 - __main__ - INFO - ======================================================================
+2026-04-22 02:39:16,116 - __main__ - INFO - INICIANDO PIPELINE SILVER → GOLD (GeoLúmica)
+2026-04-22 02:39:16,117 - __main__ - INFO - Timestamp: 2026-04-22T02:39:16.117550
+2026-04-22 02:39:16,118 - __main__ - INFO - ======================================================================
+2026-04-22 02:39:16,119 - __main__ - INFO - Iniciando sesión Spark...
+2026-04-22 02:39:30,224 - __main__ - INFO - Leyendo componentes de Silver...
+2026-04-22 02:39:35,641 - __main__ - INFO - fact_viirs cargada
+2026-04-22 02:39:35,643 - __main__ - INFO - Construyendo Gold dataframe...
+2026-04-22 02:39:35,826 - __main__ - INFO - CROSS JOIN: municipios × años...
+2026-04-22 02:39:35,989 - __main__ - INFO - JOINs con facts...
+2026-04-22 02:39:36,133 - __main__ - INFO - JOIN con fact_viirs...
+2026-04-22 02:39:36,207 - __main__ - INFO - Calculando variables derivadas...
+2026-04-22 02:39:39,138 - __main__ - INFO - Gold dataframe construido: 252061 registros
+2026-04-22 02:39:39,143 - __main__ - INFO - Columnas finales: 36/36
+2026-04-22 02:39:39,241 - __main__ - INFO - Escribiendo Gold en hdfs://localhost:9000/geolumica/gold/df_maestro.parquet...
+2026-04-22 02:39:44,138 - __main__ - INFO - ✅ Gold escrita: 252061 registros, 36 columnas
+2026-04-22 02:39:44,148 - __main__ - INFO - ======================================================================
+2026-04-22 02:39:44,153 - __main__ - INFO - ✅ PIPELINE COMPLETADO EXITOSAMENTE
+2026-04-22 02:39:44,155 - __main__ - INFO - ======================================================================
+2026-04-22 02:39:44,579 - __main__ - INFO - Sesión Spark cerrada
+2026-04-22 02:39:44,589 - py4j.clientserver - INFO - Closing down clientserver connection
+2026-04-22 02:42:51,000 - __main__ - INFO - ======================================================================
+2026-04-22 02:42:51,001 - __main__ - INFO - INICIANDO PIPELINE SILVER → GOLD (GeoLúmica)
+2026-04-22 02:42:51,002 - __main__ - INFO - Timestamp: 2026-04-22T02:42:51.002576
+2026-04-22 02:42:51,003 - __main__ - INFO - ======================================================================
+2026-04-22 02:42:51,003 - __main__ - INFO - Iniciando sesión Spark...
+2026-04-22 02:43:03,841 - __main__ - INFO - Leyendo componentes de Silver...
+2026-04-22 02:43:09,155 - __main__ - INFO - fact_viirs cargada
+2026-04-22 02:43:09,156 - __main__ - INFO - Construyendo Gold dataframe...
+2026-04-22 02:43:09,396 - __main__ - INFO - CROSS JOIN: municipios × años...
+2026-04-22 02:43:09,514 - __main__ - INFO - JOINs con facts...
+2026-04-22 02:43:09,785 - __main__ - INFO - JOIN con fact_viirs...
+2026-04-22 02:43:09,939 - __main__ - INFO - Calculando variables derivadas...
+2026-04-22 02:43:13,833 - __main__ - INFO - Gold dataframe construido: 253047 registros
+2026-04-22 02:43:13,857 - __main__ - INFO - Columnas finales: 36/36
+2026-04-22 02:43:13,935 - __main__ - INFO - Escribiendo Gold en hdfs://localhost:9000/geolumica/gold/df_maestro.parquet...
+2026-04-22 02:43:20,657 - __main__ - INFO - ✅ Gold escrita: 253047 registros, 36 columnas
+2026-04-22 02:43:20,671 - __main__ - INFO - ======================================================================
+2026-04-22 02:43:20,674 - __main__ - INFO - ✅ PIPELINE COMPLETADO EXITOSAMENTE
+2026-04-22 02:43:20,677 - __main__ - INFO - ======================================================================
+2026-04-22 02:43:21,187 - __main__ - INFO - Sesión Spark cerrada
+2026-04-22 02:43:21,194 - py4j.clientserver - INFO - Closing down clientserver connection
+2026-04-22 02:51:22,163 - __main__ - INFO - ======================================================================
+2026-04-22 02:51:22,164 - __main__ - INFO - INICIANDO PIPELINE SILVER → GOLD (GeoLúmica)
+2026-04-22 02:51:22,164 - __main__ - INFO - Timestamp: 2026-04-22T02:51:22.164924
+2026-04-22 02:51:22,165 - __main__ - INFO - ======================================================================
+2026-04-22 02:51:22,166 - __main__ - INFO - Iniciando sesión Spark...
+2026-04-22 02:51:35,235 - __main__ - INFO - Leyendo componentes de Silver...
+2026-04-22 02:51:38,714 - __main__ - INFO - fact_viirs cargada
+2026-04-22 02:51:38,715 - __main__ - INFO - Construyendo Gold dataframe...
+2026-04-22 02:51:38,840 - __main__ - INFO - CROSS JOIN: municipios × años...
+2026-04-22 02:51:38,926 - __main__ - INFO - JOINs con facts...
+2026-04-22 02:51:39,046 - __main__ - INFO - JOIN con fact_viirs...
+2026-04-22 02:51:39,107 - __main__ - INFO - Calculando variables derivadas...
+2026-04-22 02:51:43,271 - __main__ - INFO - Gold dataframe construido: 252061 registros
+2026-04-22 02:51:43,280 - __main__ - INFO - Columnas finales: 36/36
+2026-04-22 02:51:43,386 - __main__ - INFO - Escribiendo Gold en hdfs://localhost:9000/geolumica/gold/df_maestro.parquet...
+2026-04-22 02:51:50,748 - __main__ - INFO - ✅ Gold escrita: 252061 registros, 36 columnas
+2026-04-22 02:51:50,749 - __main__ - INFO - ======================================================================
+2026-04-22 02:51:50,753 - __main__ - INFO - ✅ PIPELINE COMPLETADO EXITOSAMENTE
+2026-04-22 02:51:50,753 - __main__ - INFO - ======================================================================
+2026-04-22 02:51:51,198 - __main__ - INFO - Sesión Spark cerrada
+2026-04-22 02:51:51,209 - py4j.clientserver - INFO - Closing down clientserver connection
+2026-04-22 03:04:42,877 - __main__ - INFO - ======================================================================
+2026-04-22 03:04:42,878 - __main__ - INFO - INICIANDO PIPELINE SILVER → GOLD (GeoLúmica)
+2026-04-22 03:04:42,879 - __main__ - INFO - Timestamp: 2026-04-22T03:04:42.879333
+2026-04-22 03:04:42,880 - __main__ - INFO - ======================================================================
+2026-04-22 03:04:42,881 - __main__ - INFO - Iniciando sesión Spark...
+2026-04-22 03:04:55,499 - __main__ - INFO - Leyendo componentes de Silver...
+2026-04-22 03:04:58,891 - __main__ - INFO - fact_viirs cargada
+2026-04-22 03:04:58,892 - __main__ - INFO - Construyendo Gold dataframe...
+2026-04-22 03:04:59,050 - __main__ - INFO - CROSS JOIN: municipios × años...
+2026-04-22 03:04:59,177 - __main__ - INFO - JOINs con facts...
+2026-04-22 03:04:59,327 - __main__ - INFO - JOIN con fact_viirs...
+2026-04-22 03:04:59,399 - __main__ - INFO - Calculando variables derivadas...
+2026-04-22 03:05:03,386 - __main__ - INFO - Gold dataframe construido: 252061 registros
+2026-04-22 03:05:03,388 - __main__ - INFO - Columnas finales: 38/38
+2026-04-22 03:05:03,459 - __main__ - INFO - Escribiendo Gold en hdfs://localhost:9000/geolumica/gold/df_maestro.parquet...
+2026-04-22 03:05:10,300 - __main__ - INFO - ✅ Gold escrita: 252061 registros, 38 columnas
+2026-04-22 03:05:10,305 - __main__ - INFO - ======================================================================
+2026-04-22 03:05:10,312 - __main__ - INFO - ✅ PIPELINE COMPLETADO EXITOSAMENTE
+2026-04-22 03:05:10,312 - __main__ - INFO - ======================================================================
+2026-04-22 03:05:10,418 - __main__ - INFO - Sesión Spark cerrada
+2026-04-22 03:05:10,423 - py4j.clientserver - INFO - Closing down clientserver connection
+2026-04-28 20:07:39,559 - __main__ - INFO - ======================================================================
+2026-04-28 20:07:39,560 - __main__ - INFO - INICIANDO PIPELINE SILVER → GOLD (GeoLúmica)
+2026-04-28 20:07:39,561 - __main__ - INFO - Timestamp: 2026-04-28T20:07:39.561123
+2026-04-28 20:07:39,561 - __main__ - INFO - ======================================================================
+2026-04-28 20:07:39,569 - __main__ - INFO - Iniciando sesión Spark...
+2026-04-28 20:07:51,265 - __main__ - INFO - Leyendo componentes de Silver...
+2026-04-28 20:07:53,305 - __main__ - INFO - fact_viirs cargada
+2026-04-28 20:07:53,305 - __main__ - INFO - Construyendo Gold dataframe...
+2026-04-28 20:07:53,306 - __main__ - INFO - Calculando intersección de municipio/año en facts críticas...
+2026-04-28 20:07:53,583 - __main__ - INFO - JOIN con fact_viirs (LEFT, solo una vez)...
+2026-04-28 20:07:53,634 - __main__ - INFO - Calculando variables derivadas...
+2026-04-28 20:07:58,511 - __main__ - INFO - Gold dataframe construido: 23958 registros
+2026-04-28 20:07:58,548 - __main__ - INFO - Columnas finales: 15/15
+2026-04-28 20:07:58,645 - __main__ - INFO - Escribiendo Gold en hdfs://localhost:9000/geolumica/gold/df_maestro.parquet...
+2026-04-28 20:08:02,094 - __main__ - INFO - ✅ Gold escrita: 23958 registros, 15 columnas
+2026-04-28 20:08:02,097 - __main__ - INFO - ======================================================================
+2026-04-28 20:08:02,097 - __main__ - INFO - ✅ PIPELINE COMPLETADO EXITOSAMENTE
+2026-04-28 20:08:02,098 - __main__ - INFO - ======================================================================
+2026-04-28 20:08:02,219 - __main__ - INFO - Sesión Spark cerrada
+2026-04-28 20:08:02,229 - py4j.clientserver - INFO - Closing down clientserver connection
+2026-05-03 04:38:15,412 - __main__ - INFO - ======================================================================
+2026-05-03 04:38:15,412 - __main__ - INFO - INICIANDO PIPELINE SILVER -> GOLD (GeoLumica)
+2026-05-03 04:38:15,412 - __main__ - INFO - Timestamp: 2026-05-03T04:38:15.412714
+2026-05-03 04:38:15,413 - __main__ - INFO - ======================================================================
+2026-05-03 04:38:15,416 - __main__ - INFO - Iniciando sesion Spark...
+2026-05-03 04:38:27,890 - __main__ - INFO - Leyendo Silver Parquet...
+2026-05-03 04:38:28,749 - __main__ - ERROR - ERROR EN PIPELINE: An error occurred while calling o34.parquet.
+: java.net.ConnectException: Call From DESKTOP-VQH174Q/127.0.1.1 to localhost:9000 failed on connection exception: java.net.ConnectException: Connection refused; For more details see:  http://wiki.apache.org/hadoop/ConnectionRefused
+	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance0(Native Method)
+	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance(NativeConstructorAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingConstructorAccessorImpl.newInstance(DelegatingConstructorAccessorImpl.java:45)
+	at java.base/java.lang.reflect.Constructor.newInstanceWithCaller(Constructor.java:500)
+	at java.base/java.lang.reflect.Constructor.newInstance(Constructor.java:481)
+	at org.apache.hadoop.net.NetUtils.wrapWithMessage(NetUtils.java:913)
+	at org.apache.hadoop.net.NetUtils.wrapException(NetUtils.java:828)
+	at org.apache.hadoop.ipc.Client.getRpcResponse(Client.java:1616)
+	at org.apache.hadoop.ipc.Client.call(Client.java:1558)
+	at org.apache.hadoop.ipc.Client.call(Client.java:1455)
+	at org.apache.hadoop.ipc.ProtobufRpcEngine2$Invoker.invoke(ProtobufRpcEngine2.java:242)
+	at org.apache.hadoop.ipc.ProtobufRpcEngine2$Invoker.invoke(ProtobufRpcEngine2.java:129)
+	at jdk.proxy2/jdk.proxy2.$Proxy35.getFileInfo(Unknown Source)
+	at org.apache.hadoop.hdfs.protocolPB.ClientNamenodeProtocolTranslatorPB.getFileInfo(ClientNamenodeProtocolTranslatorPB.java:965)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+	at org.apache.hadoop.io.retry.RetryInvocationHandler.invokeMethod(RetryInvocationHandler.java:422)
+	at org.apache.hadoop.io.retry.RetryInvocationHandler$Call.invokeMethod(RetryInvocationHandler.java:165)
+	at org.apache.hadoop.io.retry.RetryInvocationHandler$Call.invoke(RetryInvocationHandler.java:157)
+	at org.apache.hadoop.io.retry.RetryInvocationHandler$Call.invokeOnce(RetryInvocationHandler.java:95)
+	at org.apache.hadoop.io.retry.RetryInvocationHandler.invoke(RetryInvocationHandler.java:359)
+	at jdk.proxy2/jdk.proxy2.$Proxy36.getFileInfo(Unknown Source)
+	at org.apache.hadoop.hdfs.DFSClient.getFileInfo(DFSClient.java:1739)
+	at org.apache.hadoop.hdfs.DistributedFileSystem$29.doCall(DistributedFileSystem.java:1753)
+	at org.apache.hadoop.hdfs.DistributedFileSystem$29.doCall(DistributedFileSystem.java:1750)
+	at org.apache.hadoop.fs.FileSystemLinkResolver.resolve(FileSystemLinkResolver.java:81)
+	at org.apache.hadoop.hdfs.DistributedFileSystem.getFileStatus(DistributedFileSystem.java:1765)
+	at org.apache.hadoop.fs.FileSystem.exists(FileSystem.java:1760)
+	at org.apache.spark.sql.execution.datasources.DataSource$.$anonfun$checkAndGlobPathIfNecessary$4(DataSource.scala:756)
+	at org.apache.spark.sql.execution.datasources.DataSource$.$anonfun$checkAndGlobPathIfNecessary$4$adapted(DataSource.scala:754)
+	at org.apache.spark.util.ThreadUtils$.$anonfun$parmap$2(ThreadUtils.scala:384)
+	at scala.concurrent.Future$.$anonfun$apply$1(Future.scala:659)
+	at scala.util.Success.$anonfun$map$1(Try.scala:255)
+	at scala.util.Success.map(Try.scala:213)
+	at scala.concurrent.Future.$anonfun$map$1(Future.scala:292)
+	at scala.concurrent.impl.Promise.liftedTree1$1(Promise.scala:33)
+	at scala.concurrent.impl.Promise.$anonfun$transform$1(Promise.scala:33)
+	at scala.concurrent.impl.CallbackRunnable.run(Promise.scala:64)
+	at java.base/java.util.concurrent.ForkJoinTask$RunnableExecuteAction.exec(ForkJoinTask.java:1395)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:373)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1182)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1655)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1622)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:165)
+Caused by: java.net.ConnectException: Connection refused
+	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at java.base/sun.nio.ch.Net.pollConnectNow(Net.java:684)
+	at java.base/sun.nio.ch.SocketChannelImpl.finishConnect(SocketChannelImpl.java:946)
+	at org.apache.hadoop.net.SocketIOWithTimeout.connect(SocketIOWithTimeout.java:205)
+	at org.apache.hadoop.net.NetUtils.connect(NetUtils.java:586)
+	at org.apache.hadoop.ipc.Client$Connection.setupConnection(Client.java:711)
+	at org.apache.hadoop.ipc.Client$Connection.setupIOstreams(Client.java:833)
+	at org.apache.hadoop.ipc.Client$Connection.access$3800(Client.java:414)
+	at org.apache.hadoop.ipc.Client.getConnection(Client.java:1677)
+	at org.apache.hadoop.ipc.Client.call(Client.java:1502)
+	... 37 more
+Traceback (most recent call last):
+  File "/mnt/c/Users/ferna/Documents/GitHub/Proyecto_Big_Data_I/Proyecto_Big_Data_I/Proyecto/main_gold.py", line 144, in main
+    silver_dfs = read_silver(spark, fact_base_path)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/c/Users/ferna/Documents/GitHub/Proyecto_Big_Data_I/Proyecto_Big_Data_I/Proyecto/main_gold.py", line 51, in read_silver
+    "conectividad": _read("fact_conectividad"),
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/c/Users/ferna/Documents/GitHub/Proyecto_Big_Data_I/Proyecto_Big_Data_I/Proyecto/main_gold.py", line 41, in _read
+    df = spark.read.parquet(path)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/fernaferna/spark_env/lib/python3.12/site-packages/pyspark/sql/readwriter.py", line 544, in parquet
+    return self._df(self._jreader.parquet(_to_seq(self._spark._sc, paths)))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/fernaferna/spark_env/lib/python3.12/site-packages/py4j/java_gateway.py", line 1322, in __call__
+    return_value = get_return_value(
+                   ^^^^^^^^^^^^^^^^^
+  File "/home/fernaferna/spark_env/lib/python3.12/site-packages/pyspark/errors/exceptions/captured.py", line 179, in deco
+    return f(*a, **kw)
+           ^^^^^^^^^^^
+  File "/home/fernaferna/spark_env/lib/python3.12/site-packages/py4j/protocol.py", line 326, in get_return_value
+    raise Py4JJavaError(
+py4j.protocol.Py4JJavaError: An error occurred while calling o34.parquet.
+: java.net.ConnectException: Call From DESKTOP-VQH174Q/127.0.1.1 to localhost:9000 failed on connection exception: java.net.ConnectException: Connection refused; For more details see:  http://wiki.apache.org/hadoop/ConnectionRefused
+	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance0(Native Method)
+	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance(NativeConstructorAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingConstructorAccessorImpl.newInstance(DelegatingConstructorAccessorImpl.java:45)
+	at java.base/java.lang.reflect.Constructor.newInstanceWithCaller(Constructor.java:500)
+	at java.base/java.lang.reflect.Constructor.newInstance(Constructor.java:481)
+	at org.apache.hadoop.net.NetUtils.wrapWithMessage(NetUtils.java:913)
+	at org.apache.hadoop.net.NetUtils.wrapException(NetUtils.java:828)
+	at org.apache.hadoop.ipc.Client.getRpcResponse(Client.java:1616)
+	at org.apache.hadoop.ipc.Client.call(Client.java:1558)
+	at org.apache.hadoop.ipc.Client.call(Client.java:1455)
+	at org.apache.hadoop.ipc.ProtobufRpcEngine2$Invoker.invoke(ProtobufRpcEngine2.java:242)
+	at org.apache.hadoop.ipc.ProtobufRpcEngine2$Invoker.invoke(ProtobufRpcEngine2.java:129)
+	at jdk.proxy2/jdk.proxy2.$Proxy35.getFileInfo(Unknown Source)
+	at org.apache.hadoop.hdfs.protocolPB.ClientNamenodeProtocolTranslatorPB.getFileInfo(ClientNamenodeProtocolTranslatorPB.java:965)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+	at org.apache.hadoop.io.retry.RetryInvocationHandler.invokeMethod(RetryInvocationHandler.java:422)
+	at org.apache.hadoop.io.retry.RetryInvocationHandler$Call.invokeMethod(RetryInvocationHandler.java:165)
+	at org.apache.hadoop.io.retry.RetryInvocationHandler$Call.invoke(RetryInvocationHandler.java:157)
+	at org.apache.hadoop.io.retry.RetryInvocationHandler$Call.invokeOnce(RetryInvocationHandler.java:95)
+	at org.apache.hadoop.io.retry.RetryInvocationHandler.invoke(RetryInvocationHandler.java:359)
+	at jdk.proxy2/jdk.proxy2.$Proxy36.getFileInfo(Unknown Source)
+	at org.apache.hadoop.hdfs.DFSClient.getFileInfo(DFSClient.java:1739)
+	at org.apache.hadoop.hdfs.DistributedFileSystem$29.doCall(DistributedFileSystem.java:1753)
+	at org.apache.hadoop.hdfs.DistributedFileSystem$29.doCall(DistributedFileSystem.java:1750)
+	at org.apache.hadoop.fs.FileSystemLinkResolver.resolve(FileSystemLinkResolver.java:81)
+	at org.apache.hadoop.hdfs.DistributedFileSystem.getFileStatus(DistributedFileSystem.java:1765)
+	at org.apache.hadoop.fs.FileSystem.exists(FileSystem.java:1760)
+	at org.apache.spark.sql.execution.datasources.DataSource$.$anonfun$checkAndGlobPathIfNecessary$4(DataSource.scala:756)
+	at org.apache.spark.sql.execution.datasources.DataSource$.$anonfun$checkAndGlobPathIfNecessary$4$adapted(DataSource.scala:754)
+	at org.apache.spark.util.ThreadUtils$.$anonfun$parmap$2(ThreadUtils.scala:384)
+	at scala.concurrent.Future$.$anonfun$apply$1(Future.scala:659)
+	at scala.util.Success.$anonfun$map$1(Try.scala:255)
+	at scala.util.Success.map(Try.scala:213)
+	at scala.concurrent.Future.$anonfun$map$1(Future.scala:292)
+	at scala.concurrent.impl.Promise.liftedTree1$1(Promise.scala:33)
+	at scala.concurrent.impl.Promise.$anonfun$transform$1(Promise.scala:33)
+	at scala.concurrent.impl.CallbackRunnable.run(Promise.scala:64)
+	at java.base/java.util.concurrent.ForkJoinTask$RunnableExecuteAction.exec(ForkJoinTask.java:1395)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:373)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1182)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1655)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1622)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:165)
+Caused by: java.net.ConnectException: Connection refused
+	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at java.base/sun.nio.ch.Net.pollConnectNow(Net.java:684)
+	at java.base/sun.nio.ch.SocketChannelImpl.finishConnect(SocketChannelImpl.java:946)
+	at org.apache.hadoop.net.SocketIOWithTimeout.connect(SocketIOWithTimeout.java:205)
+	at org.apache.hadoop.net.NetUtils.connect(NetUtils.java:586)
+	at org.apache.hadoop.ipc.Client$Connection.setupConnection(Client.java:711)
+	at org.apache.hadoop.ipc.Client$Connection.setupIOstreams(Client.java:833)
+	at org.apache.hadoop.ipc.Client$Connection.access$3800(Client.java:414)
+	at org.apache.hadoop.ipc.Client.getConnection(Client.java:1677)
+	at org.apache.hadoop.ipc.Client.call(Client.java:1502)
+	... 37 more
+
+2026-05-03 04:38:29,287 - __main__ - INFO - Sesion Spark cerrada
+2026-05-03 04:38:29,300 - py4j.clientserver - INFO - Closing down clientserver connection
+2026-05-03 04:40:11,266 - __main__ - INFO - ======================================================================
+2026-05-03 04:40:11,267 - __main__ - INFO - INICIANDO PIPELINE SILVER -> GOLD (GeoLumica)
+2026-05-03 04:40:11,267 - __main__ - INFO - Timestamp: 2026-05-03T04:40:11.267593
+2026-05-03 04:40:11,267 - __main__ - INFO - ======================================================================
+2026-05-03 04:40:11,277 - __main__ - INFO - Iniciando sesion Spark...
+2026-05-03 04:40:24,299 - __main__ - INFO - Leyendo Silver Parquet...
+2026-05-03 04:40:27,531 - __main__ - INFO -   fact_conectividad: 130096 filas, 4 cols -- ['muni_id', 'year', 'indice_conectividad', 'num_vehiculos']
+2026-05-03 04:40:27,815 - __main__ - INFO -   fact_osm_logistica: 8131 filas, 7 cols -- ['muni_id', 'num_estaciones', 'num_operadores', 'distancia_min_km', 'distancia_media_km', 'densidad_estaciones_km2', 'ratio_accesibilidad']
+2026-05-03 04:40:28,123 - __main__ - INFO -   fact_energia: 3185 filas, 39 cols -- ['nombre_provincia', 'Nombre', 'Mediana consumo anual', 'Viviendas con bajo consumo', 'Viviendas con consumo entre 1.001 y 2.000 kwh', 'Viviendas con consumo entre 2.001 y 3.000 kwh', 'Viviendas con consumo entre 3.001 y 4.000 kwh', 'Viviendas con consumo entre 4.001 y 5.000 kwh', 'Viviendas con consumo entre 5.001 y 6.000 kwh', 'Viviendas con consumo entre 6.001 y 7.000 kwh', 'Viviendas con consumo entre 7.001 y 8.000 kwh', 'Viviendas con consumo entre 751 y 1.000 kwh', 'Viviendas con consumo entre 8.001 y 9.000 kwh', 'Viviendas con consumo entre 9.001 y 10.000 kwh', 'Viviendas con consumo mayor de 10.000 kwh', 'Viviendas de uso esporádico', 'Viviendas de uso esporádico (entre 251 y 500 kwh)', 'Viviendas de uso esporádico (entre 501 y 750 kwh)', 'Viviendas totales', 'Viviendas vacías', 'prov_mediana_consumo_anual', 'prov_viviendas_con_bajo_consumo', 'prov_viviendas_con_consumo_entre_1.001_y_2.000_kwh', 'prov_viviendas_con_consumo_entre_2.001_y_3.000_kwh', 'prov_viviendas_con_consumo_entre_3.001_y_4.000_kwh', 'prov_viviendas_con_consumo_entre_4.001_y_5.000_kwh', 'prov_viviendas_con_consumo_entre_5.001_y_6.000_kwh', 'prov_viviendas_con_consumo_entre_6.001_y_7.000_kwh', 'prov_viviendas_con_consumo_entre_7.001_y_8.000_kwh', 'prov_viviendas_con_consumo_entre_751_y_1.000_kwh', 'prov_viviendas_con_consumo_entre_8.001_y_9.000_kwh', 'prov_viviendas_con_consumo_entre_9.001_y_10.000_kwh', 'prov_viviendas_con_consumo_mayor_de_10.000_kwh', 'prov_viviendas_de_uso_esporádico', 'prov_viviendas_de_uso_esporádico_(entre_251_y_500_kwh)', 'prov_viviendas_de_uso_esporádico_(entre_501_y_750_kwh)', 'prov_viviendas_totales', 'prov_viviendas_vacías', 'muni_id']
+2026-05-03 04:40:28,363 - __main__ - INFO -   fact_demografia: 234883 filas, 8 cols -- ['muni_id', 'year', 'municipio', 'region_name', 'poblacion_muni', 'poblacion_prov', 'Hombres', 'Mujeres']
+2026-05-03 04:40:28,567 - __main__ - INFO -   fact_migracion_neta: 32528 filas, 3 cols -- ['muni_id', 'year', 'saldo_migratorio_neto']
+2026-05-03 04:40:28,745 - __main__ - ERROR - ERROR EN PIPELINE: [UNABLE_TO_INFER_SCHEMA] Unable to infer schema for Parquet. It must be specified manually.
+Traceback (most recent call last):
+  File "/mnt/c/Users/ferna/Documents/GitHub/Proyecto_Big_Data_I/Proyecto_Big_Data_I/Proyecto/main_gold.py", line 144, in main
+    silver_dfs = read_silver(spark, fact_base_path)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/c/Users/ferna/Documents/GitHub/Proyecto_Big_Data_I/Proyecto_Big_Data_I/Proyecto/main_gold.py", line 56, in read_silver
+    "renta":        _read("fact_renta"),
+                    ^^^^^^^^^^^^^^^^^^^
+  File "/mnt/c/Users/ferna/Documents/GitHub/Proyecto_Big_Data_I/Proyecto_Big_Data_I/Proyecto/main_gold.py", line 41, in _read
+    df = spark.read.parquet(path)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/fernaferna/spark_env/lib/python3.12/site-packages/pyspark/sql/readwriter.py", line 544, in parquet
+    return self._df(self._jreader.parquet(_to_seq(self._spark._sc, paths)))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/fernaferna/spark_env/lib/python3.12/site-packages/py4j/java_gateway.py", line 1322, in __call__
+    return_value = get_return_value(
+                   ^^^^^^^^^^^^^^^^^
+  File "/home/fernaferna/spark_env/lib/python3.12/site-packages/pyspark/errors/exceptions/captured.py", line 185, in deco
+    raise converted from None
+pyspark.errors.exceptions.captured.AnalysisException: [UNABLE_TO_INFER_SCHEMA] Unable to infer schema for Parquet. It must be specified manually.
+2026-05-03 04:40:29,193 - __main__ - INFO - Sesion Spark cerrada
+2026-05-03 04:40:29,202 - py4j.clientserver - INFO - Closing down clientserver connection
+2026-05-03 04:42:32,208 - __main__ - INFO - ======================================================================
+2026-05-03 04:42:32,209 - __main__ - INFO - INICIANDO PIPELINE SILVER -> GOLD (GeoLumica)
+2026-05-03 04:42:32,210 - __main__ - INFO - Timestamp: 2026-05-03T04:42:32.210187
+2026-05-03 04:42:32,210 - __main__ - INFO - ======================================================================
+2026-05-03 04:42:32,222 - __main__ - INFO - Iniciando sesion Spark...
+2026-05-03 04:42:45,372 - __main__ - INFO - Leyendo Silver Parquet...
+2026-05-03 04:42:48,511 - __main__ - INFO -   fact_conectividad: 130096 filas, 4 cols -- ['muni_id', 'year', 'indice_conectividad', 'Vehiculos_Oficial']
+2026-05-03 04:42:48,729 - __main__ - INFO -   fact_osm_logistica: 8131 filas, 22 cols -- ['PROV_NAME', 'SOG_ID', 'LAU_NAME', 'AREA_KM2', 'POP_2023', 'stations_count', 'stations_unique', 'stations_density_km2', 'stations_with_operator_share', 'operator_count', 'stations_per_10k_pop', 'stations_within_1km_count', 'stations_within_5km_count', 'stations_in_muni_plus_1km_count', 'stations_in_muni_plus_5km_count', 'min_distance_km_to_station', 'mean_distance_km_to_station', 'accessible_count', 'accessible_share', 'category_connectivity', 'INE_PROV_CODE', 'muni_id']
+2026-05-03 04:42:48,907 - __main__ - INFO -   fact_energia: 3185 filas, 39 cols -- ['nombre_provincia', 'Nombre', 'Mediana consumo anual', 'Viviendas con bajo consumo', 'Viviendas con consumo entre 1.001 y 2.000 kwh', 'Viviendas con consumo entre 2.001 y 3.000 kwh', 'Viviendas con consumo entre 3.001 y 4.000 kwh', 'Viviendas con consumo entre 4.001 y 5.000 kwh', 'Viviendas con consumo entre 5.001 y 6.000 kwh', 'Viviendas con consumo entre 6.001 y 7.000 kwh', 'Viviendas con consumo entre 7.001 y 8.000 kwh', 'Viviendas con consumo entre 751 y 1.000 kwh', 'Viviendas con consumo entre 8.001 y 9.000 kwh', 'Viviendas con consumo entre 9.001 y 10.000 kwh', 'Viviendas con consumo mayor de 10.000 kwh', 'Viviendas de uso esporádico', 'Viviendas de uso esporádico (entre 251 y 500 kwh)', 'Viviendas de uso esporádico (entre 501 y 750 kwh)', 'Viviendas totales', 'Viviendas vacías', 'prov_mediana_consumo_anual', 'prov_viviendas_con_bajo_consumo', 'prov_viviendas_con_consumo_entre_1.001_y_2.000_kwh', 'prov_viviendas_con_consumo_entre_2.001_y_3.000_kwh', 'prov_viviendas_con_consumo_entre_3.001_y_4.000_kwh', 'prov_viviendas_con_consumo_entre_4.001_y_5.000_kwh', 'prov_viviendas_con_consumo_entre_5.001_y_6.000_kwh', 'prov_viviendas_con_consumo_entre_6.001_y_7.000_kwh', 'prov_viviendas_con_consumo_entre_7.001_y_8.000_kwh', 'prov_viviendas_con_consumo_entre_751_y_1.000_kwh', 'prov_viviendas_con_consumo_entre_8.001_y_9.000_kwh', 'prov_viviendas_con_consumo_entre_9.001_y_10.000_kwh', 'prov_viviendas_con_consumo_mayor_de_10.000_kwh', 'prov_viviendas_de_uso_esporádico', 'prov_viviendas_de_uso_esporádico_(entre_251_y_500_kwh)', 'prov_viviendas_de_uso_esporádico_(entre_501_y_750_kwh)', 'prov_viviendas_totales', 'prov_viviendas_vacías', 'muni_id']
+2026-05-03 04:42:49,108 - __main__ - INFO -   fact_demografia: 234883 filas, 8 cols -- ['muni_id', 'year', 'municipio', 'region_name', 'poblacion_muni', 'poblacion_prov', 'Hombres', 'Mujeres']
+2026-05-03 04:42:49,309 - __main__ - INFO -   fact_migracion_neta: 32525 filas, 4 cols -- ['muni_id', 'year', 'nacionalidad', 'migrantes']
+2026-05-03 04:42:49,472 - __main__ - INFO -   fact_renta: 65729 filas, 3 cols -- ['muni_id', 'year', 'renta_media']
+2026-05-03 04:42:49,630 - __main__ - INFO -   fact_empresas_transporte: 114646 filas, 4 cols -- ['muni_id', 'tipo', 'year', 'total_empresas']
+2026-05-03 04:42:49,792 - __main__ - INFO -   fact_viirs: 585432 filas, 6 cols -- ['muni_id', 'year', 'fecha', 'intensidad_luz', 'max', 'min']
+2026-05-03 04:42:49,792 - __main__ - INFO - Construyendo Gold (patron referente: ancla conectividad + LEFT JOINs)...
+2026-05-03 04:42:51,470 - __main__ - INFO - Gold construido: 130096 filas, 77 columnas
+2026-05-03 04:42:51,472 - __main__ - INFO - Escribiendo Gold en hdfs://localhost:9000/geolumica/gold/df_maestro.parquet...
+2026-05-03 04:42:55,492 - __main__ - INFO - Gold escrita: 130096 filas, 77 columnas
+2026-05-03 04:42:55,493 - __main__ - INFO - ======================================================================
+2026-05-03 04:42:55,493 - __main__ - INFO - PIPELINE COMPLETADO EXITOSAMENTE
+2026-05-03 04:42:55,494 - __main__ - INFO - ======================================================================
+2026-05-03 04:42:55,802 - __main__ - INFO - Sesion Spark cerrada
+2026-05-03 04:42:55,811 - py4j.clientserver - INFO - Closing down clientserver connection
+2026-05-03 04:47:57,057 - __main__ - INFO - ======================================================================
+2026-05-03 04:47:57,058 - __main__ - INFO - INICIANDO PIPELINE SILVER -> GOLD (GeoLumica)
+2026-05-03 04:47:57,059 - __main__ - INFO - Timestamp: 2026-05-03T04:47:57.059532
+2026-05-03 04:47:57,060 - __main__ - INFO - ======================================================================
+2026-05-03 04:47:57,089 - __main__ - INFO - Iniciando sesion Spark...
+2026-05-03 04:48:10,252 - __main__ - INFO - Leyendo Silver Parquet...
+2026-05-03 04:48:13,119 - __main__ - INFO -   fact_conectividad: 130096 filas, 4 cols -- ['muni_id', 'year', 'indice_conectividad', 'Vehiculos_Oficial']
+2026-05-03 04:48:13,354 - __main__ - INFO -   fact_osm_logistica: 8131 filas, 22 cols -- ['PROV_NAME', 'SOG_ID', 'LAU_NAME', 'AREA_KM2', 'POP_2023', 'stations_count', 'stations_unique', 'stations_density_km2', 'stations_with_operator_share', 'operator_count', 'stations_per_10k_pop', 'stations_within_1km_count', 'stations_within_5km_count', 'stations_in_muni_plus_1km_count', 'stations_in_muni_plus_5km_count', 'min_distance_km_to_station', 'mean_distance_km_to_station', 'accessible_count', 'accessible_share', 'category_connectivity', 'INE_PROV_CODE', 'muni_id']
+2026-05-03 04:48:13,586 - __main__ - INFO -   fact_energia: 3185 filas, 39 cols -- ['nombre_provincia', 'Nombre', 'Mediana consumo anual', 'Viviendas con bajo consumo', 'Viviendas con consumo entre 1.001 y 2.000 kwh', 'Viviendas con consumo entre 2.001 y 3.000 kwh', 'Viviendas con consumo entre 3.001 y 4.000 kwh', 'Viviendas con consumo entre 4.001 y 5.000 kwh', 'Viviendas con consumo entre 5.001 y 6.000 kwh', 'Viviendas con consumo entre 6.001 y 7.000 kwh', 'Viviendas con consumo entre 7.001 y 8.000 kwh', 'Viviendas con consumo entre 751 y 1.000 kwh', 'Viviendas con consumo entre 8.001 y 9.000 kwh', 'Viviendas con consumo entre 9.001 y 10.000 kwh', 'Viviendas con consumo mayor de 10.000 kwh', 'Viviendas de uso esporádico', 'Viviendas de uso esporádico (entre 251 y 500 kwh)', 'Viviendas de uso esporádico (entre 501 y 750 kwh)', 'Viviendas totales', 'Viviendas vacías', 'prov_mediana_consumo_anual', 'prov_viviendas_con_bajo_consumo', 'prov_viviendas_con_consumo_entre_1.001_y_2.000_kwh', 'prov_viviendas_con_consumo_entre_2.001_y_3.000_kwh', 'prov_viviendas_con_consumo_entre_3.001_y_4.000_kwh', 'prov_viviendas_con_consumo_entre_4.001_y_5.000_kwh', 'prov_viviendas_con_consumo_entre_5.001_y_6.000_kwh', 'prov_viviendas_con_consumo_entre_6.001_y_7.000_kwh', 'prov_viviendas_con_consumo_entre_7.001_y_8.000_kwh', 'prov_viviendas_con_consumo_entre_751_y_1.000_kwh', 'prov_viviendas_con_consumo_entre_8.001_y_9.000_kwh', 'prov_viviendas_con_consumo_entre_9.001_y_10.000_kwh', 'prov_viviendas_con_consumo_mayor_de_10.000_kwh', 'prov_viviendas_de_uso_esporádico', 'prov_viviendas_de_uso_esporádico_(entre_251_y_500_kwh)', 'prov_viviendas_de_uso_esporádico_(entre_501_y_750_kwh)', 'prov_viviendas_totales', 'prov_viviendas_vacías', 'muni_id']
+2026-05-03 04:48:13,795 - __main__ - INFO -   fact_demografia: 234883 filas, 8 cols -- ['muni_id', 'year', 'municipio', 'region_name', 'poblacion_muni', 'poblacion_prov', 'Hombres', 'Mujeres']
+2026-05-03 04:48:13,954 - __main__ - INFO -   fact_migracion_neta: 32525 filas, 4 cols -- ['muni_id', 'year', 'nacionalidad', 'migrantes']
+2026-05-03 04:48:14,124 - __main__ - INFO -   fact_renta: 65729 filas, 3 cols -- ['muni_id', 'year', 'renta_media']
+2026-05-03 04:48:14,269 - __main__ - INFO -   fact_empresas_transporte: 114646 filas, 4 cols -- ['muni_id', 'tipo', 'year', 'total_empresas']
+2026-05-03 04:48:14,527 - __main__ - INFO -   fact_viirs: 585432 filas, 6 cols -- ['muni_id', 'year', 'fecha', 'intensidad_luz', 'max', 'min']
+2026-05-03 04:48:14,530 - __main__ - INFO - Construyendo Gold (patron referente: ancla conectividad + LEFT JOINs)...
+2026-05-03 04:48:16,011 - __main__ - INFO - Gold construido: 130096 filas, 77 columnas
+2026-05-03 04:48:16,014 - __main__ - INFO - Escribiendo Gold en hdfs://localhost:9000/geolumica/gold/df_maestro.parquet/df_maestro.parquet...
+2026-05-03 04:48:21,226 - __main__ - INFO - Gold escrita: 130096 filas, 77 columnas
+2026-05-03 04:48:21,226 - __main__ - INFO - ======================================================================
+2026-05-03 04:48:21,227 - __main__ - INFO - PIPELINE COMPLETADO EXITOSAMENTE
+2026-05-03 04:48:21,234 - __main__ - INFO - ======================================================================
+2026-05-03 04:48:21,673 - __main__ - INFO - Sesion Spark cerrada
+2026-05-03 04:48:21,680 - py4j.clientserver - INFO - Closing down clientserver connection
+2026-05-03 04:48:56,577 - __main__ - INFO - ======================================================================
+2026-05-03 04:48:56,578 - __main__ - INFO - INICIANDO PIPELINE SILVER -> GOLD (GeoLumica)
+2026-05-03 04:48:56,578 - __main__ - INFO - Timestamp: 2026-05-03T04:48:56.578564
+2026-05-03 04:48:56,579 - __main__ - INFO - ======================================================================
+2026-05-03 04:48:56,584 - __main__ - INFO - Iniciando sesion Spark...
+2026-05-03 04:49:08,937 - __main__ - INFO - Leyendo Silver Parquet...
+2026-05-03 04:49:12,468 - __main__ - INFO -   fact_conectividad: 130096 filas, 4 cols -- ['muni_id', 'year', 'indice_conectividad', 'Vehiculos_Oficial']
+2026-05-03 04:49:12,664 - __main__ - INFO -   fact_osm_logistica: 8131 filas, 22 cols -- ['PROV_NAME', 'SOG_ID', 'LAU_NAME', 'AREA_KM2', 'POP_2023', 'stations_count', 'stations_unique', 'stations_density_km2', 'stations_with_operator_share', 'operator_count', 'stations_per_10k_pop', 'stations_within_1km_count', 'stations_within_5km_count', 'stations_in_muni_plus_1km_count', 'stations_in_muni_plus_5km_count', 'min_distance_km_to_station', 'mean_distance_km_to_station', 'accessible_count', 'accessible_share', 'category_connectivity', 'INE_PROV_CODE', 'muni_id']
+2026-05-03 04:49:12,822 - __main__ - INFO -   fact_energia: 3185 filas, 39 cols -- ['nombre_provincia', 'Nombre', 'Mediana consumo anual', 'Viviendas con bajo consumo', 'Viviendas con consumo entre 1.001 y 2.000 kwh', 'Viviendas con consumo entre 2.001 y 3.000 kwh', 'Viviendas con consumo entre 3.001 y 4.000 kwh', 'Viviendas con consumo entre 4.001 y 5.000 kwh', 'Viviendas con consumo entre 5.001 y 6.000 kwh', 'Viviendas con consumo entre 6.001 y 7.000 kwh', 'Viviendas con consumo entre 7.001 y 8.000 kwh', 'Viviendas con consumo entre 751 y 1.000 kwh', 'Viviendas con consumo entre 8.001 y 9.000 kwh', 'Viviendas con consumo entre 9.001 y 10.000 kwh', 'Viviendas con consumo mayor de 10.000 kwh', 'Viviendas de uso esporádico', 'Viviendas de uso esporádico (entre 251 y 500 kwh)', 'Viviendas de uso esporádico (entre 501 y 750 kwh)', 'Viviendas totales', 'Viviendas vacías', 'prov_mediana_consumo_anual', 'prov_viviendas_con_bajo_consumo', 'prov_viviendas_con_consumo_entre_1.001_y_2.000_kwh', 'prov_viviendas_con_consumo_entre_2.001_y_3.000_kwh', 'prov_viviendas_con_consumo_entre_3.001_y_4.000_kwh', 'prov_viviendas_con_consumo_entre_4.001_y_5.000_kwh', 'prov_viviendas_con_consumo_entre_5.001_y_6.000_kwh', 'prov_viviendas_con_consumo_entre_6.001_y_7.000_kwh', 'prov_viviendas_con_consumo_entre_7.001_y_8.000_kwh', 'prov_viviendas_con_consumo_entre_751_y_1.000_kwh', 'prov_viviendas_con_consumo_entre_8.001_y_9.000_kwh', 'prov_viviendas_con_consumo_entre_9.001_y_10.000_kwh', 'prov_viviendas_con_consumo_mayor_de_10.000_kwh', 'prov_viviendas_de_uso_esporádico', 'prov_viviendas_de_uso_esporádico_(entre_251_y_500_kwh)', 'prov_viviendas_de_uso_esporádico_(entre_501_y_750_kwh)', 'prov_viviendas_totales', 'prov_viviendas_vacías', 'muni_id']
+2026-05-03 04:49:12,999 - __main__ - INFO -   fact_demografia: 234883 filas, 8 cols -- ['muni_id', 'year', 'municipio', 'region_name', 'poblacion_muni', 'poblacion_prov', 'Hombres', 'Mujeres']
+2026-05-03 04:49:13,142 - __main__ - INFO -   fact_migracion_neta: 32525 filas, 4 cols -- ['muni_id', 'year', 'nacionalidad', 'migrantes']
+2026-05-03 04:49:13,301 - __main__ - INFO -   fact_renta: 65729 filas, 3 cols -- ['muni_id', 'year', 'renta_media']
+2026-05-03 04:49:13,449 - __main__ - INFO -   fact_empresas_transporte: 114646 filas, 4 cols -- ['muni_id', 'tipo', 'year', 'total_empresas']
+2026-05-03 04:49:13,601 - __main__ - INFO -   fact_viirs: 585432 filas, 6 cols -- ['muni_id', 'year', 'fecha', 'intensidad_luz', 'max', 'min']
+2026-05-03 04:49:13,602 - __main__ - INFO - Construyendo Gold (patron referente: ancla conectividad + LEFT JOINs)...
+2026-05-03 04:49:14,972 - __main__ - INFO - Gold construido: 130096 filas, 77 columnas
+2026-05-03 04:49:14,974 - __main__ - INFO - Escribiendo Gold en hdfs://localhost:9000/geolumica/gold/df_maestro.parquet/df_maestro.parquet...
+2026-05-03 04:49:20,049 - __main__ - INFO - Gold escrita: 130096 filas, 77 columnas
+2026-05-03 04:49:20,054 - __main__ - INFO - ======================================================================
+2026-05-03 04:49:20,054 - __main__ - INFO - PIPELINE COMPLETADO EXITOSAMENTE
+2026-05-03 04:49:20,055 - __main__ - INFO - ======================================================================
+2026-05-03 04:49:20,588 - __main__ - INFO - Sesion Spark cerrada
+2026-05-03 04:49:20,600 - py4j.clientserver - INFO - Closing down clientserver connection
+2026-05-03 04:50:17,068 - __main__ - INFO - ======================================================================
+2026-05-03 04:50:17,069 - __main__ - INFO - INICIANDO PIPELINE SILVER -> GOLD (GeoLumica)
+2026-05-03 04:50:17,069 - __main__ - INFO - Timestamp: 2026-05-03T04:50:17.069491
+2026-05-03 04:50:17,069 - __main__ - INFO - ======================================================================
+2026-05-03 04:50:17,074 - __main__ - INFO - Iniciando sesion Spark...
+2026-05-03 04:50:20,569 - __main__ - INFO - Leyendo Silver Parquet...
+2026-05-03 04:50:23,677 - __main__ - INFO -   fact_conectividad: 130096 filas, 4 cols -- ['muni_id', 'year', 'indice_conectividad', 'Vehiculos_Oficial']
+2026-05-03 04:50:23,873 - __main__ - INFO -   fact_osm_logistica: 8131 filas, 22 cols -- ['PROV_NAME', 'SOG_ID', 'LAU_NAME', 'AREA_KM2', 'POP_2023', 'stations_count', 'stations_unique', 'stations_density_km2', 'stations_with_operator_share', 'operator_count', 'stations_per_10k_pop', 'stations_within_1km_count', 'stations_within_5km_count', 'stations_in_muni_plus_1km_count', 'stations_in_muni_plus_5km_count', 'min_distance_km_to_station', 'mean_distance_km_to_station', 'accessible_count', 'accessible_share', 'category_connectivity', 'INE_PROV_CODE', 'muni_id']
+2026-05-03 04:50:24,068 - __main__ - INFO -   fact_energia: 3185 filas, 39 cols -- ['nombre_provincia', 'Nombre', 'Mediana consumo anual', 'Viviendas con bajo consumo', 'Viviendas con consumo entre 1.001 y 2.000 kwh', 'Viviendas con consumo entre 2.001 y 3.000 kwh', 'Viviendas con consumo entre 3.001 y 4.000 kwh', 'Viviendas con consumo entre 4.001 y 5.000 kwh', 'Viviendas con consumo entre 5.001 y 6.000 kwh', 'Viviendas con consumo entre 6.001 y 7.000 kwh', 'Viviendas con consumo entre 7.001 y 8.000 kwh', 'Viviendas con consumo entre 751 y 1.000 kwh', 'Viviendas con consumo entre 8.001 y 9.000 kwh', 'Viviendas con consumo entre 9.001 y 10.000 kwh', 'Viviendas con consumo mayor de 10.000 kwh', 'Viviendas de uso esporádico', 'Viviendas de uso esporádico (entre 251 y 500 kwh)', 'Viviendas de uso esporádico (entre 501 y 750 kwh)', 'Viviendas totales', 'Viviendas vacías', 'prov_mediana_consumo_anual', 'prov_viviendas_con_bajo_consumo', 'prov_viviendas_con_consumo_entre_1.001_y_2.000_kwh', 'prov_viviendas_con_consumo_entre_2.001_y_3.000_kwh', 'prov_viviendas_con_consumo_entre_3.001_y_4.000_kwh', 'prov_viviendas_con_consumo_entre_4.001_y_5.000_kwh', 'prov_viviendas_con_consumo_entre_5.001_y_6.000_kwh', 'prov_viviendas_con_consumo_entre_6.001_y_7.000_kwh', 'prov_viviendas_con_consumo_entre_7.001_y_8.000_kwh', 'prov_viviendas_con_consumo_entre_751_y_1.000_kwh', 'prov_viviendas_con_consumo_entre_8.001_y_9.000_kwh', 'prov_viviendas_con_consumo_entre_9.001_y_10.000_kwh', 'prov_viviendas_con_consumo_mayor_de_10.000_kwh', 'prov_viviendas_de_uso_esporádico', 'prov_viviendas_de_uso_esporádico_(entre_251_y_500_kwh)', 'prov_viviendas_de_uso_esporádico_(entre_501_y_750_kwh)', 'prov_viviendas_totales', 'prov_viviendas_vacías', 'muni_id']
+2026-05-03 04:50:24,293 - __main__ - INFO -   fact_demografia: 234883 filas, 8 cols -- ['muni_id', 'year', 'municipio', 'region_name', 'poblacion_muni', 'poblacion_prov', 'Hombres', 'Mujeres']
+2026-05-03 04:50:24,430 - __main__ - INFO -   fact_migracion_neta: 32525 filas, 4 cols -- ['muni_id', 'year', 'nacionalidad', 'migrantes']
+2026-05-03 04:50:24,627 - __main__ - INFO -   fact_renta: 65729 filas, 3 cols -- ['muni_id', 'year', 'renta_media']
+2026-05-03 04:50:24,770 - __main__ - INFO -   fact_empresas_transporte: 114646 filas, 4 cols -- ['muni_id', 'tipo', 'year', 'total_empresas']
+2026-05-03 04:50:24,950 - __main__ - INFO -   fact_viirs: 585432 filas, 6 cols -- ['muni_id', 'year', 'fecha', 'intensidad_luz', 'max', 'min']
+2026-05-03 04:50:24,951 - __main__ - INFO - Construyendo Gold (patron referente: ancla conectividad + LEFT JOINs)...
+2026-05-03 04:50:26,455 - __main__ - INFO - Gold construido: 130096 filas, 77 columnas
+2026-05-03 04:50:26,458 - __main__ - INFO - Escribiendo Gold en hdfs://localhost:9000/geolumica/gold/df_maestro.parquet/df_maestro.parquet...
+2026-05-03 04:56:21,023 - __main__ - INFO - ======================================================================
+2026-05-03 04:56:21,024 - __main__ - INFO - INICIANDO PIPELINE SILVER -> GOLD (GeoLumica)
+2026-05-03 04:56:21,024 - __main__ - INFO - Timestamp: 2026-05-03T04:56:21.024562
+2026-05-03 04:56:21,025 - __main__ - INFO - ======================================================================
+2026-05-03 04:56:21,025 - __main__ - INFO - Salida HDFS detectada, no se crea directorio local: hdfs://localhost:9000/geolumica/gold
+2026-05-03 04:56:21,025 - __main__ - INFO - Iniciando sesion Spark...
+2026-05-03 04:56:23,264 - __main__ - INFO - Leyendo Silver Parquet...
+2026-05-03 04:56:26,290 - __main__ - INFO -   fact_conectividad: 130096 filas, 4 cols -- ['muni_id', 'year', 'indice_conectividad', 'Vehiculos_Oficial']
+2026-05-03 04:56:26,515 - __main__ - INFO -   fact_osm_logistica: 8131 filas, 22 cols -- ['PROV_NAME', 'SOG_ID', 'LAU_NAME', 'AREA_KM2', 'POP_2023', 'stations_count', 'stations_unique', 'stations_density_km2', 'stations_with_operator_share', 'operator_count', 'stations_per_10k_pop', 'stations_within_1km_count', 'stations_within_5km_count', 'stations_in_muni_plus_1km_count', 'stations_in_muni_plus_5km_count', 'min_distance_km_to_station', 'mean_distance_km_to_station', 'accessible_count', 'accessible_share', 'category_connectivity', 'INE_PROV_CODE', 'muni_id']
+2026-05-03 04:56:26,706 - __main__ - INFO -   fact_energia: 3185 filas, 39 cols -- ['nombre_provincia', 'Nombre', 'Mediana consumo anual', 'Viviendas con bajo consumo', 'Viviendas con consumo entre 1.001 y 2.000 kwh', 'Viviendas con consumo entre 2.001 y 3.000 kwh', 'Viviendas con consumo entre 3.001 y 4.000 kwh', 'Viviendas con consumo entre 4.001 y 5.000 kwh', 'Viviendas con consumo entre 5.001 y 6.000 kwh', 'Viviendas con consumo entre 6.001 y 7.000 kwh', 'Viviendas con consumo entre 7.001 y 8.000 kwh', 'Viviendas con consumo entre 751 y 1.000 kwh', 'Viviendas con consumo entre 8.001 y 9.000 kwh', 'Viviendas con consumo entre 9.001 y 10.000 kwh', 'Viviendas con consumo mayor de 10.000 kwh', 'Viviendas de uso esporádico', 'Viviendas de uso esporádico (entre 251 y 500 kwh)', 'Viviendas de uso esporádico (entre 501 y 750 kwh)', 'Viviendas totales', 'Viviendas vacías', 'prov_mediana_consumo_anual', 'prov_viviendas_con_bajo_consumo', 'prov_viviendas_con_consumo_entre_1.001_y_2.000_kwh', 'prov_viviendas_con_consumo_entre_2.001_y_3.000_kwh', 'prov_viviendas_con_consumo_entre_3.001_y_4.000_kwh', 'prov_viviendas_con_consumo_entre_4.001_y_5.000_kwh', 'prov_viviendas_con_consumo_entre_5.001_y_6.000_kwh', 'prov_viviendas_con_consumo_entre_6.001_y_7.000_kwh', 'prov_viviendas_con_consumo_entre_7.001_y_8.000_kwh', 'prov_viviendas_con_consumo_entre_751_y_1.000_kwh', 'prov_viviendas_con_consumo_entre_8.001_y_9.000_kwh', 'prov_viviendas_con_consumo_entre_9.001_y_10.000_kwh', 'prov_viviendas_con_consumo_mayor_de_10.000_kwh', 'prov_viviendas_de_uso_esporádico', 'prov_viviendas_de_uso_esporádico_(entre_251_y_500_kwh)', 'prov_viviendas_de_uso_esporádico_(entre_501_y_750_kwh)', 'prov_viviendas_totales', 'prov_viviendas_vacías', 'muni_id']
+2026-05-03 04:56:26,888 - __main__ - INFO -   fact_demografia: 234883 filas, 8 cols -- ['muni_id', 'year', 'municipio', 'region_name', 'poblacion_muni', 'poblacion_prov', 'Hombres', 'Mujeres']
+2026-05-03 04:56:27,049 - __main__ - INFO -   fact_migracion_neta: 32525 filas, 4 cols -- ['muni_id', 'year', 'nacionalidad', 'migrantes']
+2026-05-03 04:56:27,241 - __main__ - INFO -   fact_renta: 65729 filas, 3 cols -- ['muni_id', 'year', 'renta_media']
+2026-05-03 04:56:27,377 - __main__ - INFO -   fact_empresas_transporte: 114646 filas, 4 cols -- ['muni_id', 'tipo', 'year', 'total_empresas']
+2026-05-03 04:56:27,564 - __main__ - INFO -   fact_viirs: 585432 filas, 6 cols -- ['muni_id', 'year', 'fecha', 'intensidad_luz', 'max', 'min']
+2026-05-03 04:56:27,565 - __main__ - INFO - Construyendo Gold (patron referente: ancla conectividad + LEFT JOINs)...
+2026-05-03 04:56:29,009 - __main__ - INFO - Gold construido: 130096 filas, 77 columnas
+2026-05-03 04:56:29,009 - __main__ - INFO - Escribiendo Gold en hdfs://localhost:9000/geolumica/gold/df_maestro.parquet...
+2026-05-03 04:56:33,014 - __main__ - INFO - Gold escrita: 130096 filas, 77 columnas
+2026-05-03 04:56:33,015 - __main__ - INFO - ======================================================================
+2026-05-03 04:56:33,015 - __main__ - INFO - PIPELINE COMPLETADO EXITOSAMENTE
+2026-05-03 04:56:33,015 - __main__ - INFO - ======================================================================
+2026-05-03 04:56:33,165 - __main__ - INFO - Sesion Spark cerrada
+2026-05-03 04:56:33,173 - py4j.clientserver - INFO - Closing down clientserver connection
+2026-05-03 04:58:57,148 - __main__ - INFO - ======================================================================
+2026-05-03 04:58:57,149 - __main__ - INFO - INICIANDO PIPELINE SILVER -> GOLD (GeoLumica)
+2026-05-03 04:58:57,149 - __main__ - INFO - Timestamp: 2026-05-03T04:58:57.149343
+2026-05-03 04:58:57,149 - __main__ - INFO - ======================================================================
+2026-05-03 04:58:57,149 - __main__ - INFO - Salida HDFS detectada, no se crea directorio local: hdfs://localhost:9000/geolumica/gold
+2026-05-03 04:58:57,149 - __main__ - INFO - Iniciando sesion Spark...
+2026-05-03 04:58:59,307 - __main__ - INFO - Leyendo Silver Parquet...
+2026-05-03 04:59:02,311 - __main__ - INFO -   fact_conectividad: 130096 filas, 4 cols -- ['muni_id', 'year', 'indice_conectividad', 'Vehiculos_Oficial']
+2026-05-03 04:59:02,550 - __main__ - INFO -   fact_osm_logistica: 8131 filas, 22 cols -- ['PROV_NAME', 'SOG_ID', 'LAU_NAME', 'AREA_KM2', 'POP_2023', 'stations_count', 'stations_unique', 'stations_density_km2', 'stations_with_operator_share', 'operator_count', 'stations_per_10k_pop', 'stations_within_1km_count', 'stations_within_5km_count', 'stations_in_muni_plus_1km_count', 'stations_in_muni_plus_5km_count', 'min_distance_km_to_station', 'mean_distance_km_to_station', 'accessible_count', 'accessible_share', 'category_connectivity', 'INE_PROV_CODE', 'muni_id']
+2026-05-03 04:59:02,748 - __main__ - INFO -   fact_energia: 3185 filas, 39 cols -- ['nombre_provincia', 'Nombre', 'Mediana consumo anual', 'Viviendas con bajo consumo', 'Viviendas con consumo entre 1.001 y 2.000 kwh', 'Viviendas con consumo entre 2.001 y 3.000 kwh', 'Viviendas con consumo entre 3.001 y 4.000 kwh', 'Viviendas con consumo entre 4.001 y 5.000 kwh', 'Viviendas con consumo entre 5.001 y 6.000 kwh', 'Viviendas con consumo entre 6.001 y 7.000 kwh', 'Viviendas con consumo entre 7.001 y 8.000 kwh', 'Viviendas con consumo entre 751 y 1.000 kwh', 'Viviendas con consumo entre 8.001 y 9.000 kwh', 'Viviendas con consumo entre 9.001 y 10.000 kwh', 'Viviendas con consumo mayor de 10.000 kwh', 'Viviendas de uso esporádico', 'Viviendas de uso esporádico (entre 251 y 500 kwh)', 'Viviendas de uso esporádico (entre 501 y 750 kwh)', 'Viviendas totales', 'Viviendas vacías', 'prov_mediana_consumo_anual', 'prov_viviendas_con_bajo_consumo', 'prov_viviendas_con_consumo_entre_1.001_y_2.000_kwh', 'prov_viviendas_con_consumo_entre_2.001_y_3.000_kwh', 'prov_viviendas_con_consumo_entre_3.001_y_4.000_kwh', 'prov_viviendas_con_consumo_entre_4.001_y_5.000_kwh', 'prov_viviendas_con_consumo_entre_5.001_y_6.000_kwh', 'prov_viviendas_con_consumo_entre_6.001_y_7.000_kwh', 'prov_viviendas_con_consumo_entre_7.001_y_8.000_kwh', 'prov_viviendas_con_consumo_entre_751_y_1.000_kwh', 'prov_viviendas_con_consumo_entre_8.001_y_9.000_kwh', 'prov_viviendas_con_consumo_entre_9.001_y_10.000_kwh', 'prov_viviendas_con_consumo_mayor_de_10.000_kwh', 'prov_viviendas_de_uso_esporádico', 'prov_viviendas_de_uso_esporádico_(entre_251_y_500_kwh)', 'prov_viviendas_de_uso_esporádico_(entre_501_y_750_kwh)', 'prov_viviendas_totales', 'prov_viviendas_vacías', 'muni_id']
+2026-05-03 04:59:02,976 - __main__ - INFO -   fact_demografia: 234883 filas, 8 cols -- ['muni_id', 'year', 'municipio', 'region_name', 'poblacion_muni', 'poblacion_prov', 'Hombres', 'Mujeres']
+2026-05-03 04:59:03,115 - __main__ - INFO -   fact_migracion_neta: 32525 filas, 4 cols -- ['muni_id', 'year', 'nacionalidad', 'migrantes']
+2026-05-03 04:59:03,306 - __main__ - INFO -   fact_renta: 65729 filas, 3 cols -- ['muni_id', 'year', 'renta_media']
+2026-05-03 04:59:03,483 - __main__ - INFO -   fact_empresas_transporte: 114646 filas, 4 cols -- ['muni_id', 'tipo', 'year', 'total_empresas']
+2026-05-03 04:59:03,753 - __main__ - INFO -   fact_viirs: 585432 filas, 6 cols -- ['muni_id', 'year', 'fecha', 'intensidad_luz', 'max', 'min']
+2026-05-03 04:59:03,754 - __main__ - INFO - Construyendo Gold (patron referente: ancla conectividad + LEFT JOINs)...
+2026-05-03 04:59:05,279 - __main__ - INFO - Gold construido: 130096 filas, 77 columnas
+2026-05-03 04:59:05,279 - __main__ - INFO - Escribiendo Gold en hdfs://localhost:9000/geolumica/gold/df_maestro.parquet...
+2026-05-03 04:59:09,618 - __main__ - INFO - Gold escrita: 130096 filas, 77 columnas
+2026-05-03 04:59:09,619 - __main__ - INFO - ======================================================================
+2026-05-03 04:59:09,619 - __main__ - INFO - PIPELINE COMPLETADO EXITOSAMENTE
+2026-05-03 04:59:09,620 - __main__ - INFO - ======================================================================
+2026-05-03 04:59:09,703 - __main__ - INFO - Sesion Spark cerrada
+2026-05-03 04:59:09,710 - py4j.clientserver - INFO - Closing down clientserver connection

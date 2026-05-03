@@ -61,6 +61,7 @@ services:
       - .:/app
     environment:
       - PYTHONUNBUFFERED=1
+      - APP_PROFILE=${APP_PROFILE:-docker}
     # Sobrescribo el comando si es necesario para asegurar que use el host correcto
     command: ["python", "Proyecto/main_dbconnection.py"]
 

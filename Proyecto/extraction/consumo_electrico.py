@@ -45,7 +45,7 @@ def fetch_viviendas_uso_ine(base_outdir="data"):
     target = target.where(~is_muni, muni_s)
     target = target.where(~is_prov, prov_s)
 
-    df2 = df[is_muni | is_prov].copy()
+    df2     = df[is_muni | is_prov].copy()
     target2 = target[is_muni | is_prov]
 
     # 2. Extraer Código y Nombre con regex vectorizado
@@ -59,12 +59,13 @@ def fetch_viviendas_uso_ine(base_outdir="data"):
     valid_prov  = (extracted['Codigo'].str.len() == 2) & (prov_mapped == extracted['Nombre'])
     valid = (valid_muni | valid_prov).values
 
-    df3       = df2[valid].copy()
-    ext3      = extracted[valid]
+    df3  = df2[valid].copy()
+    ext3 = extracted[valid]
 
     if df3.empty:
         raise ValueError("No se pudieron extraer datos. Revisa el formato del CSV del INE.")
 
+    df3 = df3.copy()
     df3['Codigo'] = ext3['Codigo'].values
     df3['Nombre'] = ext3['Nombre'].values
     df3['Total']  = (df3['Total'].fillna('0').astype(str)
@@ -75,7 +76,7 @@ def fetch_viviendas_uso_ine(base_outdir="data"):
     # Eliminar duplicados técnicos por el cruce de tablas del INE
     df_final = df_final.drop_duplicates(subset=['Codigo', 'Consumo eléctrico'])
 
-    df_final.to_csv(out_path, index=False, encoding='utf-8-sig', sep=';')
+    df_final.to_csv(out_path, index=False, encoding='utf-8-sig')
     
     # Logs de control
     c_prov = len(df_final[df_final['Codigo'].str.len() == 2]['Codigo'].unique())

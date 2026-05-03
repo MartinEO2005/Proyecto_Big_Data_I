@@ -15,7 +15,8 @@ warnings.filterwarnings("ignore")
 # --- 🔹 Configuración y Autenticación ---
 def init_ee(project="bubbly-reducer-477312-d0"):
     """Inicialización profesional con Service Account o credenciales locales."""
-    json_path = 'google_credentials.json'
+    _script_dir = os.path.dirname(os.path.abspath(__file__))
+    json_path = os.path.join(_script_dir, "..", "google_credentials.json")
     EE_SCOPES = ['https://www.googleapis.com/auth/earthengine', 'https://www.googleapis.com/auth/cloud-platform']
     
     try:
@@ -139,26 +140,23 @@ def fetch_viirs_and_save(geojson_path="municipios_es.geojson", base_outdir="outp
 
     print(f"📅 Rango de actualización: {y_start}-{m_start:02d} hasta {y_end}-{m_end:02d}")
 
-    # 2. Preparar directorios y datos geográficos
-    tmp_outdir = os.path.join(base_outdir, "luz_nocturna/tmp")
-    os.makedirs(tmp_outdir, exist_ok=True)
-    
+    # 2. Preparar datos geográficos
     gdf = gpd.read_file(geojson_path)
     block_size = 1000
     n_blocks = (len(gdf) // block_size) + 1
-    
+
     all_data = []
+    tmp_outdir = os.path.join(base_outdir, "luz_nocturna/tmp")
+    os.makedirs(tmp_outdir, exist_ok=True)
 
     # 3. Procesar por bloques de municipios para evitar Timeouts de GEE
     for i in range(n_blocks):
         sub = gdf.iloc[i * block_size : (i + 1) * block_size]
         if sub.empty: continue
-        
-        sub_path = os.path.join(tmp_outdir, f"tmp_muni_{i}.geojson")
-        sub.to_file(sub_path, driver="GeoJSON")
-        
+
         print(f"📦 Procesando bloque {i+1}/{n_blocks} ({len(sub)} municipios)")
-        municipios_ee = geemap.geojson_to_ee(sub_path)
+        # Pasamos el GeoDataFrame directamente a EE — sin escribir GeoJSON a disco
+        municipios_ee = geemap.geopandas_to_ee(sub)
         
         df_b = descargar_rango_temporal(municipios_ee, y_start, m_start, y_end, m_end, i, tmp_outdir)
         if df_b is not None:

@@ -1,12 +1,7 @@
 import requests
 import pandas as pd
 from pathlib import Path
-
-def save_df_to_theme(df, theme, filename, base_outdir):
-    out_path = Path(base_outdir) / theme / filename
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(out_path, index=False, encoding='utf-8-sig')
-    return out_path
+from extraction.storage import save_df_to_theme
 
 __all__ = ["fetch_population_total_nuts3", "fetch_population_and_save"]
 

@@ -23,7 +23,7 @@ OUT_DEBUG = "empresas_transporte_debug_raw_sample.csv"
 
 GRUPO_CNAE = "Comercio, transporte y hostelería"
 
-os.makedirs(OUTDIR, exist_ok=True)
+_DEFAULT_OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "data", "raw", "empresas_transporte")
 
 def descargar_texto(url, timeout=60):
     r = requests.get(url, timeout=timeout)
@@ -102,7 +102,9 @@ def extraer_codigo_nombre_safe(x):
         return m.group(1), m.group(2).strip()
     return (None, s)
 
-def procesar():
+def procesar(base_outdir=None):
+    OUTDIR = os.path.join(base_outdir, "empresas_transporte") if base_outdir else _DEFAULT_OUTDIR
+    os.makedirs(OUTDIR, exist_ok=True)
     text = descargar_texto(URL)
     df = leer_dataframe(text)
 
