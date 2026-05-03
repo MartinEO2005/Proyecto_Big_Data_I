@@ -25,6 +25,9 @@ from silver.satelital import create_fact_satelital
 
 logger = logging.getLogger(__name__)
 
+def configure_local_spark_env():
+    os.environ.setdefault("SPARK_LOCAL_IP", "127.0.0.1")
+    os.environ.setdefault("SPARK_LOCAL_HOSTNAME", "localhost")
 
 def setup_logger(log_file="logs/main_silver.log"):
     """Configura logging."""
@@ -100,7 +103,7 @@ def ensure_output_dirs(base_paths):
             logger.info(f"Path HDFS (ya creado): {path}")
 
 
-def validate_silver_layer(dim_base_path, fact_base_path):
+def validate_silver_layer(dim_base_path, fact_base_path, spark=None):
     """
     Valida que la capa Silver se generó correctamente.
     Verifica que existan archivos Parquet.
@@ -131,10 +134,23 @@ def validate_silver_layer(dim_base_path, fact_base_path):
     def _exists(base, name):
         full = f"{base}/{name}" if base.startswith("hdfs://") else os.path.join(base, name)
         if base.startswith("hdfs://"):
+            # Preferimos usar la JVM de Hadoop ya disponible en Spark para
+            # evitar bloqueos/cancelaciones del subprocess `hdfs dfs -test`.
+            if spark is not None:
+                try:
+                    sc = spark.sparkContext
+                    hadoop_conf = sc._jsc.hadoopConfiguration()
+                    path_obj = sc._jvm.org.apache.hadoop.fs.Path(full)
+                    fs = path_obj.getFileSystem(hadoop_conf)
+                    return fs.exists(path_obj)
+                except Exception as exc:
+                    logger.warning(f"Fallback a CLI de hdfs para validar {full}: {exc}")
+
             hdfs_bin = shutil.which("hdfs") or os.path.expanduser("~/hadoop-3.3.6/bin/hdfs")
             r = subprocess.run(
                 [hdfs_bin, "dfs", "-test", "-e", full],
-                capture_output=True
+                capture_output=True,
+                timeout=15,
             )
             return r.returncode == 0
         return os.path.exists(full)
@@ -191,14 +207,21 @@ def main(
     
     # 3. Inicializar Spark
     logger.info("Iniciando sesión Spark...")
+    configure_local_spark_env()
     spark = SparkSession.builder \
         .appName("GeoLumica-Silver") \
         .master("local[*]") \
         .config("spark.sql.shuffle.partitions", "4") \
+        .config("spark.sql.parquet.compression.codec", "snappy") \
         .config("spark.driver.memory", "2g") \
         .config("spark.default.parallelism", "4") \
+        .config("spark.driver.host", "127.0.0.1") \
+        .config("spark.driver.bindAddress", "127.0.0.1") \
+        .config("spark.local.ip", "127.0.0.1") \
         .config("spark.hadoop.fs.defaultFS", "hdfs://localhost:9000") \
         .getOrCreate()
+
+    spark.sparkContext.setLogLevel("WARN")
     
     logger.info(f"Spark versión: {spark.version}")
     
@@ -220,7 +243,7 @@ def main(
         
         # 6. Validar Silver
         logger.info("-"*70)
-        if validate_silver_layer(dim_base_path, fact_base_path):
+        if validate_silver_layer(dim_base_path, fact_base_path, spark=spark):
             logger.info("✅ Silver layer válida")
         else:
             logger.warning("⚠️ Silver layer con problemas")

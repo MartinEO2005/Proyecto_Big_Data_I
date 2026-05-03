@@ -14,6 +14,12 @@ from pyspark.sql import SparkSession, functions as F
 logger = logging.getLogger(__name__)
 
 
+def count_duplicates(df, key_cols):
+    """Cuenta duplicados ignorando filas con claves nulas."""
+    filtered = df.dropna(subset=key_cols)
+    return filtered.groupBy(*key_cols).count().filter("count > 1").count()
+
+
 def setup_logger(log_file="logs/validation_post.log"):
     Path("logs").mkdir(exist_ok=True)
     logging.basicConfig(
@@ -69,13 +75,6 @@ def validate_silver(spark, dim_base_path, fact_base_path):
         else:
             print(f"✓ Columnas de dim_municipio OK")
         
-        # Mostrar muestras
-        print(f"\n  Muestra dim_municipio:")
-        dim_muni.limit(3).show(truncate=False)
-        
-        print(f"\n  Muestra dim_provincia:")
-        dim_prov.limit(3).show(truncate=False)
-        
     except Exception as e:
         problemas.append(f"Error leyendo dimensiones: {e}")
         print(f"❌ Error: {e}")
@@ -101,6 +100,17 @@ def validate_silver(spark, dim_base_path, fact_base_path):
             "fact_satelital": f"{fact_base_path}/fact_satelital.parquet",
         }
 
+        fact_key_map = {
+            "fact_energia": ["muni_id"],
+            "fact_renta": ["muni_id", "year"],
+            "fact_migracion_neta": ["muni_id", "year", "nacionalidad"],
+            "fact_conectividad": ["muni_id", "year"],
+            "fact_empresas_transporte": ["muni_id", "year", "tipo"],
+            "fact_osm_logistica": ["muni_id"],
+            "fact_viirs": ["muni_id", "year", "fecha"],
+            "fact_satelital": ["product_id"],
+        }
+
         for fact_name, fact_path in {**facts_required, **facts_optional}.items():
             optional = fact_name in facts_optional
             try:
@@ -108,36 +118,18 @@ def validate_silver(spark, dim_base_path, fact_base_path):
                 count = df.count()
                 print(f"{'⚠' if optional else '✓'} {fact_name}: {count} registros{'  (opcional)' if optional else ''}")
 
-                # Validar duplicados según la clave primaria real del fact
-                cols = df.columns
-                if fact_name == "fact_viirs" and {"muni_id", "year", "month"}.issubset(set(cols)):
-                    duplicates = df.groupBy("muni_id", "year", "month").count().filter("count > 1").count()
+                if fact_name == "fact_demografia":
+                    print("  → Unicidad de fact_demografia omitida: Gold valida la no multiplicación final")
+                    continue
+
+                key_cols = fact_key_map.get(fact_name)
+                if key_cols and set(key_cols).issubset(df.columns):
+                    duplicates = count_duplicates(df, key_cols)
                     if duplicates > 0:
-                        problemas.append(f"{fact_name} tiene {duplicates} duplicados en (muni_id, year, month)")
-                        print(f"  ❌ {fact_name} tiene {duplicates} duplicados en clave mensual")
+                        problemas.append(f"{fact_name} tiene {duplicates} duplicados en {tuple(key_cols)}")
+                        print(f"  ❌ {fact_name} tiene {duplicates} duplicados en {tuple(key_cols)}")
                     else:
-                        print(f"  → Sin duplicados en (muni_id, year, month) ✓")
-                elif "muni_id" in cols and "year" in cols:
-                    duplicates = df.groupBy("muni_id", "year").count().filter("count > 1").count()
-                    if duplicates > 0:
-                        problemas.append(f"{fact_name} tiene {duplicates} duplicados en (muni_id, year)")
-                        print(f"  ❌ {fact_name} tiene {duplicates} duplicados en clave")
-                    else:
-                        print(f"  → Sin duplicados en (muni_id, year) ✓")
-                elif "muni_id" in cols:
-                    duplicates = df.groupBy("muni_id").count().filter("count > 1").count()
-                    if duplicates > 0:
-                        problemas.append(f"{fact_name} tiene {duplicates} duplicados en muni_id")
-                        print(f"  ❌ {fact_name} tiene {duplicates} duplicados en muni_id")
-                    else:
-                        print(f"  → Sin duplicados en muni_id ✓")
-                elif "product_id" in cols:
-                    duplicates = df.groupBy("product_id").count().filter("count > 1").count()
-                    if duplicates > 0:
-                        problemas.append(f"{fact_name} tiene {duplicates} duplicados en product_id")
-                        print(f"  ❌ {fact_name} tiene {duplicates} duplicados en product_id")
-                    else:
-                        print(f"  → Sin duplicados en product_id ✓")
+                        print(f"  → Sin duplicados en {tuple(key_cols)} ✓")
             except Exception as e:
                 if optional:
                     print(f"  ⚠ {fact_name}: no encontrada (opcional, se omite)")
@@ -178,31 +170,37 @@ def validate_gold(spark, gold_path):
         total_count = gold.count()
         print(f"✓ df_maestro.parquet: {total_count} registros")
         
-        # VALIDADOR CRÍTICO: Duplicados en (muni_id_join, year)
-        print("\n" + "🔴 VALIDACIÓN CRÍTICA: Duplicados en (muni_id_join, year)".center(70))
+        # VALIDADOR CRÍTICO: Duplicados en la clave final del Gold.
+        print("\n" + "🔴 VALIDACIÓN CRÍTICA: Duplicados en (muni_id, year)".center(70))
 
-        duplicate_check = gold.groupBy("muni_id_join", "year").count().filter("count > 1")
+        key_cols = ["muni_id", "year"]
+        null_key_count = gold.filter(F.col("muni_id").isNull() | F.col("year").isNull()).count()
+        if null_key_count > 0:
+            problemas.append(f"GOLD tiene {null_key_count} filas con clave nula en (muni_id, year)")
+            print(f"\n❌ PROBLEMA: Hay {null_key_count} filas con clave nula en (muni_id, year)")
+
+        duplicate_check = gold.dropna(subset=key_cols).groupBy(*key_cols).count().filter("count > 1")
         duplicate_count = duplicate_check.count()
         
         if duplicate_count > 0:
-            problemas.append(f"⚠️ GOLD tiene {duplicate_count} duplicados en (muni_id_join, year)")
-            print(f"\n❌ PROBLEMA: Hay {duplicate_count} pares (muni_id_join, year) duplicados")
-            print("   Esto significa que el CROSS JOIN o los LEFT JOINs fallaron.")
+            problemas.append(f"⚠️ GOLD tiene {duplicate_count} duplicados en (muni_id, year)")
+            print(f"\n❌ PROBLEMA: Hay {duplicate_count} pares (muni_id, year) duplicados")
+            print("   Esto significa que algún LEFT JOIN multiplicó la granularidad final.")
             print("   Mostrando ejemplos:")
             duplicate_check.limit(10).show()
             
             # Mostrar ejemplo de fila duplicada
             first_dup = duplicate_check.limit(1).collect()[0]
-            muni_id = first_dup['muni_id_join']
+            muni_id = first_dup['muni_id']
             year = first_dup['year']
             
             print(f"\n   Filas duplicadas para muni_id={muni_id}, year={year}:")
-            gold.filter((F.col("muni_id_join") == muni_id) & (F.col("year") == year)).show(truncate=False)
+            gold.filter((F.col("muni_id") == muni_id) & (F.col("year") == year)).show(truncate=False)
         else:
-            print(f"\n✅ NO HAY DUPLICADOS en (muni_id_join, year)")
+            print(f"\n✅ NO HAY DUPLICADOS en (muni_id, year)")
             print(f"   Total registros: {total_count}")
             stats = gold.agg(
-                F.countDistinct("muni_id_join").alias("munis"),
+                F.countDistinct("muni_id").alias("munis"),
                 F.countDistinct("year").alias("anios")
             ).collect()[0]
             print(f"   Municipios únicos: {stats['munis']}")
@@ -212,6 +210,11 @@ def validate_gold(spark, gold_path):
         num_cols = len(gold.columns)
         print(f"\n✓ Número de columnas: {num_cols}")
         print(f"  Columnas: {', '.join(gold.columns[:10])}...")
+        if num_cols != 77:
+            problemas.append(f"GOLD tiene {num_cols} columnas en lugar de 77")
+            print(f"  ❌ Número de columnas inesperado: {num_cols}")
+        else:
+            print("  → Esquema esperado de 77 columnas ✓")
         
         # Validar que no haya NULLs masivos en columnas clave
         print(f"\n" + "-"*70)
@@ -219,10 +222,10 @@ def validate_gold(spark, gold_path):
         
         # Umbrales por columna: algunos datasets no cubren todos los municipios/años
         key_cols = {
-            "pob_absoluta_actual":    10,   # debe cubrir casi todo
-            "consumo_kwh_total":      70,   # solo ~3185 municipios en la fuente
-            "pib_absoluto_actual":    80,   # cobertura parcial por año
-            "luz_absoluta_actual":    85,   # VIIRS cubre ~6/31 años → ~80% NULLs esperado
+            "indice_conectividad": 1,
+            "poblacion_muni":      10,
+            "renta_media":         80,
+            "intensidad_luz":      85,
         }
         for col, threshold in key_cols.items():
             if col in gold.columns:
@@ -297,7 +300,7 @@ def main(
     if all_ok:
         print("\n✅ ¡TODAS LAS VALIDACIONES POST-EJECUCIÓN PASARON!")
         print("\nPuedes proceder a:")
-        print("  1. Usar Gold en ML (data/gold/df_maestro.parquet)")
+        print("  1. Usar Gold en ML (hdfs://localhost:9000/geolumica/gold/df_maestro.parquet)")
         print("  2. Consumir Silver en dashboards")
     else:
         print(f"\n❌ VALIDACIÓN FALLÓ: {len(all_problems)} problema(s)")

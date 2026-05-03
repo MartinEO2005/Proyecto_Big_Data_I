@@ -11,10 +11,13 @@ PASOS PARA ARRANCAR EL PROYECTO (PowerShell en la raíz):
     Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; .\run_pipeline.ps1 -SkipExtraction -SkipHdfs
 #>
 
-param([switch]$SkipExtraction, [switch]$SkipHdfs)
-
-# Crea carpeta local para exportar Gold CSV si no existe
-if (-not (Test-Path "$PSScriptRoot\data\gold")) { New-Item -ItemType Directory -Path "$PSScriptRoot\data\gold" | Out-Null }
+param(
+    [switch]$SkipExtraction,
+    [switch]$SkipHdfs,
+    [switch]$ExportGoldCsv,
+    [switch]$InstallRequirements,
+    [switch]$ResetWsl
+)
 
 $d = $PSScriptRoot.Substring(0,1).ToLower()
 $r = $PSScriptRoot.Substring(2) -replace "\\", "/"
@@ -24,9 +27,11 @@ $FACT = "hdfs://localhost:9000/geolumica/silver/fact"
 $GOLD = "hdfs://localhost:9000/geolumica/gold"
 $GEO  = "$W/municipios_es.geojson"
 
-Write-Host "Iniciando WSL..." -ForegroundColor Cyan
-wsl --shutdown
-Start-Sleep -Seconds 2
+Write-Host "Preparando entorno WSL..." -ForegroundColor Cyan
+if ($ResetWsl) {
+    wsl --shutdown
+    Start-Sleep -Seconds 2
+}
 
 $PY = (wsl -d Ubuntu -- sh -c 'if [ -f "$HOME/spark_env/bin/python" ]; then echo "$HOME/spark_env/bin/python"; else which python3; fi').Trim()
 $HD = (wsl -d Ubuntu -- sh -c 'ls -d $HOME/hadoop-3.3.* 2>/dev/null | head -1').Trim()
@@ -53,8 +58,7 @@ $L.Add('> "$LOG"')
 $L.Add('TOTAL_START=$SECONDS')
 $L.Add('')
 
-# Funcion helper con barra de progreso animada
-$L.Add('BAR_WIDTH=28')
+# Funcion helper para ejecutar pasos con log acumulado
 $L.Add('run_step() {')
 $L.Add('  local label="$1"')
 $L.Add('  local cmd="$2"')
@@ -101,14 +105,18 @@ $L.Add('}')
 $L.Add('')
 
 if (-not $SkipHdfs) {
-    $L.Add("run_step_retry 2 '[1/5] Iniciando HDFS (sin SSH)' 'nohup $HD/bin/hdfs --daemon start namenode >/tmp/geolumica_hdfs_start.log 2>&1 < /dev/null; nohup $HD/bin/hdfs --daemon start datanode >>/tmp/geolumica_hdfs_start.log 2>&1 < /dev/null; nohup $HD/bin/hdfs --daemon start secondarynamenode >>/tmp/geolumica_hdfs_start.log 2>&1 < /dev/null; sleep 4; $HD/bin/hdfs dfsadmin -safemode leave || true; $HD/bin/hdfs dfs -ls / >/dev/null' || exit 1")
+    $L.Add("run_step_retry 2 '[1/5] Iniciando HDFS (sin SSH)' 'if $HD/bin/hdfs dfs -ls / >/dev/null 2>&1; then echo HDFS ya activo; else nohup $HD/bin/hdfs --daemon start namenode >/tmp/geolumica_hdfs_start.log 2>&1 < /dev/null || true; nohup $HD/bin/hdfs --daemon start datanode >>/tmp/geolumica_hdfs_start.log 2>&1 < /dev/null || true; nohup $HD/bin/hdfs --daemon start secondarynamenode >>/tmp/geolumica_hdfs_start.log 2>&1 < /dev/null || true; sleep 4; $HD/bin/hdfs dfsadmin -safemode leave || true; $HD/bin/hdfs dfs -ls / >/dev/null; fi' || exit 1")
+} else {
+    $L.Add("run_step '[1/4] Verificando HDFS activo' '$HD/bin/hdfs dfs -ls / >/dev/null' || { echo 'HDFS no responde. Ejecuta sin -SkipHdfs o arranca HDFS antes.'; exit 1; }")
 }
-$L.Add("run_step_retry 2 '[2/5] Instalando requirements' '$PY -m pip install -q -r $W/requirements.txt' || exit 1")
+if ($InstallRequirements) {
+    $L.Add("run_step_retry 2 '[2/5] Instalando requirements' '$PY -m pip install -q -r $W/requirements.txt' || exit 1")
+}
 if (-not $SkipExtraction) {
     $L.Add("run_step '[3/5] Descargando datos (~6h 47m 1s aprox.)' 'cd $W/Proyecto && $PY main_extraction.py' || exit 1")
 }
 $L.Add("run_step_retry 2 '[4/5] Generando Silver' 'cd $W/Proyecto && $PY main_silver.py --geojson $GEO --raw ../data/raw --dim $DIM --fact $FACT' || exit 1")
-$L.Add("run_step_retry 2 '[5/5] Generando Gold' 'cd $W/Proyecto && $PY main_gold.py --dim $DIM --fact $FACT --gold $GOLD' || exit 1")
+$L.Add("run_step_retry 2 '[5/5] Generando Gold' 'cd $W/Proyecto && $PY main_gold.py --fact $FACT --gold $GOLD' || exit 1")
 $L.Add("run_step_retry 2 '[+]   Validando' 'cd $W/Proyecto && $PY validation_post.py --dim $DIM --fact $FACT --gold $GOLD' || exit 1")
 $L.Add('echo ""')
 $L.Add('echo "Pipeline completado en $(( SECONDS - TOTAL_START ))s"')
@@ -125,6 +133,8 @@ Write-Host ""
 wsl -d Ubuntu -- bash $tmpWSL
 if ($LASTEXITCODE -ne 0) { Write-Host "FALLO (codigo $LASTEXITCODE)" -ForegroundColor Red; exit 1 }
 
-# Exporta Gold a CSV local tras terminar el pipeline
-Write-Host "Exportando Gold a CSV en data/gold..." -ForegroundColor Cyan
-c:/Users/ferna/Documents/GitHub/Proyecto_Big_Data_I/Proyecto_Big_Data_I/.venv/Scripts/python.exe ./export_gold_to_csv.py
+if ($ExportGoldCsv) {
+    if (-not (Test-Path "$PSScriptRoot\data\gold")) { New-Item -ItemType Directory -Path "$PSScriptRoot\data\gold" | Out-Null }
+    Write-Host "Exportando Gold a CSV en data/gold..." -ForegroundColor Cyan
+    c:/Users/ferna/Documents/GitHub/Proyecto_Big_Data_I/Proyecto_Big_Data_I/.venv/Scripts/python.exe ./export_gold_to_csv.py
+}
