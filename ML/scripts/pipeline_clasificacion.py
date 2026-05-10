@@ -169,6 +169,63 @@ def ejecutar_pipeline_clasificacion(df_master):
     print(f"📦 Modelo Campeón (Gradient Boosting) exportado en: {MODEL_DIR}gradient_boosting_perfiles.pkl")
     print("🏆 PIPELINE DE CLASIFICACIÓN FINALIZADO.")
 
+import geopandas as gpd
+
+def generar_mapa_final_automatico(df_final):
+    print("\n🗺️  Generando visualización cartográfica de GeoLúmica...")
+    
+    # 1. Tu escala divergente exacta
+    colores_divergentes = {
+        '1 - Despoblación Grave (Pueblos en riesgo crítico)': '#d73027',
+        '2 - Pérdida Moderada (Pueblos que se vacían lentamente)': '#fc8d59',
+        '3 - Población Estable (Pueblos medianos sin grandes cambios)': '#fee090',
+        '4 - Crecimiento Leve (Pueblos que atraen nuevos vecinos)': '#e0f3f8',
+        '5 - Fuerte Crecimiento (Zonas residenciales y turísticas)': '#91bfdb',
+        '6 - Grandes Ciudades (Capitales y grandes núcleos)': '#4575b4',
+        '7 - Enormes Centros Logísticos (Zonas de gran industria y transporte)': '#313695'
+    }
+
+    # 2. Cargar el GeoJSON (Ruta absoluta desde la raíz del proyecto)
+    # Como el script está en ML/scripts/, subimos dos niveles
+    ruta_geojson = os.path.abspath(os.path.join(BASE_DIR, "..", "..", "municipios_es.geojson"))
+    
+    try:
+        print(f"📂 Cargando cartografía desde: {ruta_geojson}")
+        gdf = gpd.read_file(ruta_geojson)
+        gdf['LAU_ID'] = gdf['LAU_ID'].astype(str).str.zfill(5)
+
+        # 3. Cruzar con los resultados del ML
+        # Aseguramos que lau_id sea string de 5 dígitos
+        df_final['muni_id_join'] = df_final['muni_id_join'].astype(str).str.split('.').str[0].str.zfill(5)
+        
+        gdf_mapa = gdf.merge(df_final, left_on='LAU_ID', right_on='muni_id_join', how='left')
+
+        # 4. Pintar el mapa
+        fig, ax = plt.subplots(1, 1, figsize=(16, 12))
+        
+        # Asignamos los colores según tu diccionario
+        gdf_mapa.plot(
+            ax=ax,
+            color=[colores_divergentes.get(p, '#e0e0e0') for p in gdf_mapa['Perfil_Final']],
+            edgecolor='black',
+            linewidth=0.03
+        )
+
+        ax.set_title("GeoLúmica: Segmentación Territorial Final", fontsize=18, fontweight='bold')
+        ax.axis('off')
+
+        # Guardar en la carpeta de figuras que ya tienes creada
+        output_path = os.path.join(FIGURES_DIR, "MAPA_PROYECTO_FINAL.png")
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        print(f"✅ ¡Mapa generado con éxito en: {output_path}")
+        
+    except Exception as e:
+        print(f"❌ Error al generar el mapa: {e}")
+
+# --- DENTRO DE TU FUNCIÓN PRINCIPAL DE ML ---
+# Al final del proceso, antes del return df_final:
+# generar_mapa_final_automatico(df_final)
+
 if __name__ == "__main__":
     from pipeline_clustering import trozo_1_matriz_maestra, trozo_2_machine_learning
     
@@ -180,3 +237,5 @@ if __name__ == "__main__":
     
     # 3. Lags, Competición GridSearchCV, Evaluación y Exportación
     ejecutar_pipeline_clasificacion(df_etiquetado)
+
+    generar_mapa_final_automatico(df_final)
