@@ -26,3 +26,7 @@ pyjstat
 
 sqlalchemy
 pymysql
+
+fastapi 
+uvicorn 
+pydantic

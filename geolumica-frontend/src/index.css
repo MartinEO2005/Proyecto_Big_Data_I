@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 /* --- CLASES DE ACCESIBILIDAD (Añadidas dinámicamente por el panel) --- */
 
 /* Alto Contraste */
@@ -36,11 +38,9 @@ body.pause-animations * {
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 15px;
-  margin-bottom: 10px;
-  background-color: #ffffff;
-  border: 1px solid #ccc;
+  border: 1px solid #ddd;
+  background-color: white;
+  padding: 10px 15px;
   border-radius: 8px;
   cursor: pointer;
   font-size: 0.95rem;
@@ -80,29 +80,7 @@ body.pause-animations * {
 
 /* LA MAGIA DEL TAB (FOCUS): Esto crea el borde naranja al navegar con teclado */
 .access-btn:focus-visible,
-.font-control-btn:focus-visible,
-.access-fab:focus-visible,
-.access-close:focus-visible {
+.font-control-btn:focus-visible {
   outline: 3px solid #efa748;
   outline-offset: 2px;
-}
-
-/* --- ESTILOS DE LA BARRA DE NAVEGACIÓN ACCESIBLE --- */
-.nav-btn, .nav-logo-btn {
-  background: transparent;
-  border: none;
-  padding: 0;
-  font-family: inherit;
-  font-size: inherit;
-  font-weight: inherit;
-  cursor: pointer;
-  color: inherit;
-}
-
-/* Añadimos el anillo naranja al hacer foco con el teclado */
-.nav-btn:focus-visible,
-.nav-logo-btn:focus-visible {
-  outline: 3px solid #efa748;
-  outline-offset: 6px;
-  border-radius: 4px;
 }
