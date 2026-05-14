@@ -26,8 +26,8 @@ COLORES_GEOLUMICA = {
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 GEOJSON_PATH = os.path.abspath(os.path.join(BASE_DIR, "..", "..", "municipios_es.geojson"))
-FIGURES_DIR = os.path.join(BASE_DIR, "..", "models", "figuras", "")
-MODEL_DIR = os.path.join(BASE_DIR, "..", "models", "modelos_exportados", "")
+FIGURES_DIR = os.path.join(BASE_DIR,  "models", "figuras", "")
+MODEL_DIR = os.path.join(BASE_DIR, "models", "modelos_exportados", "")
 
 os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(FIGURES_DIR, exist_ok=True)

@@ -9,16 +9,18 @@ import ClusterMap from './modules/ClusterMap';
 export default function PredictiveDashboard() {
   const [loading, setLoading] = useState(false);
   
-  // 1. Estado del municipio (Ahora solo necesita el ID y el Nombre, como en tu DB)
+  // 1. Estado del municipio activo
   const [municipioActual, setMunicipioActual] = useState({
     lau_id: "02081", 
     nombre: "Villarrobledo"
   });
 
+  // 2. Estado de los sliders
   const [valoresSimulacion, setValoresSimulacion] = useState({
     inversionTransporte: 0, estimuloEmpresas: 0, migracion_pct: 0, pib_estimulo_pct: 0
   });
 
+  // 3. Resultados unificados para KPIs y Gráfica
   const [resultados, setResultados] = useState({
     poblacion5y: 25400,
     variacionAbsoluta: 0,
@@ -28,6 +30,17 @@ export default function PredictiveDashboard() {
     driver_critico: "Calculando Driver táctico...",
     color_cluster: "#fdae61" 
   });
+
+  // ✅ NUEVO: Estado para almacenar TODOS los clusters de España
+  const [allClusters, setAllClusters] = useState({});
+
+  // ✅ NUEVO: Carga inicial de todos los clusters desde la API
+  useEffect(() => {
+    fetch('http://localhost:8000/clusters/all') // Asegúrate de que esta ruta exista en tu FastAPI
+      .then(res => res.json())
+      .then(data => setAllClusters(data))
+      .catch(err => console.error("Error al cargar todos los clusters:", err));
+  }, []);
 
   const getColorForProfile = useCallback((perfil) => {
     if (!perfil) return "#94a3b8"; 
@@ -92,8 +105,6 @@ export default function PredictiveDashboard() {
   };
 
   const handleSelectMunicipio = (m) => {
-    // Adiós al escudo anti-crash y las coordenadas manuales. 
-    // Solo le pasamos el muni_key (que equivale al LAU_ID).
     setMunicipioActual({ 
       lau_id: m.muni_key, 
       nombre: m.muni_display
@@ -119,10 +130,10 @@ export default function PredictiveDashboard() {
         <div className="flex-1 grid grid-cols-12 gap-4 min-h-0 overflow-hidden">
           <div className="col-span-5 flex flex-col min-h-0 overflow-hidden">
             <div className="flex-1 bg-white rounded-[1.5rem] border border-slate-200 p-1 flex flex-col items-center justify-center relative shadow-sm overflow-hidden">
+              {/* ✅ AHORA PASAMOS municipioActual y allClusters AL MAPA */}
               <ClusterMap 
-                municipio={municipioActual} 
-                perfil={resultados.perfil_estrategico} 
-                color={resultados.color_cluster} 
+                municipioActual={municipioActual} 
+                allClusters={allClusters} 
               />
             </div>
           </div>

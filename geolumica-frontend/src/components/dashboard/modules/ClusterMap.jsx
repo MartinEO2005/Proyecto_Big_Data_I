@@ -1,90 +1,92 @@
 // components/dashboard/modules/ClusterMap.jsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
-// Componente invisible que "vuela" a los límites exactos del polígono
-function PolygonFlyer({ feature }) {
+// Paleta exacta de tu pipeline_clustering.py
+const COLORES_GEOLUMICA = {
+  '1 - Despoblación Grave (Riesgo Crítico)': '#d73027',
+  '2 - Pérdida Moderada (Rural en Retroceso)': '#f46d43',
+  '3 - Estancamiento Rural (Declive Suave)': '#fdae61',
+  '4 - Población Estable (Núcleos Tradicionales)': '#fee090',
+  '5 - Fuerte Crecimiento (Zonas de Expansión)': '#abd9e9',
+  '6 - Grandes Ciudades (Motores Regionales)': '#74add1',
+  '7 - Enormes Centros Logísticos (Efecto Amazon)': '#4575b4'
+};
+
+function MapController({ activeId }) {
   const map = useMap();
   useEffect(() => {
-    if (feature) {
-      const layer = L.geoJSON(feature);
-      const bounds = layer.getBounds();
-      if (bounds.isValid()) {
-        // Hace zoom encuadrando la forma exacta del municipio
-        map.flyToBounds(bounds, { duration: 1.5, padding: [30, 30] });
+    if (!activeId) return;
+    // Buscamos la capa del municipio seleccionado para hacer zoom
+    map.eachLayer((layer) => {
+      if (layer.feature && layer.feature.properties.LAU_ID === activeId) {
+        map.flyToBounds(layer.getBounds(), { duration: 1.5, padding: [50, 50] });
       }
-    }
-  }, [feature, map]);
+    });
+  }, [activeId, map]);
   return null;
 }
 
-export default function ClusterMap({ municipio, perfil, color }) {
+export default function ClusterMap({ municipioActual, allClusters }) {
   const [geoData, setGeoData] = useState(null);
 
-  // Cargamos el GeoJSON entero una sola vez al abrir el Dashboard
   useEffect(() => {
     fetch('/municipios_es.geojson')
       .then(res => res.json())
-      .then(data => setGeoData(data))
-      .catch(err => console.error("Error cargando GeoJSON:", err));
+      .then(data => setGeoData(data));
   }, []);
 
-  // Buscamos la geometría exacta (polígono) cruzando el LAU_ID (igual que en tu pipeline.py)
-  const activeFeature = geoData?.features.find(
-    f => f.properties.LAU_ID === municipio.lau_id
-  );
-
-  const markerColor = color || '#f59e0b';
+  // Función de estilo que aplica el ML al mapa
+  const style = (feature) => {
+    const lauId = feature.properties.LAU_ID;
+    const infoCluster = allClusters[lauId]; // Buscamos el resultado del K-Means
+    
+    return {
+      fillColor: infoCluster ? COLORES_GEOLUMICA[infoCluster.perfil] : '#f1f5f9',
+      weight: lauId === municipioActual.lau_id ? 2 : 0.2,
+      opacity: 1,
+      color: lauId === municipioActual.lau_id ? '#1e293b' : '#cbd5e1',
+      fillOpacity: 0.8
+    };
+  };
 
   return (
-    <div className="w-full h-full rounded-[1.5rem] overflow-hidden relative shadow-inner bg-[#f8fafc]">
+    <div className="w-full h-full rounded-[1.5rem] overflow-hidden relative bg-slate-100">
       <MapContainer 
         center={[40.4168, -3.7038]} 
         zoom={6} 
+        preferCanvas={true} // CRÍTICO: Para renderizar 8000 polígonos con fluidez
         style={{ height: '100%', width: '100%' }}
         zoomControl={false}
       >
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; CARTO'
-        />
+        <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
         
-        {/* Si encontramos el polígono, volamos hacia él */}
-        {activeFeature && <PolygonFlyer feature={activeFeature} />}
+        <MapController activeId={municipioActual.lau_id} />
 
-        {/* Pintamos el polígono con el color del Cluster */}
-        {activeFeature && (
-          <GeoJSON
-            key={municipio.lau_id} // Obliga a redibujar si cambias de municipio
-            data={activeFeature}
-            style={{
-              fillColor: markerColor,
-              weight: 2,
-              opacity: 1,
-              color: '#1e293b', // Borde oscuro
-              fillOpacity: 0.85
-            }}
+        {geoData && (
+          <GeoJSON 
+            data={geoData} 
+            style={style}
             onEachFeature={(feature, layer) => {
-              layer.bindPopup(`
-                <div class="text-center p-1">
-                  <h3 class="font-black text-xs uppercase text-slate-800">${municipio.nombre}</h3>
-                  <span class="text-[9px] font-bold text-slate-500">${perfil}</span>
-                </div>
-              `);
+              layer.on('click', () => {
+                // Aquí podrías disparar la selección desde el mapa
+              });
             }}
           />
         )}
       </MapContainer>
-      
-      {/* Leyenda Flotante */}
-      <div className="absolute bottom-4 left-4 z-[400] bg-white/95 backdrop-blur-sm p-3 rounded-xl border border-slate-200 shadow-lg pointer-events-none">
-        <p className="text-[8px] font-black uppercase tracking-widest text-slate-500 mb-1">Clasificación K-Means</p>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-sm border border-slate-300" style={{ backgroundColor: markerColor }}></div>
-          <span className="text-[10px] font-bold text-slate-800 truncate max-w-[150px]">{perfil || "Segmentando..."}</span>
-        </div>
+
+      {/* Leyenda Táctica */}
+      <div className="absolute bottom-4 right-4 z-[400] bg-white/90 p-3 rounded-2xl border border-slate-200 shadow-xl max-w-[200px]">
+        <p className="text-[8px] font-black uppercase text-slate-400 mb-2">Estratigrafía Territorial</p>
+        {Object.entries(COLORES_GEOLUMICA).map(([name, color]) => (
+          <div key={name} className="flex items-center gap-2 mb-1">
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }}></div>
+            <span className="text-[7px] font-bold text-slate-600 leading-none">{name}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
