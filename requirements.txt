@@ -30,3 +30,5 @@ pymysql
 fastapi 
 uvicorn 
 pydantic
+
+shap

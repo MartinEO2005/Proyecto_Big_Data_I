@@ -11,8 +11,8 @@ export default function PredictiveDashboard() {
   const [loading, setLoading] = useState(false);
   
   const [municipioActual, setMunicipioActual] = useState({
-    lau_id: "02081", 
-    nombre: "Villarrobledo"
+    lau_id: "45080", 
+    nombre: "Illán de Vacas"
   });
 
   const [valoresSimulacion, setValoresSimulacion] = useState({
@@ -25,6 +25,7 @@ export default function PredictiveDashboard() {
   const [resultados, setResultados] = useState({
     poblacion5y: 0,
     variacionAbsoluta: 0,
+    variacionEconomica: 0, // <--- NUEVO ESTADO PARA EL KPI
     dataGrafica: [],
     segmento: "RURAL",
     perfil_estrategico: "Cargando...",
@@ -75,12 +76,13 @@ export default function PredictiveDashboard() {
       const seriesFusionada = data.evolucion_pob.map((p, i) => ({
         year: p.year, 
         pob: p.valor, 
-        luz: data.evolucion_luz[i]?.valor || 0
+        luz: data.evolucion_luz[i]?.valor || 100 // Ahora es Base 100
       }));
 
       setResultados({
         poblacion5y: data.poblacion_proyectada,
         variacionAbsoluta: data.poblacion_proyectada - data.poblacion_base,
+        variacionEconomica: data.variacion_economica_pct, // <--- ALMACENAMOS EL KPI
         dataGrafica: seriesFusionada,
         segmento: data.segmento,
         perfil_estrategico: data.perfil_estrategico,
@@ -114,20 +116,23 @@ export default function PredictiveDashboard() {
 
   return (
     <div className="h-full w-full bg-slate-50 flex flex-col overflow-hidden text-slate-900 font-sans relative">
-      <header className="bg-white border-b border-slate-100 px-4 py-1.5 flex items-center justify-between shrink-0 shadow-sm z-20">
-        <div className="flex flex-col">
-          <h1 className="text-lg font-black italic tracking-tighter leading-none text-indigo-900">GEOLÚMICA</h1>
-          <span className="text-[6px] font-bold text-indigo-500 uppercase tracking-[0.4em]">Predictive Engine</span>
-        </div>
-        <MunicipalitySearch onSelect={handleSelectMunicipio} />
-      </header>
-
       <main className="flex-1 p-3 flex flex-col gap-3 min-h-0 overflow-hidden">
-        <div className="shrink-0">
-          <KpiCards datos={resultados} />
+        
+        {/* BUSCADOR Y KPIS EN LA MISMA LÍNEA */}
+        <div className="shrink-0 flex flex-col lg:flex-row gap-4 items-stretch z-[100]">
+          {/* El buscador se lleva su propio bloque */}
+          <div className="w-full lg:w-[320px] flex items-center shrink-0">
+             <div className="w-full">
+                <MunicipalitySearch onSelect={handleSelectMunicipio} />
+             </div>
+          </div>
+          {/* Los KPIs rellenan el resto del ancho */}
+          <div className="flex-1 min-w-0">
+            <KpiCards datos={resultados} />
+          </div>
         </div>
 
-        <div className="flex-1 grid grid-cols-12 gap-4 min-h-0 overflow-hidden">
+        <div className="flex-1 grid grid-cols-12 gap-4 min-h-0 overflow-hidden z-10">
           
           <div className="col-span-5 flex flex-col gap-3 min-h-0 overflow-hidden">
             <div className="flex-1 bg-white rounded-[1.5rem] border border-slate-200 p-1 flex flex-col items-center justify-center relative shadow-sm overflow-hidden">
@@ -137,36 +142,51 @@ export default function PredictiveDashboard() {
               />
             </div>
 
-            {/* NUEVA GRÁFICA DE BARRAS RECHARTS: TOP DRIVERS */}
+           {/* GRÁFICA DE TOP DRIVERS (Sin sombras, borde oscuro, eje X con porcentajes) */}
             {resultados.top_drivers && resultados.top_drivers.length > 0 && (
-              <div className="bg-white rounded-[1.5rem] p-4 shadow-sm border border-slate-200 shrink-0 h-44 flex flex-col relative overflow-hidden">
+              <div className="bg-white rounded-[1.5rem] p-4 border border-[#03132B] shadow-none shrink-0 min-h-[12rem] flex flex-col relative overflow-hidden">
                 <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Radiografía: Variables de Impacto</h3>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#03132B]">
+                    Radiografía: Variables de Impacto
+                  </h3>
                 </div>
                 <div className="flex-1 w-full min-h-0">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart 
                       data={resultados.top_drivers} 
                       layout="vertical" 
-                      margin={{ top: 0, right: 30, left: -20, bottom: 0 }}
+                      margin={{ top: 5, right: 30, left: -20, bottom: 5 }}
                     >
-                      <XAxis type="number" hide />
+                      {/* EJE X REVELADO: Muestra los porcentajes en la base de la gráfica */}
+                      <XAxis 
+                        type="number" 
+                        tickFormatter={(value) => `${value}%`}
+                        tick={{ fontSize: 9, fontWeight: 'bold', fill: '#94a3b8' }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
                       <YAxis 
                         dataKey="nombre" 
                         type="category" 
                         width={120} 
-                        tick={{ fontSize: 9, fontWeight: 'bold', fill: '#64748b' }} 
+                        tick={{ fontSize: 9, fontWeight: 'bold', fill: '#03132B' }} 
                         axisLine={false} 
                         tickLine={false} 
                       />
                       <RechartsTooltip 
-                        cursor={{fill: '#f8fafc'}} 
-                        contentStyle={{borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} 
+                        cursor={{fill: '#f1f5f9'}} 
+                        contentStyle={{
+                          borderRadius: '8px', 
+                          fontSize: '11px', 
+                          fontWeight: 'bold', 
+                          border: '1px solid #e2e8f0', 
+                          boxShadow: 'none' /* Sin sombras en el tooltip tampoco */
+                        }} 
                         formatter={(value) => [`${value}%`, 'Peso en el Modelo']}
                       />
                       <Bar dataKey="peso" radius={[0, 4, 4, 0]} barSize={16}>
                         {resultados.top_drivers.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={index === 0 ? '#6366f1' : '#cbd5e1'} />
+                          <Cell key={`cell-${index}`} fill={index === 0 ? '#efa748' : '#8d9aa9'} />
                         ))}
                       </Bar>
                     </BarChart>

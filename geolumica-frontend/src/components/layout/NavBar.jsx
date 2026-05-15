@@ -1,9 +1,10 @@
+// layout/NavBar.jsx
 import React from 'react';
 import logo from '../../assets/logo.png';
-import { useTranslation } from 'react-i18next'; // <-- 1. IMPORTAMOS LA LIBRERÍA
+import { useTranslation } from 'react-i18next';
 
 export default function NavBar({ currentView, setView }) {
-  const { t } = useTranslation(); // <-- 2. ACTIVAMOS LA FUNCIÓN DE TRADUCCIÓN
+  const { t } = useTranslation();
 
   return (
     <nav style={{ 
@@ -19,7 +20,7 @@ export default function NavBar({ currentView, setView }) {
       <button 
         className="nav-logo-btn"
         onClick={() => setView('home')}
-        aria-label={t('nav.home')} // Traducimos también el aria-label para accesibilidad
+        aria-label={t('nav.home')}
         style={{ display: 'flex', alignItems: 'center' }}
       >
         <img src={logo} alt="GeoLúmica Logo" style={{ height: '60px', objectFit: 'contain' }} />
@@ -27,7 +28,6 @@ export default function NavBar({ currentView, setView }) {
 
       <div style={{ display: 'flex', gap: '35px', alignItems: 'center', fontWeight: '600', fontSize: '1rem' }}>
         
-        {/* 3. CAMBIAMOS LOS TEXTOS FIJOS POR t('nav.loquesea') */}
         <button 
           className="nav-btn"
           onClick={() => setView('home')}
@@ -68,14 +68,7 @@ export default function NavBar({ currentView, setView }) {
           {t('nav.profile')}
         </button>
 
-        {currentView === 'dashboard' && (
-          <input 
-            type="text" 
-            placeholder={t('nav.searchPlaceholder')} // Traducimos el buscador también
-            aria-label={t('nav.searchPlaceholder')}
-            style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #ccc', width: '220px', marginLeft: '15px', fontFamily: 'inherit', fontSize: '0.9rem' }}
-          />
-        )}
+        {/* ¡Buscador redundante eliminado de aquí! */}
 
       </div>
     </nav>

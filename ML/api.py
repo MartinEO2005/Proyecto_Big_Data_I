@@ -8,7 +8,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import create_engine
 
-# --- CONFIGURACIÓN ---
+# --- IMPORTANTE: Activamos SHAP ---
+try:
+    import shap
+    SHAP_AVAILABLE = True
+except ImportError:
+    SHAP_AVAILABLE = False
+    print("⚠️ LIBRERÍA SHAP NO DETECTADA. Ejecuta 'pip install shap' en la terminal.")
+
 app = FastAPI(title="GeoLúmica API - Motor de Simulación Táctica")
 
 app.add_middleware(
@@ -35,22 +42,20 @@ try:
 except Exception as e:
     print(f"⚠️ Error cargando modelos: {e}")
 
-# --- Carga del mapa JSON para los colores e info ---
+# --- Carga del mapa JSON ---
 try:
     with open(os.path.join(MODEL_DIR, "geolumica_metadata.json"), 'r', encoding='utf-8') as f:
         meta = json.load(f)
     mapa_clusters = meta.get("municipios", {})
     colores_perfiles = meta.get("configuracion", {}).get("colores", {})
-    stats_clusters = meta.get("estadisticas_perfiles", {})
     print(f"✅ Mapa coloreado cargado ({len(mapa_clusters)} municipios).")
 except Exception as e:
-    print(f"⚠️ Aviso: No se encontró geolumica_metadata.json. Mapa será gris.")
-    mapa_clusters, colores_perfiles, stats_clusters = {}, {}, {}
+    print(f"⚠️ Aviso: No se encontró geolumica_metadata.json.")
+    mapa_clusters, colores_perfiles = {}, {}
 
-# --- 2. CARGA DE DATOS MAESTROS (INTACTO) ---
+# --- 2. CARGA DE DATOS MAESTROS ---
 try:
     engine = create_engine("mysql+pymysql://bd_rvm_gelumica:Rio45Abc@10.151.30.2:3306/bd_rvm_gelumica")
-    
     d_dem = pd.read_sql("SELECT muni_id_join AS LAU_ID, Total AS pob FROM fact_demografia WHERE Anio = 2023", engine).groupby('LAU_ID')['pob'].sum().reset_index()
     d_v = pd.read_sql("SELECT muni_id_join AS LAU_ID, mean AS luz FROM fact_viirs WHERE Anio = 2023", engine).groupby('LAU_ID')['luz'].mean().reset_index()
     d_pib = pd.read_sql("SELECT muni_id_join AS LAU_ID, pib FROM fact_renta WHERE Anio = 2023", engine).groupby('LAU_ID')['pib'].mean().reset_index()
@@ -87,8 +92,7 @@ def buscar(q: str):
     mask = (df_master['muni_display'].str.contains(q, case=False, na=False)) | \
            (df_master['LAU_ID'].str.contains(q, case=False, na=False))
     res = df_master[mask].sort_values(by='pob', ascending=False).head(10)
-    
-    # LA SOLUCIÓN: Devolvemos LAU_ID exactamente como lo lee tu React
+    # Devolvemos LAU_ID en mayúsculas para que React no rompa
     return {"resultados": res[['LAU_ID', 'muni_display']].to_dict(orient='records')}
 
 @app.post("/simulate")
@@ -124,54 +128,72 @@ def simular(req: SimulacionReq):
         delta_pob = float(motores[f"pob_{sufijo}"].predict(X_input)[0])
         delta_luz = float(motores[f"luz_{sufijo}"].predict(X_input)[0])
         pob_2030 = int(pob_base * (1 + delta_pob * 7))
-        luz_2030 = round(luz_base * (1 + delta_luz * 7), 2)
+        # Conservamos luz_bruta solo para el cálculo porcentual interno
+        luz_2030_bruta = luz_base * (1 + delta_luz * 7)
     except:
-        pob_2030, luz_2030 = pob_base, luz_base
+        pob_2030, luz_2030_bruta = pob_base, luz_base
+
+    # NUEVO: Cálculo del KPI Multivariante Económico (Variación %)
+    variacion_eco_total = ((luz_2030_bruta - luz_base) / luz_base * 100) if luz_base > 0 else 0
 
     años = list(range(2023, 2031))
     ev_pob, ev_luz = [], []
     for i, anio in enumerate(años):
         factor = i / 7
         ev_pob.append({"year": str(anio), "valor": int(pob_base + (pob_2030 - pob_base) * factor)})
-        ev_luz.append({"year": str(anio), "valor": round(luz_base + (luz_2030 - luz_base) * factor, 2)})
+        
+        # NORMALIZACIÓN BASE 100 para la gráfica
+        progreso_eco = 100 + (variacion_eco_total * factor)
+        ev_luz.append({"year": str(anio), "valor": round(progreso_eco, 2)})
 
-    # --- EL FIX DEL DRIVER CRÍTICO ---
     perfil_final = mapa_clusters.get(req.lau_id, "Perfil Desconocido")
     driver_critico = "Calculando..."
     top_drivers = []
     
-    try:
-        clf = motores["clasificador"]
-        modelo_final = clf.named_steps[list(clf.named_steps.keys())[-1]] if hasattr(clf, 'named_steps') else clf
-        
-        importancias = modelo_final.feature_importances_
-        
-        # Leemos los nombres de las variables DIRECTAMENTE DEL MODELO, no de nuestra entrada
-        if hasattr(modelo_final, 'feature_names_in_'):
-            features_reales = modelo_final.feature_names_in_
-        elif hasattr(clf, 'feature_names_in_'):
-            features_reales = clf.feature_names_in_
-        else:
-            features_reales = [f"Variable_{i}" for i in range(len(importancias))]
+    # SHAP LÓGICA (INTACTA)
+    if SHAP_AVAILABLE:
+        try:
+            motor_explicar = motores[f"pob_{sufijo}"]
+            if hasattr(motor_explicar, 'named_steps'):
+                modelo_explicar = motor_explicar.named_steps[list(motor_explicar.named_steps.keys())[-1]]
+                X_shap = X_input.copy()
+                for name, step in motor_explicar.named_steps.items():
+                    if step != modelo_explicar:
+                        X_shap = step.transform(X_shap)
+            else:
+                modelo_explicar = motor_explicar
+                X_shap = X_input.copy()
             
-        idx_max = np.argmax(importancias)
-        driver_critico = f"{features_reales[idx_max].replace('_', ' ').title()} ({round(importancias[idx_max]*100, 1)}%)"
-        
-        # Sacamos el Top 4 para la nueva gráfica
-        indices_top = np.argsort(importancias)[::-1][:4]
-        for i in indices_top:
-            top_drivers.append({
-                "nombre": features_reales[i].replace('_', ' ').title(),
-                "peso": round(importancias[i]*100, 1)
-            })
-    except Exception as e:
-        print(f"Error extrayendo drivers: {e}")
+            explainer = shap.TreeExplainer(modelo_explicar)
+            shap_vals = explainer.shap_values(X_shap)[0] 
+            
+            abs_shap = np.abs(shap_vals)
+            total_shap = np.sum(abs_shap)
+            if total_shap == 0: total_shap = 1e-9
+            pesos_pct = (abs_shap / total_shap) * 100
+            
+            features_nombres = [c.replace('_', ' ').title() for c in X_input.columns]
+            
+            idx_max = np.argmax(abs_shap)
+            driver_critico = f"{features_nombres[idx_max]} ({round(pesos_pct[idx_max], 1)}%)"
+            
+            indices_top = np.argsort(abs_shap)[::-1][:5]
+            for i in indices_top:
+                top_drivers.append({
+                    "nombre": features_nombres[i],
+                    "peso": round(pesos_pct[i], 1)
+                })
+        except Exception as e:
+            print(f"Error en SHAP: {e}")
+            driver_critico = "Error analítico"
+    else:
+        driver_critico = "Falta Librería SHAP"
 
     return {
         "muni_display": muni['muni_display'],
         "poblacion_base": int(pob_base),
         "poblacion_proyectada": pob_2030,
-        "luz_proyectada": luz_2030,
+        "variacion_economica_pct": round(variacion_eco_total, 2), # <--- NUEVO KPI EN EL JSON
         "evolucion_pob": ev_pob,
         "evolucion_luz": ev_luz,
         "segmento": sufijo.upper(),
