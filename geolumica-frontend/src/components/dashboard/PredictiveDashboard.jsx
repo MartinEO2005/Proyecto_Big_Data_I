@@ -1,5 +1,6 @@
 // components/dashboard/PredictiveDashboard.jsx
 import React, { useState, useEffect, useCallback } from 'react';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, Cell } from 'recharts';
 import MunicipalitySearch from './modules/MunicipalitySearch';
 import KpiCards from './modules/KpiCards';
 import PolicySimulator from './modules/PolicySimulator';
@@ -9,37 +10,36 @@ import ClusterMap from './modules/ClusterMap';
 export default function PredictiveDashboard() {
   const [loading, setLoading] = useState(false);
   
-  // 1. Estado del municipio activo
   const [municipioActual, setMunicipioActual] = useState({
     lau_id: "02081", 
     nombre: "Villarrobledo"
   });
 
-  // 2. Estado de los sliders
   const [valoresSimulacion, setValoresSimulacion] = useState({
-    inversionTransporte: 0, estimuloEmpresas: 0, migracion_pct: 0, pib_estimulo_pct: 0
+    inversionTransporte: 0, 
+    estimuloEmpresas: 0, 
+    migracion_pct: 0, 
+    pib_estimulo_pct: 0
   });
 
-  // 3. Resultados unificados para KPIs y Gráfica
   const [resultados, setResultados] = useState({
-    poblacion5y: 25400,
+    poblacion5y: 0,
     variacionAbsoluta: 0,
     dataGrafica: [],
     segmento: "RURAL",
-    perfil_estrategico: "2 - Zonas Rurales Estables (Modelo Inercial)",
-    driver_critico: "Calculando Driver táctico...",
-    color_cluster: "#fdae61" 
+    perfil_estrategico: "Cargando...",
+    driver_critico: "Calculando...",
+    color_cluster: "#94a3b8",
+    top_drivers: [] 
   });
 
-  // ✅ NUEVO: Estado para almacenar TODOS los clusters de España
   const [allClusters, setAllClusters] = useState({});
 
-  // ✅ NUEVO: Carga inicial de todos los clusters desde la API
   useEffect(() => {
-    fetch('http://localhost:8000/clusters/all') // Asegúrate de que esta ruta exista en tu FastAPI
+    fetch('http://127.0.0.1:8000/clusters/all')
       .then(res => res.json())
       .then(data => setAllClusters(data))
-      .catch(err => console.error("Error al cargar todos los clusters:", err));
+      .catch(err => console.error("Error al cargar clusters:", err));
   }, []);
 
   const getColorForProfile = useCallback((perfil) => {
@@ -57,7 +57,7 @@ export default function PredictiveDashboard() {
   const ejecutarSimulacion = useCallback(async (id, vals) => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/simulate', {
+      const res = await fetch('http://127.0.0.1:8000/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -69,31 +69,31 @@ export default function PredictiveDashboard() {
         })
       });
 
-      if (!res.ok) throw new Error("Error en la respuesta del motor ML");
+      if (!res.ok) throw new Error("Error en el motor ML");
       const data = await res.json();
 
       const seriesFusionada = data.evolucion_pob.map((p, i) => ({
-        year: p.year, pob: p.valor, luz: data.evolucion_luz[i]?.valor || 0
+        year: p.year, 
+        pob: p.valor, 
+        luz: data.evolucion_luz[i]?.valor || 0
       }));
 
-      const perfilApi = data.perfil_estrategico || resultados.perfil_estrategico;
-
-      setResultados(prev => ({
-        ...prev,
+      setResultados({
         poblacion5y: data.poblacion_proyectada,
         variacionAbsoluta: data.poblacion_proyectada - data.poblacion_base,
         dataGrafica: seriesFusionada,
-        segmento: data.segmento || prev.segmento,
-        perfil_estrategico: perfilApi,
-        driver_critico: data.driver_critico || "Conectividad (-14% Impacto)", 
-        color_cluster: getColorForProfile(perfilApi) 
-      }));
+        segmento: data.segmento,
+        perfil_estrategico: data.perfil_estrategico,
+        driver_critico: data.driver_critico,
+        color_cluster: getColorForProfile(data.perfil_estrategico),
+        top_drivers: data.top_drivers || []
+      });
     } catch (err) {
-      console.error("Error táctico:", err);
+      console.error("Error en simulación:", err);
     } finally {
       setLoading(false);
     }
-  }, [resultados.perfil_estrategico, getColorForProfile]);
+  }, [getColorForProfile]);
 
   useEffect(() => {
     const timer = setTimeout(() => ejecutarSimulacion(municipioActual.lau_id, valoresSimulacion), 300);
@@ -106,7 +106,7 @@ export default function PredictiveDashboard() {
 
   const handleSelectMunicipio = (m) => {
     setMunicipioActual({ 
-      lau_id: m.muni_key, 
+      lau_id: m.LAU_ID || m.muni_key, 
       nombre: m.muni_display
     });
     setValoresSimulacion({ inversionTransporte: 0, estimuloEmpresas: 0, migracion_pct: 0, pib_estimulo_pct: 0 });
@@ -128,14 +128,52 @@ export default function PredictiveDashboard() {
         </div>
 
         <div className="flex-1 grid grid-cols-12 gap-4 min-h-0 overflow-hidden">
-          <div className="col-span-5 flex flex-col min-h-0 overflow-hidden">
+          
+          <div className="col-span-5 flex flex-col gap-3 min-h-0 overflow-hidden">
             <div className="flex-1 bg-white rounded-[1.5rem] border border-slate-200 p-1 flex flex-col items-center justify-center relative shadow-sm overflow-hidden">
-              {/* ✅ AHORA PASAMOS municipioActual y allClusters AL MAPA */}
               <ClusterMap 
                 municipioActual={municipioActual} 
                 allClusters={allClusters} 
               />
             </div>
+
+            {/* NUEVA GRÁFICA DE BARRAS RECHARTS: TOP DRIVERS */}
+            {resultados.top_drivers && resultados.top_drivers.length > 0 && (
+              <div className="bg-white rounded-[1.5rem] p-4 shadow-sm border border-slate-200 shrink-0 h-44 flex flex-col relative overflow-hidden">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Radiografía: Variables de Impacto</h3>
+                </div>
+                <div className="flex-1 w-full min-h-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart 
+                      data={resultados.top_drivers} 
+                      layout="vertical" 
+                      margin={{ top: 0, right: 30, left: -20, bottom: 0 }}
+                    >
+                      <XAxis type="number" hide />
+                      <YAxis 
+                        dataKey="nombre" 
+                        type="category" 
+                        width={120} 
+                        tick={{ fontSize: 9, fontWeight: 'bold', fill: '#64748b' }} 
+                        axisLine={false} 
+                        tickLine={false} 
+                      />
+                      <RechartsTooltip 
+                        cursor={{fill: '#f8fafc'}} 
+                        contentStyle={{borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} 
+                        formatter={(value) => [`${value}%`, 'Peso en el Modelo']}
+                      />
+                      <Bar dataKey="peso" radius={[0, 4, 4, 0]} barSize={16}>
+                        {resultados.top_drivers.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={index === 0 ? '#6366f1' : '#cbd5e1'} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="col-span-7 flex flex-col gap-3 min-h-0 overflow-hidden">

@@ -35,16 +35,17 @@ try:
 except Exception as e:
     print(f"⚠️ Error cargando modelos: {e}")
 
-# --- NUEVO: Carga del mapa JSON para los colores ---
+# --- Carga del mapa JSON para los colores e info ---
 try:
     with open(os.path.join(MODEL_DIR, "geolumica_metadata.json"), 'r', encoding='utf-8') as f:
         meta = json.load(f)
     mapa_clusters = meta.get("municipios", {})
     colores_perfiles = meta.get("configuracion", {}).get("colores", {})
+    stats_clusters = meta.get("estadisticas_perfiles", {})
     print(f"✅ Mapa coloreado cargado ({len(mapa_clusters)} municipios).")
 except Exception as e:
     print(f"⚠️ Aviso: No se encontró geolumica_metadata.json. Mapa será gris.")
-    mapa_clusters, colores_perfiles = {}, {}
+    mapa_clusters, colores_perfiles, stats_clusters = {}, {}, {}
 
 # --- 2. CARGA DE DATOS MAESTROS (INTACTO) ---
 try:
@@ -70,15 +71,12 @@ try:
 except Exception as e:
     print(f"❌ Error DB: {e}")
 
-# --- 3. MODELOS DE DATOS (NOMBRES ORIGINALES RESTAURADOS) ---
 class SimulacionReq(BaseModel):
     lau_id: str
     inversion_conectividad_pct: float
     estimulo_empresas_pct: float
     migracion_pct: float
     pib_estimulo_pct: float
-
-# --- 4. ENDPOINTS ---
 
 @app.get("/clusters/all")
 def get_all_clusters():
@@ -90,7 +88,7 @@ def buscar(q: str):
            (df_master['LAU_ID'].str.contains(q, case=False, na=False))
     res = df_master[mask].sort_values(by='pob', ascending=False).head(10)
     
-    # FIX: Devolvemos LAU_ID para que React no machaque el ID con 'undefined'
+    # LA SOLUCIÓN: Devolvemos LAU_ID exactamente como lo lee tu React
     return {"resultados": res[['LAU_ID', 'muni_display']].to_dict(orient='records')}
 
 @app.post("/simulate")
@@ -105,7 +103,6 @@ def simular(req: SimulacionReq):
     pib_simulado = muni['pib'] * (1 + req.pib_estimulo_pct / 100)
     eficiencia_sim = (luz_base / pib_simulado) if pib_simulado > 0 else muni['eficiencia_luz_pib']
 
-    # Vector exacto original
     X_input = pd.DataFrame([{
         'pob': pob_base,
         'luz': luz_base,
@@ -118,7 +115,6 @@ def simular(req: SimulacionReq):
         'mean_distance_km_to_station': muni['mean_distance_km_to_station']
     }])
 
-    X_raw = X_input.copy()
     X_input['pob'] = np.log1p(X_input['pob'])
     X_input['luz'] = np.log1p(X_input['luz'])
 
@@ -132,7 +128,6 @@ def simular(req: SimulacionReq):
     except:
         pob_2030, luz_2030 = pob_base, luz_base
 
-    # Formato original de gráfica (2 arrays separados)
     años = list(range(2023, 2031))
     ev_pob, ev_luz = [], []
     for i, anio in enumerate(años):
@@ -140,17 +135,38 @@ def simular(req: SimulacionReq):
         ev_pob.append({"year": str(anio), "valor": int(pob_base + (pob_2030 - pob_base) * factor)})
         ev_luz.append({"year": str(anio), "valor": round(luz_base + (luz_2030 - luz_base) * factor, 2)})
 
+    # --- EL FIX DEL DRIVER CRÍTICO ---
     perfil_final = mapa_clusters.get(req.lau_id, "Perfil Desconocido")
-    driver_critico = "Analizando Variables..."
+    driver_critico = "Calculando..."
+    top_drivers = []
     
     try:
-        importancias = motores["clasificador"].feature_importances_
-        features = X_raw.columns
-        driver_idx = np.argmax(importancias)
-        driver_critico = f"{features[driver_idx].replace('_', ' ').title()} ({round(importancias[driver_idx]*100, 1)}% Peso)"
-    except: pass
+        clf = motores["clasificador"]
+        modelo_final = clf.named_steps[list(clf.named_steps.keys())[-1]] if hasattr(clf, 'named_steps') else clf
+        
+        importancias = modelo_final.feature_importances_
+        
+        # Leemos los nombres de las variables DIRECTAMENTE DEL MODELO, no de nuestra entrada
+        if hasattr(modelo_final, 'feature_names_in_'):
+            features_reales = modelo_final.feature_names_in_
+        elif hasattr(clf, 'feature_names_in_'):
+            features_reales = clf.feature_names_in_
+        else:
+            features_reales = [f"Variable_{i}" for i in range(len(importancias))]
+            
+        idx_max = np.argmax(importancias)
+        driver_critico = f"{features_reales[idx_max].replace('_', ' ').title()} ({round(importancias[idx_max]*100, 1)}%)"
+        
+        # Sacamos el Top 4 para la nueva gráfica
+        indices_top = np.argsort(importancias)[::-1][:4]
+        for i in indices_top:
+            top_drivers.append({
+                "nombre": features_reales[i].replace('_', ' ').title(),
+                "peso": round(importancias[i]*100, 1)
+            })
+    except Exception as e:
+        print(f"Error extrayendo drivers: {e}")
 
-    # Retornamos los datos originales añadiendo color_cluster para el Dashboard
     return {
         "muni_display": muni['muni_display'],
         "poblacion_base": int(pob_base),
@@ -161,5 +177,6 @@ def simular(req: SimulacionReq):
         "segmento": sufijo.upper(),
         "perfil_estrategico": perfil_final,
         "color_cluster": colores_perfiles.get(perfil_final, "#cbd5e1"),
-        "driver_critico": driver_critico
+        "driver_critico": driver_critico,
+        "top_drivers": top_drivers
     }
