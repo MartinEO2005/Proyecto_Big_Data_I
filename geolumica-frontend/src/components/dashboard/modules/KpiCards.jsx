@@ -30,7 +30,7 @@ export default function KpiCards({ datos }) {
       <div className="flex-1 bg-white p-2.5 rounded-xl shadow-sm border border-slate-100 flex items-center gap-2">
         <div className="p-2 rounded-lg bg-[#F6A24415] text-[#F6A244] shrink-0"><Activity size={16}/></div>
         <div className="min-w-0">
-          <p className="text-[8px] text-slate-400 font-bold uppercase truncate">Desarrollo Urbano</p>
+          <p className="text-[8px] text-slate-400 font-bold uppercase truncate">Desarrollo metropolitano </p>
           <h2 className="text-xs font-black text-[#F6A244]">{datos.variacionEconomica > 0 ? '+' : ''}{datos.variacionEconomica}%</h2>
         </div>
       </div>

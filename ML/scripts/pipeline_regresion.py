@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import os
 import joblib
+import json                     
+from datetime import datetime   
 from sqlalchemy import create_engine
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import RandomizedSearchCV
@@ -11,6 +13,33 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "models", "modelos_exportados"))
 os.makedirs(MODEL_DIR, exist_ok=True)
+
+# --- NUEVA FUNCIÓN DE SYSTEM HEALTH ---
+def actualizar_estado_modelo(nombre_modelo, precision_o_error, tipo_metrica):
+    ruta_json = os.path.join(MODEL_DIR, "system_health.json")
+    
+    datos_estado = {
+        "servicios": {
+            "VIIRS (Luz Nocturna)": {"estado": "ok", "fecha": "Hace 12 días"},
+            "OpenStreetMap": {"estado": "ok", "fecha": "Hace 12 horas"},
+            "INE Demografía": {"estado": "warning", "fecha": "Diciembre 2023 (Anual)"}
+        },
+        "modelos": {}
+    }
+
+    if os.path.exists(ruta_json):
+        try:
+            with open(ruta_json, "r") as f:
+                datos_estado = json.load(f)
+        except: pass
+
+    datos_estado["modelos"][nombre_modelo] = {
+        "fecha_entrenamiento": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "metrica": f"{tipo_metrica}: {precision_o_error}"
+    }
+
+    with open(ruta_json, "w") as f:
+        json.dump(datos_estado, f, indent=4)
 
 def extraer_gold_regresion_pro():
     print("🏗️ Construyendo Nueva Matriz Gold GeoLúmica (Panel 2018-2023)...")
@@ -74,6 +103,20 @@ def evaluar(modelo, X, base_t, actual_t1, nombre, es_pob=True):
     u = "hab" if es_pob else "lumens"
     print(f"   📊 Rendimiento {nombre}: MAE: {mae:.2f} {u} | RMSE: {rmse:.2f} | R²: {r2:.4f}")
 
+    # ... código que ya tienes ...
+    pred_abs = base_t * (1 + pred_delta)
+    mae = mean_absolute_error(actual_t1, pred_abs)
+    rmse = np.sqrt(mean_squared_error(actual_t1, pred_abs))
+    r2 = r2_score(actual_t1, pred_abs)
+    u = "hab" if es_pob else "lumens"
+    
+    print(f"   📊 Rendimiento {nombre}: MAE: {mae:.2f} {u} | RMSE: {rmse:.2f} | R²: {r2:.4f}")
+    
+    # --- AÑADIDO: Guardar métricas en el JSON ---
+    texto_metrica = f"R²: {r2:.2f} | MAE: {mae:.0f} {u}"
+    actualizar_estado_modelo(f"Regresión {nombre}", texto_metrica, "Precisión")
+    # --------------------------------------------
+
 if __name__ == '__main__':
     df = extraer_gold_regresion_pro()
     cols_X = ['pob', 'luz', 'pib', 'emp', 'con', 'mig', 'eficiencia_luz_pib', 'stations_density_km2', 'mean_distance_km_to_station']
@@ -96,3 +139,5 @@ if __name__ == '__main__':
         joblib.dump(m_luz, os.path.join(MODEL_DIR, f"motor_economía_luz_españa_{crit.lower()}.pkl"))
 
     print("\n🚀 ¡Hecho! Todos los motores exportados con métricas validadas.")
+
+    

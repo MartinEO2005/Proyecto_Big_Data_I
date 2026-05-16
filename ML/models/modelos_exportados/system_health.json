@@ -1,0 +1,42 @@
+{
+    "servicios": {
+        "VIIRS (Luz Nocturna)": {
+            "estado": "ok",
+            "fecha": "Hace 12 d\u00edas"
+        },
+        "OpenStreetMap": {
+            "estado": "ok",
+            "fecha": "Hace 12 horas"
+        },
+        "INE Demograf\u00eda": {
+            "estado": "warning",
+            "fecha": "Diciembre 2023 (Anual)"
+        }
+    },
+    "modelos": {
+        "Regresi\u00f3n Poblaci\u00f3n Rural": {
+            "fecha_entrenamiento": "2026-05-16 18:46",
+            "metrica": "Precisi\u00f3n: R\u00b2: 1.00 | MAE: 29 hab"
+        },
+        "Regresi\u00f3n Econom\u00eda Rural": {
+            "fecha_entrenamiento": "2026-05-16 18:47",
+            "metrica": "Precisi\u00f3n: R\u00b2: 0.99 | MAE: 0 lumens"
+        },
+        "Regresi\u00f3n Poblaci\u00f3n Urbana": {
+            "fecha_entrenamiento": "2026-05-16 18:47",
+            "metrica": "Precisi\u00f3n: R\u00b2: 1.00 | MAE: 757 hab"
+        },
+        "Regresi\u00f3n Econom\u00eda Urbana": {
+            "fecha_entrenamiento": "2026-05-16 18:47",
+            "metrica": "Precisi\u00f3n: R\u00b2: 0.99 | MAE: 1 lumens"
+        },
+        "Segmentaci\u00f3n Territorial (K-Means)": {
+            "fecha_entrenamiento": "2026-05-16 19:07",
+            "metrica": "Silhouette Score: 0.19"
+        },
+        "Clasificador de Perfiles (GBM)": {
+            "fecha_entrenamiento": "2026-05-16 19:07",
+            "metrica": "Accuracy (Precisi\u00f3n): 96.1%"
+        }
+    }
+}

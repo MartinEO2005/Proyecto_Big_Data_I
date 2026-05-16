@@ -103,7 +103,7 @@ export default function AccessibilityPanel() {
         style={{
           position: 'fixed',
           bottom: '30px',
-          right: '30px',
+          right: '10px',
           backgroundColor: '#efa748',
           color: '#161311',
           border: 'none',
@@ -121,7 +121,7 @@ export default function AccessibilityPanel() {
         onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
         onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
       >
-        <Accessibility size={30} />
+        {isOpen ? <X size={30} /> : <Accessibility size={30} />}
       </button>
 
       {isOpen && (
@@ -155,7 +155,6 @@ export default function AccessibilityPanel() {
             </button>
           </div>
 
-          {/* 3. AÑADIMOS EL ONCLICK AL BOTÓN DEL LECTOR Y SU CLASE ACTIVE */}
           <button 
             className={`access-btn ${screenReader ? 'active' : ''}`} 
             onClick={() => setScreenReader(!screenReader)}

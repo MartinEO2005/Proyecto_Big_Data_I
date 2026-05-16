@@ -11,8 +11,8 @@ const COLORES_GEOLUMICA = {
   '3 - Estancamiento Rural (Declive Suave)': '#fdae61',
   '4 - Población Estable (Núcleos Tradicionales)': '#fee090',
   '5 - Fuerte Crecimiento (Zonas de Expansión)': '#abd9e9',
-  '6 - Grandes Ciudades (Motores Regionales)': '#74add1',
-  '7 - Enormes Centros Logísticos (Efecto Amazon)': '#4575b4'
+  '6 - Grandes Ciudades (Municipios Aislados)': '#74add1',
+  '7 - Enormes Centros (Motores Regionales)': '#4575b4'
 };
 
 function MapController({ activeId }) {

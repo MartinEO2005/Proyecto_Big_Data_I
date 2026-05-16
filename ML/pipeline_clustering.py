@@ -12,25 +12,61 @@ from sklearn.cluster import KMeans
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import silhouette_score
 from matplotlib.lines import Line2D
+import json                     # <-- NUEVO
+from datetime import datetime
 
 # --- CONFIGURACIÓN GLOBAL ---
 COLORES_GEOLUMICA = {
-    '1 - Despoblación Grave (Riesgo Crítico)': '#d73027',    # Rojo
-    '2 - Pérdida Moderada (Rural en Retroceso)': '#f46d43', # Naranja-Rojo
-    '3 - Estancamiento Rural (Declive Suave)': '#fdae61',   # Naranja Ocre
-    '4 - Población Estable (Núcleos Tradicionales)': '#fee090', # Amarillo
-    '5 - Fuerte Crecimiento (Zonas de Expansión)': '#abd9e9',    # Azul muy claro
-    '6 - Grandes Ciudades (Motores Regionales)': '#74add1',     # Azul
-    '7 - Enormes Centros Logísticos (Efecto Amazon)': '#4575b4'  # Azul Oscuro (Potencia)
+    '1 - Despoblación Grave (Riesgo Crítico)': '#d73027',
+    '2 - Pérdida Moderada (Rural en Retroceso)': '#f46d43',
+    '3 - Estancamiento Rural (Declive Suave)': '#fdae61',
+    '4 - Población Estable (Núcleos Tradicionales)': '#fee090',
+    '5 - Fuerte Crecimiento (Zonas de Expansión)': '#abd9e9',
+    '6 - Grandes Ciudades (Municipios Aislados)': '#74add1',
+    '7 - Enormes Centros (Motores Regionales)': '#4575b4'
 }
 
+# ---------------------------------------------------------
+# 1. CONFIGURACIÓN DE RUTAS BLINDADAS (Todo dentro de ML)
+# ---------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-GEOJSON_PATH = os.path.abspath(os.path.join(BASE_DIR, "..", "..", "municipios_es.geojson"))
-FIGURES_DIR = os.path.join(BASE_DIR,  "models", "figuras", "")
-MODEL_DIR = os.path.join(BASE_DIR, "models", "modelos_exportados", "")
+MODEL_DIR = os.path.join(BASE_DIR, "models", "modelos_exportados")
+FIGURES_DIR = os.path.join(BASE_DIR, "models", "figuras")
+GEOJSON_PATH = os.path.join(BASE_DIR, "municipios_es.geojson")
 
 os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(FIGURES_DIR, exist_ok=True)
+
+# ---------------------------------------------------------
+# 2. FUNCIÓN UNIFICADA DE SYSTEM HEALTH
+# ---------------------------------------------------------
+def actualizar_estado_modelo(nombre_modelo, precision_o_error, tipo_metrica):
+    ruta_json = os.path.join(MODEL_DIR, "system_health.json")
+    
+    datos_estado = {
+        "servicios": {
+            "VIIRS (Luz Nocturna)": {"estado": "ok", "fecha": "Hace 12 días"},
+            "OpenStreetMap": {"estado": "ok", "fecha": "Hace 12 horas"},
+            "INE Demografía": {"estado": "warning", "fecha": "Diciembre 2023 (Anual)"}
+        },
+        "modelos": {}
+    }
+
+    if os.path.exists(ruta_json):
+        try:
+            with open(ruta_json, "r", encoding="utf-8") as f:
+                datos_estado = json.load(f)
+        except Exception: pass
+
+    datos_estado["modelos"][nombre_modelo] = {
+        "fecha_entrenamiento": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "metrica": f"{tipo_metrica}: {precision_o_error}"
+    }
+
+    os.makedirs(os.path.dirname(ruta_json), exist_ok=True)
+    with open(ruta_json, "w", encoding="utf-8") as f:
+        json.dump(datos_estado, f, indent=4)
+
 # =================================================================
 
 def trozo_1_matriz_maestra():
@@ -124,10 +160,15 @@ def trozo_2_machine_learning(df_master):
     X_pca = pca.fit_transform(X_scaled)
 
     # 3. K-Means (K=6)
+    
+    # 3. K-Means (K=6)
     kmeans = KMeans(n_clusters=6, random_state=42, n_init=10)
     df_rural['cluster_raw'] = kmeans.fit_predict(X_pca)
 
-    # ---------------------------------------------------------
+    # --- AÑADIDO: Calcular Silhouette y Guardar en JSON ---
+    score_sil = silhouette_score(X_pca, df_rural['cluster_raw'])
+    print(f"   📊 Silhouette Score del Clustering: {score_sil:.3f}")
+    actualizar_estado_modelo("Segmentación Territorial (K-Means)", f"{score_sil:.2f}", "Silhouette Score")
 # ---------------------------------------------------------
     # 4. 🔄 MAPEADO ESTRATÉGICO (Identificación por ADN)
     # ---------------------------------------------------------
@@ -155,14 +196,14 @@ def trozo_2_machine_learning(df_master):
     # El más poblado de los rurales (Azul claro)
     mapeo_final[otros_clusters[4]] = '5 - Fuerte Crecimiento (Zonas de Expansión)'
     
-    # El "Efecto Amazon" siempre será el Perfil 7 (Azul oscuro / Potencia)
-    mapeo_final[cluster_amazon] = '7 - Enormes Centros Logísticos (Efecto Amazon)'
+    # 👇 CAMBIAR AQUÍ EL 7 👇
+    mapeo_final[cluster_amazon] = '7 - Enormes Centros (Motores Regionales)'
 
     df_rural['Perfil_Final'] = df_rural['cluster_raw'].map(mapeo_final)
     
     # 5. REUNIFICACIÓN CON GIGANTES
-    # Los municipios >50k siempre son el Perfil 6 (Azul intermedio)
-    df_outliers['Perfil_Final'] = '6 - Grandes Ciudades (Motores Regionales)'
+    # 👇 CAMBIAR AQUÍ EL 6 👇
+    df_outliers['Perfil_Final'] = '6 - Grandes Ciudades (Municipios Aislados)'
     
     df_final = pd.concat([df_rural, df_outliers], ignore_index=True)
     # ---------------------------------------------------------

@@ -1,33 +1,32 @@
+// App.jsx
 import React, { useState } from 'react';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import About from './pages/About';
 import Profile from './pages/Profile';
+import SystemStatus from './pages/SystemStatus';
 import AccessibilityPanel from './components/layout/AccessibilityPanel';
 
 function App() {
   const [currentView, setCurrentView] = useState('home');
-  // NUEVO: Estado global de autenticación (falso por defecto)
+  // Estado global de autenticación (falso por defecto)
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // NUEVO: El "Guardia". Intercepta cualquier intento de cambio de vista
+  // El "Guardia" de Rutas Seguras
   const handleSetView = (view) => {
-    // Si intentas ir al dashboard y no estás logeado, te manda al perfil (login)
-    if (view === 'dashboard' && !isAuthenticated) {
-      setCurrentView('profile'); 
+    // Si la vista es protegida ('dashboard' o 'status') y NO ha iniciado sesión...
+    if ((view === 'dashboard' || view === 'status') && !isAuthenticated) {
+      setCurrentView('profile'); // Redirige al perfil en vez de romperse
     } else {
-      setCurrentView(view); // Si está todo bien, vas a donde querías
+      setCurrentView(view); // Todo correcto, entra a la página solicitada
     }
   };
 
   return (
     <>
-      {/* Pasamos handleSetView en lugar de setCurrentView para que pasen por el "Guardia" */}
+      {/* Rutas Públicas */}
       {currentView === 'home' && <Home currentView={currentView} setView={handleSetView} />}
-      {currentView === 'dashboard' && <Dashboard currentView={currentView} setView={handleSetView} />}
       {currentView === 'about' && <About currentView={currentView} setView={handleSetView} />}
-      
-      {/* Al perfil le pasamos los estados de autenticación para que pueda modificarlos */}
       {currentView === 'profile' && (
         <Profile 
           currentView={currentView} 
@@ -35,8 +34,13 @@ function App() {
           isAuthenticated={isAuthenticated} 
           setIsAuthenticated={setIsAuthenticated} 
         />
-      )} 
+      )}
+
+      {/* Rutas Privadas (Blindadas por el guardia) */}
+      {currentView === 'dashboard' && <Dashboard currentView={currentView} setView={handleSetView} />}
+      {currentView === 'status' && <SystemStatus currentView={currentView} setView={handleSetView} />}
       
+      {/* Panel Global Flotante */}
       <AccessibilityPanel />
     </>
   );

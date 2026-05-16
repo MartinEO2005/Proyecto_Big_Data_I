@@ -95,6 +95,16 @@ def buscar(q: str):
     # Devolvemos LAU_ID en mayúsculas para que React no rompa
     return {"resultados": res[['LAU_ID', 'muni_display']].to_dict(orient='records')}
 
+@app.get("/health")
+def get_system_health():
+    # Buscamos el archivo JSON que acaban de generar tus pipelines
+    ruta_json = os.path.join(MODEL_DIR, "system_health.json")
+    try:
+        with open(ruta_json, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        return {"error": "Aún no se ha generado el archivo de estado de modelos."}
+
 @app.post("/simulate")
 def simular(req: SimulacionReq):
     row_data = df_master[df_master['LAU_ID'] == req.lau_id]

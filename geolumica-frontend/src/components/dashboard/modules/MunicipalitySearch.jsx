@@ -69,7 +69,7 @@ export default function MunicipalitySearch({ onSelect }) {
         <input
           type="text"
           className="w-full bg-white border-2 border-slate-100 py-3 pl-11 pr-12 rounded-2xl text-sm font-medium focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-sm"
-          placeholder="Buscar municipio (ej: Madrid, Lorca...)"
+          placeholder="Buscar municipio (ej: Madrid,San Seb...)"
           value={searchTerm}
           onChange={handleSearch}
           onFocus={() => searchTerm.length > 2 && setIsOpen(true)}

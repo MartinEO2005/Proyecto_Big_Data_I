@@ -6,23 +6,55 @@ import seaborn as sns
 import os
 import joblib
 import time
+import json                     # <-- NUEVO
+from datetime import datetime   # <-- NUEVO
 from sqlalchemy import create_engine
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, accuracy_score  # <-- NUEVO accuracy_score
 
 # ---------------------------------------------------------
-# 1. CONFIGURACIÓN DE RUTAS BLINDADAS
+# 1. CONFIGURACIÓN DE RUTAS BLINDADAS (Todo dentro de ML)
 # ---------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "models", "modelos_exportados"))
-FIGURES_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "models", "figuras"))
-
-# El GeoJSON está asumiendo que está 2 niveles arriba (raíz del proyecto)
-GEOJSON_PATH = os.path.abspath(os.path.join(BASE_DIR, "..", "..", "municipios_es.geojson"))
+MODEL_DIR = os.path.join(BASE_DIR, "models", "modelos_exportados")
+FIGURES_DIR = os.path.join(BASE_DIR, "models", "figuras")
+GEOJSON_PATH = os.path.join(BASE_DIR, "municipios_es.geojson")
 
 os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(FIGURES_DIR, exist_ok=True)
+
+# ---------------------------------------------------------
+# 2. FUNCIÓN UNIFICADA DE SYSTEM HEALTH
+# ---------------------------------------------------------
+def actualizar_estado_modelo(nombre_modelo, precision_o_error, tipo_metrica):
+    ruta_json = os.path.join(MODEL_DIR, "system_health.json")
+    
+    datos_estado = {
+        "servicios": {
+            "VIIRS (Luz Nocturna)": {"estado": "ok", "fecha": "Hace 12 días"},
+            "OpenStreetMap": {"estado": "ok", "fecha": "Hace 12 horas"},
+            "INE Demografía": {"estado": "warning", "fecha": "Diciembre 2023 (Anual)"}
+        },
+        "modelos": {}
+    }
+
+    if os.path.exists(ruta_json):
+        try:
+            with open(ruta_json, "r", encoding="utf-8") as f:
+                datos_estado = json.load(f)
+        except Exception: pass
+
+    datos_estado["modelos"][nombre_modelo] = {
+        "fecha_entrenamiento": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "metrica": f"{tipo_metrica}: {precision_o_error}"
+    }
+
+    os.makedirs(os.path.dirname(ruta_json), exist_ok=True)
+    with open(ruta_json, "w", encoding="utf-8") as f:
+        json.dump(datos_estado, f, indent=4)
+
+# (A partir de aquí sigue tu def ejecutar_pipeline_clasificacion(df_master): ...)
 
 def ejecutar_pipeline_clasificacion(df_master):
     # ---------------------------------------------------------
@@ -135,12 +167,14 @@ def ejecutar_pipeline_clasificacion(df_master):
     gb_search.fit(X_train, y_train)
     
     mejor_modelo = gb_search.best_estimator_
-    
     # Evaluación
     preds = mejor_modelo.predict(X_test)
     print("\n📊 REPORTE DE CLASIFICACIÓN FINAL:")
     print(classification_report(y_test, preds, target_names=list(mapping.keys()), zero_division=0))
 
+    # --- AÑADIDO: Calcular Accuracy y Guardar en JSON ---
+    acc = accuracy_score(y_test, preds)
+    actualizar_estado_modelo("Clasificador de Perfiles (GBM)", f"{acc*100:.1f}%", "Accuracy (Precisión)")
     # ---------------------------------------------------------
     # 5. FEATURE IMPORTANCE (Visualización)
     # ---------------------------------------------------------
@@ -165,13 +199,23 @@ def ejecutar_pipeline_clasificacion(df_master):
     print(f"📦 Modelo Campeón (Gradient Boosting) exportado.")
     print("🏆 PIPELINE DE CLASIFICACIÓN FINALIZADO CON ÉXITO.")
 
+
 if __name__ == "__main__":
     # Importamos las funciones de tu pipeline de clustering para generar la data fresca
     try:
-        from pipeline_clustering import trozo_1_matriz_maestra, trozo_2_machine_learning
+        from ML.pipeline_clustering import trozo_1_matriz_maestra, trozo_2_machine_learning
     except ImportError:
-        print("❌ Error: Asegúrate de ejecutar esto en la misma carpeta que 'pipeline_clustering.py'")
-        exit()
+        # Intentamos arreglar la ruta si el script se ejecuta directamente
+        import sys, os
+        proyecto_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if proyecto_root not in sys.path:
+            sys.path.insert(0, proyecto_root)
+        try:
+            from ML.pipeline_clustering import trozo_1_matriz_maestra, trozo_2_machine_learning
+        except Exception as e:
+            print("❌ Error: No se pudo importar 'pipeline_clustering'. Ejecuta desde la raíz del proyecto.")
+            print("Detalle:", e)
+            exit()
         
     print("🚀 INICIANDO ORQUESTACIÓN: CLUSTERING -> CLASIFICACIÓN...")
     
